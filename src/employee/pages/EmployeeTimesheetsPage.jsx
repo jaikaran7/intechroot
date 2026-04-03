@@ -1,42 +1,52 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { getEmployeeFromStore, replaceEmployeeTimesheets } from "../employeeEmployeesStore";
+import { useEffect, useMemo, useState } from "react";
+import {
+  getEmployeeFromStore,
+  patchEmployeeTimesheet,
+  replaceEmployeeTimesheets,
+  subscribeEmployeesStore,
+} from "../employeeEmployeesStore";
 import { getEmployeeSessionId } from "../employeeSession";
-import { addDaysISO, calculateTotal, getWeekStartISO, parseYMD, weekDayRows } from "../timesheetUtils";
+import { addDaysISO, calculateTotal, getWeekStartISO, parseYMD } from "../timesheetUtils";
 
-const PROJECT_OPTIONS = ["Cloud Migration - Phase 2", "Internal Infrastructure", "Security Audit"];
+const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri"];
 
-const DEFAULT_TASKS = {
-  mon: "System deployment and stress testing",
-  tue: "Client meeting and requirements gathering",
-  wed: "Documentation update and peer review",
-  thu: "Firewall configuration and testing",
-  fri: "Weekly debrief and future planning",
-};
-
-const DEFAULT_PROJECTS = {
-  mon: PROJECT_OPTIONS[0],
-  tue: PROJECT_OPTIONS[0],
-  wed: PROJECT_OPTIONS[0],
-  thu: PROJECT_OPTIONS[2],
-  fri: PROJECT_OPTIONS[1],
-};
-
-const emptyWeek = () => ({ mon: 0, tue: 0, wed: 0, thu: 0, fri: 0 });
-
-function ensureRowMeta(sheet) {
-  const rm = sheet?.rowMeta || {};
-  const keys = ["mon", "tue", "wed", "thu", "fri"];
-  const next = { ...rm };
-  keys.forEach((k) => {
-    if (!next[k]) next[k] = { project: DEFAULT_PROJECTS[k], task: DEFAULT_TASKS[k] };
-  });
-  return next;
+function formatWorkWeekRangeLabel(weekStartISO) {
+  const start = parseYMD(weekStartISO);
+  const end = parseYMD(addDaysISO(weekStartISO, 4));
+  const a = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const b = end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return `${a} – ${b}`;
 }
+
+function projectSubtext(sheet, employee) {
+  return (
+    sheet.projectLabel ||
+    sheet.rowMeta?.mon?.project ||
+    sheet.rowMeta?.tue?.project ||
+    employee?.client ||
+    employee?.role ||
+    "—"
+  );
+}
+
+function canEmployeeEditTimesheet(status) {
+  return status === "Draft" || status === "Pending";
+}
+
+function formatRejectionTimestamp(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
+}
+
+const defaultWeekData = () => ({ mon: 8, tue: 8, wed: 8, thu: 8, fri: 8 });
 
 export default function EmployeeTimesheetsPage() {
   const employeeId = getEmployeeSessionId();
   const [storeVersion, setStoreVersion] = useState(0);
-  const refresh = useCallback(() => setStoreVersion((v) => v + 1), []);
+
+  useEffect(() => subscribeEmployeesStore(() => setStoreVersion((v) => v + 1)), []);
 
   const employee = useMemo(
     () => (employeeId ? getEmployeeFromStore(employeeId) : null),
@@ -48,305 +58,454 @@ export default function EmployeeTimesheetsPage() {
     return list.sort((a, b) => String(b.weekStart).localeCompare(String(a.weekStart)));
   }, [employee]);
 
-  const currentWeekStart = getWeekStartISO(new Date());
-  const [selectedId, setSelectedId] = useState(null);
-  const [lastSavedLabel, setLastSavedLabel] = useState("Today at 04:32 PM");
+  const [editingRowId, setEditingRowId] = useState(null);
+  const [newModalOpen, setNewModalOpen] = useState(false);
+  const [newWeekPick, setNewWeekPick] = useState("");
+  const [newProjectLabel, setNewProjectLabel] = useState("");
+  const [newModalError, setNewModalError] = useState("");
+  /** @type {null | { sheetId: string; weekLabel: string; note: string; rejectedAt: string | null }} */
+  const [rejectionFeedback, setRejectionFeedback] = useState(null);
+  const [viewRowId, setViewRowId] = useState(null);
 
-  const active = useMemo(() => timesheets.find((t) => t.id === selectedId) ?? null, [timesheets, selectedId]);
-
-  useEffect(() => {
-    if (timesheets.length === 0) {
-      setSelectedId(null);
-      return;
-    }
-    if (selectedId && timesheets.some((t) => t.id === selectedId)) return;
-    const draft = timesheets.find((t) => getWeekStartISO(t.weekStart) === currentWeekStart && t.status === "Draft");
-    const any = timesheets.find((t) => getWeekStartISO(t.weekStart) === currentWeekStart);
-    setSelectedId((draft || any || timesheets[0]).id);
-  }, [timesheets, selectedId, currentWeekStart]);
-
-  const weekStart = active?.weekStart ?? currentWeekStart;
-  const dayRows = useMemo(() => weekDayRows(weekStart), [weekStart]);
-
-  const [hours, setHours] = useState(emptyWeek());
-  const [rowMeta, setRowMeta] = useState(() => ensureRowMeta({}));
-
-  useEffect(() => {
-    if (!active) {
-      setHours(emptyWeek());
-      setRowMeta(ensureRowMeta({}));
-      return;
-    }
-    const wd = active.weekData || {};
-    setHours({
-      mon: Number(wd.mon ?? 0),
-      tue: Number(wd.tue ?? 0),
-      wed: Number(wd.wed ?? 0),
-      thu: Number(wd.thu ?? 0),
-      fri: Number(wd.fri ?? 0),
+  const openRejectionFeedbackModal = (sheet) => {
+    setRejectionFeedback({
+      sheetId: sheet.id,
+      weekLabel: formatWorkWeekRangeLabel(sheet.weekStart),
+      note: sheet.rejectionNote || "No details were provided.",
+      rejectedAt: sheet.rejectedAt ?? null,
     });
-    setRowMeta(ensureRowMeta(active));
-  }, [active]);
-
-  const weekRangeLabel = useMemo(() => {
-    const start = parseYMD(weekStart);
-    const end = parseYMD(addDaysISO(weekStart, 6));
-    const o = { month: "short", day: "numeric", year: "numeric" };
-    return `${start.toLocaleDateString("en-US", o)} - ${end.toLocaleDateString("en-US", o)}`;
-  }, [weekStart]);
-
-  const total = calculateTotal(hours);
-
-  const persistSheet = (patch) => {
-    if (!employeeId || !active) return;
-    const nextList = timesheets.map((t) => (t.id === active.id ? { ...t, ...patch } : t));
-    replaceEmployeeTimesheets(employeeId, nextList);
-    refresh();
-    setLastSavedLabel(
-      `Today at ${new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}`,
-    );
   };
 
-  const setHour = (key, val) => {
-    const n = Number(val);
-    setHours((h) => ({ ...h, [key]: Number.isNaN(n) ? 0 : n }));
-  };
-
-  const setMeta = (key, field, value) => {
-    setRowMeta((m) => ({ ...m, [key]: { ...m[key], [field]: value } }));
-  };
-
-  const saveDraft = () => {
-    if (!active) return;
-    persistSheet({
-      weekData: { ...hours },
-      rowMeta: { ...rowMeta },
+  const acknowledgeAndEditRejected = () => {
+    if (!employeeId || !rejectionFeedback) return;
+    patchEmployeeTimesheet(employeeId, rejectionFeedback.sheetId, {
       status: "Draft",
-      total: calculateTotal(hours),
-    });
-  };
-
-  const submitTimesheet = () => {
-    if (!active) return;
-    persistSheet({
-      weekData: { ...hours },
-      rowMeta: { ...rowMeta },
-      status: "Pending",
-      total: calculateTotal(hours),
       rejectionNote: "",
+      rejectedAt: "",
     });
+    setEditingRowId(rejectionFeedback.sheetId);
+    setRejectionFeedback(null);
   };
 
-  const addNewTimesheet = () => {
-    if (!employeeId) return;
-    const ws = currentWeekStart;
+  useEffect(() => {
+    setEditingRowId((prev) => {
+      if (!prev) return prev;
+      const row = timesheets.find((t) => t.id === prev);
+      if (!row || !canEmployeeEditTimesheet(row.status)) return null;
+      return prev;
+    });
+  }, [timesheets]);
+
+  const openNewModal = () => {
+    const mon = getWeekStartISO(new Date());
+    setNewWeekPick(mon);
+    setNewProjectLabel("");
+    setNewModalError("");
+    setNewModalOpen(true);
+  };
+
+  const submitNewTimesheet = () => {
+    if (!employeeId || !newWeekPick) {
+      setNewModalError("Choose a week.");
+      return;
+    }
+    const ws = getWeekStartISO(newWeekPick);
     if (timesheets.some((t) => getWeekStartISO(t.weekStart) === ws)) {
-      const existing = timesheets.find((t) => getWeekStartISO(t.weekStart) === ws);
-      setSelectedId(existing.id);
+      setNewModalError("You already have a timesheet for this week.");
       return;
     }
     const id = `${employeeId}-${ws}`;
     const row = {
       id,
       weekStart: ws,
-      weekData: { mon: 8, tue: 8, wed: 8, thu: 8, fri: 8 },
-      rowMeta: ensureRowMeta({}),
-      total: 40,
+      weekData: defaultWeekData(),
+      rowMeta: employee?.timesheets?.[0]?.rowMeta,
+      total: calculateTotal(defaultWeekData()),
       status: "Draft",
       rejectionNote: "",
+      projectLabel: newProjectLabel.trim(),
+      createdAt: new Date().toISOString(),
     };
     replaceEmployeeTimesheets(employeeId, [row, ...timesheets]);
-    refresh();
-    setSelectedId(id);
+    setNewModalOpen(false);
+    setEditingRowId(id);
   };
 
-  const canEdit = !active || active.status === "Draft";
+  const handleDayChange = (tsId, day, value) => {
+    if (!employeeId) return;
+    const emp = getEmployeeFromStore(employeeId);
+    const sheet = emp?.timesheets?.find((t) => t.id === tsId);
+    if (!sheet || !canEmployeeEditTimesheet(sheet.status)) return;
+    const normalizedValue = String(value).replace(/[^0-9.]/g, "");
+    const numericValue = Number(normalizedValue);
+    const updatedWeekData = {
+      ...(sheet.weekData || {}),
+      [day]: Number.isNaN(numericValue) ? 0 : numericValue,
+    };
+    patchEmployeeTimesheet(employeeId, tsId, { weekData: updatedWeekData });
+  };
+
+  const submitDraftRow = (tsId) => {
+    if (!employeeId) return;
+    const emp = getEmployeeFromStore(employeeId);
+    const sheet = emp?.timesheets?.find((t) => t.id === tsId);
+    if (!sheet || sheet.status !== "Draft") return;
+    patchEmployeeTimesheet(employeeId, tsId, { status: "Pending", rejectionNote: "" });
+    setEditingRowId(null);
+  };
+
+  const viewRow = useMemo(() => timesheets.find((t) => t.id === viewRowId) ?? null, [timesheets, viewRowId]);
+
+  if (!employeeId) {
+    return (
+      <main className="ml-64 pt-24 pb-12 px-8 min-h-screen bg-surface font-body">
+        <p className="text-slate-600">Sign in to manage timesheets.</p>
+      </main>
+    );
+  }
 
   return (
     <>
       <main className="ml-64 pt-24 pb-12 px-8 min-h-screen bg-surface font-body text-on-background antialiased">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-wrap items-center gap-3 mb-6">
+        <div className="max-w-7xl mx-auto space-y-8">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+              <h2 className="font-headline text-4xl font-extrabold tracking-tight text-primary">Weekly Timesheet</h2>
+              <p className="text-on-primary-container mt-2 font-body">Your submissions and history (newest first).</p>
+            </div>
             <button
               type="button"
               className="px-6 py-2.5 bg-primary-container text-white font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 transition-all flex items-center gap-2"
-              onClick={addNewTimesheet}
+              onClick={openNewModal}
             >
               <span className="material-symbols-outlined text-sm">add</span>
               Add New Timesheet
             </button>
-            {timesheets.length > 0 && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Week</span>
-                <select
-                  className="bg-surface-container-low border-none rounded-lg text-sm font-medium px-3 py-2 focus:ring-2 focus:ring-[#4cd7f6]/20"
-                  value={selectedId ?? ""}
-                  onChange={(e) => setSelectedId(e.target.value)}
-                >
-                  {timesheets.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.weekStart} — {t.status}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
           </div>
 
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
-            <div>
-              <h2 className="font-headline text-4xl font-extrabold tracking-tight text-primary mb-2">Weekly Timesheet</h2>
-              <div className="flex items-center gap-3 text-on-surface-variant">
-                <span className="material-symbols-outlined text-secondary">calendar_today</span>
-                <span className="text-lg font-medium">Current Week ({weekRangeLabel})</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              {active?.status === "Pending" && (
-                <div className="px-4 py-2 rounded-full bg-[#FFF9C4] text-[#827717] text-xs font-bold tracking-widest flex items-center gap-2">
-                  <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    pending
-                  </span>
-                  PENDING APPROVAL
-                </div>
-              )}
-              {active?.status === "Approved" && (
-                <div className="px-4 py-2 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold tracking-widest flex items-center gap-2">
-                  <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    check_circle
-                  </span>
-                  APPROVED
-                </div>
-              )}
-              {active?.status === "Draft" && (
-                <div className="px-4 py-2 rounded-full bg-slate-100 text-slate-700 text-xs font-bold tracking-widest flex items-center gap-2">
-                  DRAFT
-                </div>
-              )}
-              <button type="button" className="material-symbols-outlined p-2 hover:bg-surface-container rounded-lg transition-colors text-slate-500 bg-transparent border-none cursor-pointer">
-                print
-              </button>
-              <button type="button" className="material-symbols-outlined p-2 hover:bg-surface-container rounded-lg transition-colors text-slate-500 bg-transparent border-none cursor-pointer">
-                more_vert
-              </button>
-            </div>
-          </div>
-
-          <div className="glass-card rounded-xl overflow-hidden shadow-sm">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-surface-container-low text-on-surface-variant">
-                  <th className="px-8 py-5 font-bold uppercase tracking-widest text-[10px] w-48">Day</th>
-                  <th className="px-6 py-5 font-bold uppercase tracking-widest text-[10px]">Project</th>
-                  <th className="px-6 py-5 font-bold uppercase tracking-widest text-[10px]">Task</th>
-                  <th className="px-8 py-5 font-bold uppercase tracking-widest text-[10px] text-right w-32">Hours</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-surface-container-high">
-                {dayRows.map((row, idx) => {
-                  const groupCls =
-                    idx % 2 === 1
-                      ? "bg-surface-container-low/30 group hover:bg-surface-container-lowest transition-colors"
-                      : "group hover:bg-surface-container-lowest transition-colors";
-                  const meta = rowMeta[row.key] || { project: PROJECT_OPTIONS[0], task: "" };
-                  return (
-                    <tr className={groupCls} key={row.key}>
-                      <td className="px-8 py-6 font-semibold text-primary">
-                        {row.label} <span className="block text-xs font-normal text-slate-500">{row.dateStr}</span>
-                      </td>
-                      <td className="px-6 py-6">
-                        <select
-                          className="bg-transparent border-none text-sm font-medium text-primary focus:ring-0 w-full"
-                          disabled={!canEdit}
-                          value={meta.project}
-                          onChange={(e) => setMeta(row.key, "project", e.target.value)}
-                        >
-                          {PROJECT_OPTIONS.map((p) => (
-                            <option key={p}>{p}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-6 py-6">
-                        <input
-                          className="bg-transparent border-none text-sm text-on-surface-variant focus:ring-0 w-full placeholder:italic"
-                          disabled={!canEdit}
-                          type="text"
-                          value={meta.task}
-                          onChange={(e) => setMeta(row.key, "task", e.target.value)}
-                        />
-                      </td>
-                      <td className="px-8 py-6 text-right">
-                        <input
-                          className="w-20 bg-surface-container-low border-none rounded-lg px-3 py-2 text-right text-sm font-bold text-[#0B1F3A] focus:ring-2 focus:ring-[#4cd7f6]/20"
-                          disabled={!canEdit}
-                          step="0.5"
-                          type="number"
-                          value={hours[row.key]}
-                          onChange={(e) => setHour(row.key, e.target.value)}
-                        />
+          <section className="glass-card rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-white border-b border-slate-100">
+                  <tr>
+                    <th className="px-8 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
+                      Date Range
+                    </th>
+                    <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">
+                      M
+                    </th>
+                    <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">
+                      T
+                    </th>
+                    <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">
+                      W
+                    </th>
+                    <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">
+                      T
+                    </th>
+                    <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">
+                      F
+                    </th>
+                    <th className="px-8 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-right">
+                      Total
+                    </th>
+                    <th className="px-8 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Status</th>
+                    <th className="px-8 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">
+                      <div className="inline-flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm">edit</span>
+                        <span>Edit</span>
+                      </div>
+                    </th>
+                    <th className="px-8 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-right">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {timesheets.map((sheet, rowIndex) => {
+                    const stripeClass = rowIndex % 2 === 1 ? "bg-surface-container-low/30" : "";
+                    const weekData = {
+                      mon: Number(sheet?.weekData?.mon ?? 0),
+                      tue: Number(sheet?.weekData?.tue ?? 0),
+                      wed: Number(sheet?.weekData?.wed ?? 0),
+                      thu: Number(sheet?.weekData?.thu ?? 0),
+                      fri: Number(sheet?.weekData?.fri ?? 0),
+                    };
+                    const total = calculateTotal(weekData);
+                    const canEdit = employee && canEmployeeEditTimesheet(sheet.status);
+                    const isRejected = sheet.status === "Rejected";
+                    return (
+                      <tr
+                        className={`${stripeClass} hover:bg-slate-50 transition-colors ${isRejected ? "cursor-pointer" : ""}`}
+                        key={sheet.id}
+                        onClick={() => {
+                          if (isRejected) openRejectionFeedbackModal(sheet);
+                        }}
+                      >
+                        <td className={`px-8 py-5 ${sheet.status === "Rejected" ? "border-l-4 border-error" : ""}`}>
+                          <p className="text-sm font-bold text-primary">{formatWorkWeekRangeLabel(sheet.weekStart)}</p>
+                          {editingRowId === sheet.id && canEdit ? (
+                            <input
+                              className="mt-1 w-full max-w-[16rem] text-[10px] text-slate-600 border border-slate-200 rounded px-2 py-1"
+                              defaultValue={projectSubtext(sheet, employee)}
+                              key={`${sheet.id}-proj-${sheet.projectLabel ?? ""}`}
+                              placeholder="Project / Client"
+                              onBlur={(e) => {
+                                const v = e.target.value.trim();
+                                patchEmployeeTimesheet(employeeId, sheet.id, { projectLabel: v });
+                              }}
+                            />
+                          ) : (
+                            <p className="text-[10px] text-slate-400">{projectSubtext(sheet, employee)}</p>
+                          )}
+                        </td>
+                        {DAY_KEYS.map((day) => (
+                          <td className="px-6 py-5 text-center text-sm font-medium" key={`${sheet.id}-${day}`}>
+                            {editingRowId === sheet.id && canEdit ? (
+                              <input
+                                className="w-12 bg-transparent border border-slate-200 rounded text-center text-sm font-medium focus:ring-0"
+                                onChange={(e) => handleDayChange(sheet.id, day, e.target.value)}
+                                type="text"
+                                value={weekData[day]}
+                              />
+                            ) : (
+                              Number(weekData[day]).toFixed(1)
+                            )}
+                          </td>
+                        ))}
+                        <td className="px-8 py-5 text-right text-sm font-extrabold text-primary">{total.toFixed(1)}</td>
+                        <td className="px-8 py-5">
+                          <span
+                            className={
+                              sheet.status === "Approved"
+                                ? "inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 uppercase tracking-tight"
+                                : sheet.status === "Rejected"
+                                  ? "inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-[10px] font-extrabold bg-error-container text-error uppercase tracking-tight cursor-pointer"
+                                  : sheet.status === "Draft"
+                                    ? "inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-600 uppercase tracking-tight"
+                                    : "inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 uppercase tracking-tight"
+                            }
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                sheet.status === "Approved"
+                                  ? "bg-emerald-500"
+                                  : sheet.status === "Rejected"
+                                    ? "bg-error"
+                                    : sheet.status === "Draft"
+                                      ? "bg-slate-400"
+                                      : "bg-amber-500"
+                              }`}
+                            ></span>
+                            {sheet.status}
+                          </span>
+                        </td>
+                        <td className="px-8 py-5 text-center">
+                          <button
+                            type="button"
+                            className={`w-8 h-8 inline-flex items-center justify-center rounded-lg border text-slate-500 transition-all ${
+                              sheet.status === "Approved"
+                                ? "border-slate-100 opacity-40 cursor-not-allowed"
+                                : isRejected
+                                  ? "border-slate-200 hover:text-primary hover:bg-slate-50"
+                                  : canEdit
+                                    ? "border-slate-200 hover:text-primary hover:bg-slate-50"
+                                    : "border-slate-100 opacity-40 cursor-not-allowed"
+                            }`}
+                            disabled={sheet.status === "Approved"}
+                            title={isRejected ? "View feedback and edit" : "Edit"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (sheet.status === "Approved") return;
+                              if (isRejected) {
+                                openRejectionFeedbackModal(sheet);
+                                return;
+                              }
+                              setEditingRowId((p) => (p === sheet.id ? null : sheet.id));
+                            }}
+                          >
+                            <span className="material-symbols-outlined text-lg">edit</span>
+                          </button>
+                        </td>
+                        <td className="px-8 py-5 text-right">
+                          {sheet.status === "Draft" && (
+                            <button
+                              type="button"
+                              className="px-3 py-1.5 text-[10px] font-bold bg-primary-container text-white rounded-lg uppercase tracking-tight hover:shadow-md transition-all"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                submitDraftRow(sheet.id);
+                              }}
+                            >
+                              Submit
+                            </button>
+                          )}
+                          {sheet.status === "Pending" && <span className="text-[10px] text-slate-400">—</span>}
+                          {sheet.status === "Approved" && (
+                            <button
+                              type="button"
+                              className="p-2 text-slate-400 hover:text-primary transition-colors rounded-lg hover:bg-slate-50"
+                              title="View"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewRowId(sheet.id);
+                              }}
+                            >
+                              <span className="material-symbols-outlined text-lg">visibility</span>
+                            </button>
+                          )}
+                          {isRejected && (
+                            <span className="text-[10px] font-medium text-slate-500">Tap row for details</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {timesheets.length === 0 && (
+                    <tr>
+                      <td className="px-8 py-8 text-sm text-slate-500" colSpan={10}>
+                        No timesheets yet. Add a new timesheet to get started.
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr className="bg-primary text-white">
-                  <td className="px-8 py-5 font-bold uppercase tracking-widest text-xs" colSpan={3}>
-                    Total Weekly Hours
-                  </td>
-                  <td className="px-8 py-5 text-right font-headline text-xl font-extrabold tracking-tight">
-                    {total.toFixed(1)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-
-          <div className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4 px-1">Rejection Notes &amp; Comments</h3>
-              <div className="bg-surface-container-low min-h-[120px] rounded-xl border border-dashed border-outline-variant/30 flex flex-col items-center justify-center text-slate-400">
-                {active?.rejectionNote ? (
-                  <p className="text-sm text-on-surface px-4 text-center">{active.rejectionNote}</p>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined mb-2 text-3xl opacity-20">chat_bubble</span>
-                    <p className="text-sm italic">No notes found for this submission.</p>
-                  </>
-                )}
-              </div>
+                  )}
+                </tbody>
+              </table>
             </div>
-            <div className="flex flex-col gap-4">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4 px-1">Actions</h3>
+          </section>
+        </div>
+      </main>
+
+      {newModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/20 backdrop-blur-md font-body">
+          <div className="glass-card rounded-xl p-6 w-[min(92vw,28rem)]">
+            <h4 className="text-lg font-bold text-primary mb-3">New timesheet</h4>
+            <p className="text-xs text-slate-500 mb-4">Pick the week (Monday–Friday). A date in that week is fine—we align to the Monday start.</p>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Week *</label>
+            <input
+              type="date"
+              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm mb-4"
+              value={newWeekPick}
+              onChange={(e) => setNewWeekPick(e.target.value)}
+            />
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">
+              Project / Client
+            </label>
+            <input
+              type="text"
+              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm mb-2"
+              placeholder="Optional"
+              value={newProjectLabel}
+              onChange={(e) => setNewProjectLabel(e.target.value)}
+            />
+            {newModalError && <p className="text-xs text-error mb-2">{newModalError}</p>}
+            <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
-                className="w-full flex items-center justify-center gap-3 px-6 py-4 rounded-lg bg-primary-container text-white font-bold hover:translate-y-[-2px] transition-all duration-200 shadow-md disabled:opacity-50 border-none cursor-pointer"
-                disabled={!canEdit}
-                onClick={submitTimesheet}
+                className="px-4 py-2 text-xs font-bold border border-slate-200 rounded"
+                onClick={() => setNewModalOpen(false)}
               >
-                <span className="material-symbols-outlined text-xl">send</span>
-                Submit Timesheet
+                Cancel
               </button>
               <button
                 type="button"
-                className="w-full flex items-center justify-center gap-3 px-6 py-4 rounded-lg border-2 border-outline-variant text-primary-container font-bold hover:bg-surface-container-low transition-all duration-200 bg-transparent border-solid cursor-pointer disabled:opacity-50"
-                disabled={!canEdit}
-                onClick={saveDraft}
+                className="px-4 py-2 text-xs font-bold bg-primary-container text-white rounded"
+                onClick={submitNewTimesheet}
               >
-                <span className="material-symbols-outlined text-xl">save</span>
-                Save Draft
+                Create
               </button>
-              <p className="text-[10px] text-center text-slate-400 mt-2">Last saved: {lastSavedLabel}</p>
             </div>
           </div>
         </div>
-      </main>
+      )}
+
+      {rejectionFeedback && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/20 backdrop-blur-md p-4 font-body">
+          <div className="relative bg-white rounded-xl shadow-xl shadow-slate-900/10 w-full max-w-md p-8 border border-slate-100">
+            <button
+              type="button"
+              className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors"
+              aria-label="Dismiss"
+              onClick={() => setRejectionFeedback(null)}
+            >
+              <span className="material-symbols-outlined text-xl">close</span>
+            </button>
+            <div className="flex flex-col items-center text-center pt-2">
+              <div className="w-14 h-14 rounded-full bg-red-500 flex items-center justify-center mb-5 shadow-md shadow-red-500/20">
+                <span className="material-symbols-outlined text-3xl text-white font-bold" style={{ fontVariationSettings: "'FILL' 1" }}>
+                  priority_high
+                </span>
+              </div>
+              <h4 className="text-xl font-extrabold text-[#0B1F3A] font-headline tracking-tight">Rejection feedback</h4>
+              <p className="text-sm text-slate-500 mt-2 max-w-sm leading-relaxed">
+                Your timesheet for <span className="font-semibold text-slate-700">{rejectionFeedback.weekLabel}</span> was declined
+              </p>
+            </div>
+            <div className="mt-6">
+              <p className="text-[10px] font-extrabold uppercase tracking-widest text-[#5c7a8a] mb-2">Admin comments</p>
+              <div className="w-full bg-slate-50 border border-slate-200/80 rounded-lg p-4 text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
+                {rejectionFeedback.note}
+              </div>
+            </div>
+            <p className="mt-4 flex items-center gap-1.5 text-xs text-slate-400">
+              <span className="material-symbols-outlined text-base text-slate-400">history</span>
+              Rejection date: {formatRejectionTimestamp(rejectionFeedback.rejectedAt)}
+            </p>
+            <div className="mt-8 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                className="w-full py-3 px-4 text-sm font-bold rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
+                onClick={() => setRejectionFeedback(null)}
+              >
+                Dismiss
+              </button>
+              <button
+                type="button"
+                className="w-full py-3 px-4 text-sm font-bold rounded-lg bg-[#0B1F3A] text-white hover:bg-slate-800 transition-colors"
+                onClick={acknowledgeAndEditRejected}
+              >
+                Acknowledge &amp; edit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewRowId && viewRow && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/20 backdrop-blur-md font-body">
+          <div className="glass-card rounded-xl p-6 w-[min(92vw,36rem)]">
+            <h4 className="text-lg font-bold text-primary mb-1">Timesheet</h4>
+            <p className="text-sm text-slate-500 mb-4">{formatWorkWeekRangeLabel(viewRow.weekStart)}</p>
+            <p className="text-xs text-slate-400 mb-4">{projectSubtext(viewRow, employee)}</p>
+            <div className="grid grid-cols-5 gap-2 text-center text-sm mb-4">
+              {DAY_KEYS.map((d) => (
+                <div key={d} className="bg-slate-50 rounded-lg py-2">
+                  <div className="text-[10px] font-bold uppercase text-slate-400">{d}</div>
+                  <div className="font-extrabold text-primary">{Number(viewRow.weekData?.[d] ?? 0).toFixed(1)}</div>
+                </div>
+              ))}
+            </div>
+            <p className="text-right text-sm font-extrabold text-primary">
+              Total: {calculateTotal(viewRow.weekData || {}).toFixed(1)}
+            </p>
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                className="px-4 py-2 text-xs font-bold bg-primary-container text-white rounded"
+                onClick={() => setViewRowId(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="fixed inset-0 pointer-events-none -z-10 opacity-[0.03]">
         <svg height="100%" preserveAspectRatio="none" viewBox="0 0 100 100" width="100%">
-          <pattern height="10" id="grid" patternUnits="userSpaceOnUse" width="10">
+          <pattern height="10" id="grid-ts" patternUnits="userSpaceOnUse" width="10">
             <path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" strokeWidth="0.1"></path>
           </pattern>
-          <rect fill="url(#grid)" height="100%" width="100%"></rect>
+          <rect fill="url(#grid-ts)" height="100%" width="100%"></rect>
         </svg>
       </div>
     </>

@@ -1,0 +1,38 @@
+{
+	"folders": [
+		{
+			"name": "stitch_intech_root",
+			"path": "."
+		},
+		{
+			"name": "intechroot_employee_dashboard",
+			"path": "../stitch_intech_root 4/intechroot_employee_dashboard"
+		},
+		{
+			"name": "stitch_intech_root 5",
+			"path": "../stitch_intech_root 5"
+		},
+		{
+			"name": "stitch_intech_root_admin",
+			"path": "../stitch_intech_root_admin"
+		},
+		{
+			"name": "intechroot_my_documents",
+			"path": "../stitch_intech_root 4/intechroot_my_documents"
+		},
+		{
+			"name": "intechroot_my_timesheet",
+			"path": "../stitch_intech_root 4/intechroot_my_timesheet"
+		},
+		{
+			"path": "../stitch_intech_root 6/already_applied_premium_info_state"
+		},
+		{
+			"path": "../stitch_intech_root 6/application_submitted_premium_success"
+		},
+		{
+			"path": "../apllication process"
+		}
+	],
+	"settings": {}
+}

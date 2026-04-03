@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>InTechRoot | Review &amp; Submit</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-tint": "#4d5f7d",
+                    "on-tertiary-fixed": "#001f26",
+                    "surface": "#f7f9fc",
+                    "on-primary-fixed-variant": "#364764",
+                    "on-surface": "#191c1e",
+                    "on-error-container": "#93000a",
+                    "outline": "#75777e",
+                    "on-secondary-fixed": "#00164e",
+                    "inverse-surface": "#2d3133",
+                    "background": "#f7f9fc",
+                    "surface-variant": "#e0e3e6",
+                    "error": "#ba1a1a",
+                    "tertiary": "#00080b",
+                    "surface-container-high": "#e6e8eb",
+                    "surface-bright": "#f7f9fc",
+                    "secondary-fixed": "#dce1ff",
+                    "secondary-container": "#8fa7fe",
+                    "on-secondary-container": "#1d3989",
+                    "on-surface-variant": "#44474d",
+                    "error-container": "#ffdad6",
+                    "on-tertiary-fixed-variant": "#004e5c",
+                    "on-tertiary-container": "#0094ac",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-highest": "#e0e3e6",
+                    "on-secondary": "#ffffff",
+                    "on-primary-fixed": "#071c36",
+                    "tertiary-container": "#00232a",
+                    "primary-container": "#0b1f3a",
+                    "on-primary": "#ffffff",
+                    "on-error": "#ffffff",
+                    "on-secondary-fixed-variant": "#264191",
+                    "inverse-primary": "#b5c7ea",
+                    "tertiary-fixed-dim": "#4cd7f6",
+                    "primary": "#000615",
+                    "tertiary-fixed": "#acedff",
+                    "outline-variant": "#c4c6ce",
+                    "on-primary-container": "#7587a7",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-dim": "#d8dadd",
+                    "secondary-fixed-dim": "#b6c4ff",
+                    "primary-fixed": "#d6e3ff",
+                    "primary-fixed-dim": "#b5c7ea",
+                    "surface-container": "#eceef1",
+                    "inverse-on-surface": "#eff1f4",
+                    "on-background": "#191c1e",
+                    "secondary": "#4059aa",
+                    "surface-container-low": "#f2f4f7"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .glass-card {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(196, 198, 206, 0.15);
+        box-shadow: 0 40px 40px -15px rgba(11, 31, 58, 0.04);
+      }
+      .signature-glow {
+        background: linear-gradient(to bottom right, rgba(64, 89, 170, 0.15), rgba(76, 215, 246, 0.15));
+      }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface selection:bg-tertiary-fixed-dim/30">
+<!-- Top Navigation Bar -->
+<header class="w-full sticky top-0 z-50 bg-slate-50/60 backdrop-blur-xl shadow-[0_40px_40px_-15px_rgba(11,31,58,0.04)]">
+<nav class="flex justify-between items-center px-8 h-20 max-w-full">
+<div class="flex items-center gap-12">
+<span class="text-2xl font-black text-blue-950 tracking-tighter font-headline">InTechRoot</span>
+<div class="hidden md:flex gap-8 items-center">
+<a class="font-headline font-bold tracking-tight text-slate-500 hover:text-blue-800 transition-all" href="#">Applicants</a>
+<a class="font-headline font-bold tracking-tight text-blue-900 border-b-2 border-blue-900 pb-1 transition-all" href="#">Onboarding</a>
+<a class="font-headline font-bold tracking-tight text-slate-500 hover:text-blue-800 transition-all" href="#">Documents</a>
+<a class="font-headline font-bold tracking-tight text-slate-500 hover:text-blue-800 transition-all" href="#">Compliance</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 rounded-full hover:bg-slate-200/50 transition-all active:scale-95 duration-200">
+<span class="material-symbols-outlined text-slate-600">notifications</span>
+</button>
+<button class="p-2 rounded-full hover:bg-slate-200/50 transition-all active:scale-95 duration-200">
+<span class="material-symbols-outlined text-slate-600">settings</span>
+</button>
+<div class="w-10 h-10 rounded-full bg-surface-container overflow-hidden">
+<img alt="Admin Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAvWKmDSthFMXe_dgWVzTvw4Y-Tdyx15edfdlZcvgWHHUXPm_WBzi-K-ZUMDUdVX6S2XqHYPNUt27-mIuK7OPyUIj0qCtjnkN1IO7bvyOR8sDHOJzR2kQ0vji5H2mxXAcVlFIFu7jgk3rOuBK6Pb87EKs3IWlkp2Kb-1uFXi7eCJcJ-QUVT0Ol4efPmGnSoZJLMQKz32tbPPExA6cgvtcExRa5gKTc4jtTa5JVDF5eStwo0Dy1XR8KC6M13z5-axkFjqBb1dv0Jz9Vo"/>
+</div>
+</div>
+</nav>
+</header>
+<main class="min-h-[calc(100vh-80px)] flex flex-col md:flex-row relative">
+<!-- Side Navigation -->
+<aside class="hidden md:flex flex-col h-[calc(100vh-80px)] w-64 border-r border-slate-100 bg-white sticky top-20 overflow-y-auto py-6">
+<div class="px-6 mb-8">
+<h3 class="font-headline font-bold text-blue-950 text-lg">Recruitment Portal</h3>
+<p class="text-xs text-slate-500 font-medium">Enterprise Admin</p>
+</div>
+<div class="flex flex-col gap-1 px-3 flex-grow">
+<button class="flex items-center gap-3 px-3 py-3 rounded-lg text-slate-500 hover:bg-slate-50 transition-all group">
+<span class="material-symbols-outlined group-hover:text-blue-900">dashboard</span>
+<span class="font-body text-sm font-medium">Dashboard</span>
+</button>
+<button class="flex items-center gap-3 px-3 py-3 rounded-lg bg-blue-50 text-blue-900 border-r-4 border-blue-900 transition-all">
+<span class="material-symbols-outlined">group</span>
+<span class="font-body text-sm font-medium">Candidate Flow</span>
+</button>
+<button class="flex items-center gap-3 px-3 py-3 rounded-lg text-slate-500 hover:bg-slate-50 transition-all group">
+<span class="material-symbols-outlined group-hover:text-blue-900">fact_check</span>
+<span class="font-body text-sm font-medium">Verification</span>
+</button>
+<button class="flex items-center gap-3 px-3 py-3 rounded-lg text-slate-500 hover:bg-slate-50 transition-all group">
+<span class="material-symbols-outlined group-hover:text-blue-900">rate_review</span>
+<span class="font-body text-sm font-medium">Review Board</span>
+</button>
+<button class="flex items-center gap-3 px-3 py-3 rounded-lg text-slate-500 hover:bg-slate-50 transition-all group">
+<span class="material-symbols-outlined group-hover:text-blue-900">inventory_2</span>
+<span class="font-body text-sm font-medium">Archive</span>
+</button>
+</div>
+<div class="mt-auto px-3 border-t border-slate-100 pt-6">
+<button class="flex items-center gap-3 px-3 py-3 w-full rounded-lg text-slate-500 hover:bg-slate-50 transition-all">
+<span class="material-symbols-outlined">help</span>
+<span class="font-body text-sm font-medium">Support</span>
+</button>
+<button class="flex items-center gap-3 px-3 py-3 w-full rounded-lg text-slate-500 hover:bg-slate-50 transition-all">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-body text-sm font-medium">Sign Out</span>
+</button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<div class="flex-1 bg-surface relative overflow-hidden p-8 md:p-12 lg:p-20">
+<!-- Background Motif -->
+<div class="absolute inset-0 pointer-events-none opacity-20">
+<svg height="100%" width="100%" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<pattern height="40" id="grid" patternunits="userSpaceOnUse" width="40">
+<path class="text-outline-variant" d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" stroke-width="0.5"></path>
+</pattern>
+</defs>
+<rect fill="url(#grid)" height="100%" width="100%"></rect>
+</svg>
+</div>
+<div class="relative z-10 max-w-5xl mx-auto">
+<!-- Header & Progress Stepper -->
+<div class="mb-16">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
+<div class="max-w-2xl">
+<span class="text-secondary font-headline font-bold text-sm uppercase tracking-widest mb-4 block">Step 04 — Final Review</span>
+<h1 class="text-display-lg text-5xl md:text-6xl font-headline font-extrabold text-primary tracking-tighter leading-tight">
+                            Review &amp; <span class="text-transparent bg-clip-text bg-gradient-to-r from-secondary to-tertiary-fixed-dim">Submit</span>
+</h1>
+</div>
+</div>
+<!-- Modern Stepper -->
+<div class="relative flex items-center justify-between w-full max-w-4xl mx-auto mb-16">
+<div class="absolute top-1/2 left-0 w-full h-1 bg-surface-container -translate-y-1/2 -z-10"></div>
+<div class="absolute top-1/2 left-0 w-3/4 h-1 bg-secondary -translate-y-1/2 -z-10"></div>
+<!-- Step 1 Done -->
+<div class="flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-secondary text-white flex items-center justify-center shadow-lg mb-2">
+<span class="material-symbols-outlined text-lg">check</span>
+</div>
+<span class="text-[10px] font-bold uppercase tracking-tighter text-secondary">Identity</span>
+</div>
+<!-- Step 2 Done -->
+<div class="flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-secondary text-white flex items-center justify-center shadow-lg mb-2">
+<span class="material-symbols-outlined text-lg">check</span>
+</div>
+<span class="text-[10px] font-bold uppercase tracking-tighter text-secondary">Documents</span>
+</div>
+<!-- Step 3 Done -->
+<div class="flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-secondary text-white flex items-center justify-center shadow-lg mb-2">
+<span class="material-symbols-outlined text-lg">check</span>
+</div>
+<span class="text-[10px] font-bold uppercase tracking-tighter text-secondary">Verification</span>
+</div>
+<!-- Step 4 Active -->
+<div class="flex flex-col items-center">
+<div class="w-12 h-12 rounded-full bg-primary-container text-white flex items-center justify-center shadow-xl border-4 border-white mb-2 scale-110">
+<span class="font-headline font-bold">04</span>
+</div>
+<span class="text-[10px] font-bold uppercase tracking-tighter text-primary">Review</span>
+</div>
+<!-- Step 5 Pending -->
+<div class="flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-surface-container text-slate-400 flex items-center justify-center mb-2">
+<span class="font-headline font-bold">05</span>
+</div>
+<span class="text-[10px] font-bold uppercase tracking-tighter text-slate-400">Finalize</span>
+</div>
+</div>
+</div>
+<!-- Content Area: Step 4 Review Content -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+<div class="lg:col-span-8 space-y-10">
+<div class="mb-4">
+<p class="text-on-surface-variant text-lg leading-relaxed max-w-2xl">Please conduct a final review of your application data before submission. Accuracy at this stage accelerates the final onboarding phase.</p>
+</div>
+<!-- Layout similar to Screen 80 Section 1 (Glass Card style) but with Review content -->
+<div class="glass-card p-8 rounded-xl relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-48 h-48 signature-glow rounded-bl-full -mr-20 -mt-20 opacity-50 transition-transform group-hover:scale-110 duration-700"></div>
+<div class="flex justify-between items-start mb-8 relative z-10">
+<div>
+<h2 class="text-2xl font-headline font-bold text-primary mb-2">Profile Summary</h2>
+<p class="text-slate-600 leading-relaxed">Core identity details confirmed via LinkedIn</p>
+</div>
+<button class="text-secondary hover:underline font-semibold text-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-base">edit</span> Edit
+                            </button>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-12 relative z-10">
+<div>
+<label class="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-1 block">Full Name</label>
+<p class="font-semibold text-primary">Adrian Marcus Thorne</p>
+</div>
+<div>
+<label class="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-1 block">Email Address</label>
+<p class="font-semibold text-primary">a.thorne@example.com</p>
+</div>
+<div>
+<label class="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-1 block">Role Applied</label>
+<p class="font-semibold text-primary">Senior Cloud Architect</p>
+</div>
+<div>
+<label class="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-1 block">Primary Skillset</label>
+<p class="px-2 py-0.5 bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold rounded inline-block">AWS / AZURE / TERRAFORM</p>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Document Status Card -->
+<div class="bg-surface-container-lowest p-8 rounded-xl border border-outline-variant/20 shadow-sm">
+<h3 class="font-headline font-bold text-primary mb-6">Document Status</h3>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-3 bg-surface-container-low rounded-lg">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-blue-600">description</span>
+<span class="text-sm font-medium text-primary">Passport_Scan.pdf</span>
+</div>
+<span class="text-[10px] font-bold text-green-600 flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">check_circle</span> VERIFIED
+                                    </span>
+</div>
+<div class="flex items-center justify-between p-3 bg-surface-container-low rounded-lg">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-blue-600">work</span>
+<span class="text-sm font-medium text-primary">Degree_Certificate.pdf</span>
+</div>
+<span class="text-[10px] font-bold text-green-600 flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">check_circle</span> VERIFIED
+                                    </span>
+</div>
+<div class="flex items-center justify-between p-3 bg-surface-container-low rounded-lg">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-blue-600">request_quote</span>
+<span class="text-sm font-medium text-primary">Tax_Declaration.pdf</span>
+</div>
+<span class="text-[10px] font-bold text-amber-600 flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">pending</span> PENDING
+                                    </span>
+</div>
+</div>
+</div>
+<!-- Verification Engine Card (Mirroring Status Card from 80) -->
+<div class="bg-primary-container p-8 rounded-xl text-white overflow-hidden relative">
+<div class="absolute -bottom-4 -right-4 text-white/5">
+<span class="material-symbols-outlined text-9xl">fingerprint</span>
+</div>
+<div class="relative z-10">
+<h4 class="font-headline font-bold mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary-fixed-dim">verified_user</span>
+                                    Verification Engine
+                                </h4>
+<p class="text-on-primary-container text-xs leading-relaxed mb-6 opacity-80">Background Verification (BGV) process has been initiated with global screening partners.</p>
+<div class="space-y-4">
+<div>
+<span class="text-[10px] uppercase tracking-widest font-bold opacity-60 block mb-1">Current Status</span>
+<span class="text-xl font-black text-tertiary-fixed-dim italic">STAGE: IN-PROGRESS</span>
+</div>
+<div class="flex items-end justify-between">
+<span class="text-xs font-bold">ETA: 48 Hours</span>
+<div class="w-24 h-1 bg-on-primary-container/20 rounded-full overflow-hidden">
+<div class="w-3/4 h-full bg-tertiary-fixed-dim"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Action Sidebar (Style from 80 Upload Area) -->
+<div class="lg:col-span-4 sticky top-32">
+<div class="bg-surface-container-lowest p-8 rounded-xl border border-outline-variant/20 shadow-sm">
+<h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6">Final Submission</h4>
+<div class="space-y-6">
+<div class="flex items-start gap-3">
+<input class="mt-1 rounded-sm border-outline text-secondary focus:ring-secondary cursor-pointer" id="confirm" type="checkbox"/>
+<label class="text-sm text-slate-600 leading-relaxed cursor-pointer select-none" for="confirm">
+                                    I confirm that all information provided is correct and understand that false information may lead to rejection.
+                                </label>
+</div>
+<div class="pt-4 space-y-3">
+<button class="w-full h-14 bg-primary text-on-primary font-bold tracking-tight rounded-lg flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all active:scale-[0.98]">
+                                    Submit for Approval
+                                    <span class="material-symbols-outlined">send</span>
+</button>
+<button class="w-full h-12 bg-transparent text-primary font-bold text-sm tracking-tight border border-outline-variant rounded-lg hover:bg-slate-50 transition-all">
+                                    Save as Draft
+                                </button>
+</div>
+<div class="pt-6 border-t border-outline-variant/30">
+<div class="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
+<div class="w-10 h-10 rounded bg-blue-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-blue-700" style="font-variation-settings: 'FILL' 1;">lock</span>
+</div>
+<div class="flex-1">
+<p class="text-[10px] font-bold text-primary uppercase tracking-tight">Security Protocol</p>
+<p class="text-[11px] text-slate-500">256-bit encrypted secure data transmission</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-8 p-6 bg-gradient-to-br from-secondary/5 to-tertiary-fixed-dim/5 rounded-xl border border-secondary/10">
+<p class="text-xs text-slate-500 font-medium text-center">
+                            Need assistance with your onboarding? <br/>
+<a class="text-secondary font-bold hover:underline" href="#">Contact Support Specialist</a>
+</p>
+</div>
+</div>
+</div>
+<!-- Footer Navigation (Bottom from Screen 80) -->
+<div class="mt-16 pt-8 border-t border-outline-variant/10 flex flex-col sm:flex-row justify-between items-center gap-8">
+<button class="text-slate-500 font-bold text-sm flex items-center gap-2 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-sm">arrow_back</span>
+                    Back to Verification
+                </button>
+<div class="flex items-center gap-6">
+<div class="hidden sm:flex flex-col items-end">
+<span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Progress</span>
+<span class="text-sm font-bold text-primary">90% Complete</span>
+</div>
+<button class="bg-primary text-white px-10 py-4 rounded-lg font-bold hover:shadow-lg transition-all active:scale-95">
+                        Final Submission
+                    </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<footer class="max-w-7xl mx-auto px-8 pb-12">
+<div class="flex flex-col md:flex-row justify-between items-center py-10 border-t border-outline-variant/15 opacity-60">
+<span class="text-xs font-bold tracking-widest text-primary uppercase">© 2024 InTechRoot Ecosystems</span>
+<div class="flex gap-8 mt-4 md:mt-0">
+<a class="text-xs font-medium hover:text-secondary" href="#">Privacy Policy</a>
+<a class="text-xs font-medium hover:text-secondary" href="#">Terms of Service</a>
+<a class="text-xs font-medium hover:text-secondary" href="#">Onboarding Guidelines</a>
+</div>
+</div>
+</footer>
+<!-- Mobile Bottom Navigation -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full bg-white/80 backdrop-blur-lg border-t border-slate-100 flex justify-around items-center h-16 z-50">
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px] font-bold">Home</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-blue-900">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">group</span>
+<span class="text-[10px] font-bold">Flow</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined">fact_check</span>
+<span class="text-[10px] font-bold">Verify</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] font-bold">Settings</span>
+</button>
+</nav>
+</body></html>

@@ -87,8 +87,8 @@ export default function Employees() {
       </div>
       </header>
 
-      <main className="ml-64 p-10 min-h-screen">
-      <div className="max-w-7xl mx-auto">
+      <main className="ml-64 min-h-screen p-6 pr-8 lg:p-10 lg:pr-12">
+      <div className="w-full max-w-none">
 
       <div className="flex justify-between items-end mb-10">
       <div className="max-w-2xl">
@@ -102,9 +102,9 @@ export default function Employees() {
       </div>
       </div>
       </div>
-      <div className="grid grid-cols-12 gap-8">
+      <div className="grid grid-cols-12 gap-6 lg:gap-8">
 
-      <div className="col-span-12 lg:col-span-8 space-y-6">
+      <div className="col-span-12 min-w-0 lg:col-span-8 space-y-6">
 
       <div className="flex flex-wrap items-center gap-4 p-2 bg-surface-container-low rounded-xl">
       <div className="relative bg-white px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 cursor-pointer hover:bg-slate-50 transition-colors">
@@ -145,46 +145,55 @@ export default function Employees() {
                               </button>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-outline-variant/10 bg-surface-container-lowest shadow-sm shadow-slate-200/20">
-      <table className="w-full text-left border-collapse">
+      <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest shadow-sm shadow-slate-200/20">
+      <table className="w-full table-fixed border-collapse text-left">
+      <colgroup>
+      <col style={{ width: "30%" }} />
+      <col style={{ width: "26%" }} />
+      <col style={{ width: "18%" }} />
+      <col style={{ width: "16%" }} />
+      <col style={{ width: "10%" }} />
+      </colgroup>
       <thead>
       <tr className="bg-surface-container-low">
-      <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Name</th>
-      <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Role</th>
-      <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Department</th>
-      <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Status</th>
-      <th className="px-6 py-4"></th>
+      <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider text-on-surface-variant lg:px-6">Name</th>
+      <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider text-on-surface-variant lg:px-6">Role</th>
+      <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider text-on-surface-variant lg:px-6">Department</th>
+      <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider text-on-surface-variant lg:px-6">Status</th>
+      <th className="px-4 py-4 text-right text-xs font-bold uppercase tracking-wider text-on-surface-variant lg:px-6">View</th>
       </tr>
       </thead>
       <tbody className="divide-y divide-surface-container">
       {filteredEmployees.map((employee, index) => (
       <tr className={`${index % 2 === 1 ? "bg-surface-container-low/20 " : ""}hover:bg-surface-container-low/30 transition-colors cursor-pointer group hover:bg-slate-100/50`} key={employee.id} onClick={() => setSelectedEmployee(employee)}>
-      <td className="px-6 py-5">
-      <div className="flex items-center gap-3">
+      <td className="px-4 py-5 align-top lg:px-6">
+      <div className="flex min-w-0 items-center gap-3">
       {employee.avatar.type === "image" ? (
-      <img className={employee.avatar.className} src={employee.avatar.image} />
+      <img className={`${employee.avatar.className} shrink-0`} src={employee.avatar.image} alt="" />
       ) : (
-      <div className={employee.avatar.className}>{employee.avatar.initials}</div>
+      <div className={`${employee.avatar.className} shrink-0`}>{employee.avatar.initials}</div>
       )}
-      <div>
-      <div className="text-sm font-bold text-primary">{employee.name}</div>
-      <div className="text-xs text-on-surface-variant">{employee.email}</div>
+      <div className="min-w-0">
+      <div className="truncate text-sm font-bold text-primary">{employee.name}</div>
+      <div className="truncate text-xs text-on-surface-variant">{employee.email}</div>
       </div>
       </div>
       </td>
-      <td className="px-6 py-5">
-      <div className="text-sm font-semibold text-on-surface">{employee.role}</div>
+      <td className="px-4 py-5 align-top lg:px-6">
+      <div className="break-words text-sm font-semibold leading-snug text-on-surface">{employee.role}</div>
       </td>
-      <td className="px-6 py-5">
-      <span className="text-xs font-bold px-2.5 py-1 bg-surface-container text-on-secondary-container rounded uppercase tracking-wide">{employee.department}</span>
+      <td className="px-4 py-5 align-top lg:px-6">
+      <span className="inline-block rounded bg-surface-container px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-on-secondary-container [overflow-wrap:anywhere]">
+      {employee.department}
+      </span>
       </td>
-      <td className="px-6 py-5">
-      <div className={`flex items-center gap-1.5 ${employee.status === "On Leave" ? "text-on-surface-variant opacity-60" : ""}`}>
-      <span className={`w-2 h-2 rounded-full ${getStatusPresentation(employee.status).dotClass}`}></span>
+      <td className="px-4 py-5 align-top lg:px-6">
+      <div className={`flex items-center gap-1.5 whitespace-nowrap ${employee.status === "On Leave" ? "text-on-surface-variant opacity-60" : ""}`}>
+      <span className={`h-2 w-2 shrink-0 rounded-full ${getStatusPresentation(employee.status).dotClass}`}></span>
       <span className={`text-xs font-bold ${getStatusPresentation(employee.status).textClass}`}>{employee.status}</span>
       </div>
       </td>
-      <td className="px-6 py-5 text-right">
+      <td className="px-4 py-5 text-right align-middle lg:px-6">
       <button className="inline-flex" onClick={(event) => { event.stopPropagation(); navigate(`/admin/employees/${employee.id}`); }}>
       <span className="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors" data-icon="visibility">visibility</span>
       </button>
@@ -214,7 +223,7 @@ export default function Employees() {
       </div>
       </div>
 
-      <div className="col-span-12 lg:col-span-4">
+      <div className="col-span-12 min-w-0 lg:col-span-4">
       <div className="glass-card rounded-xl p-8 sticky top-24">
       <div className="flex flex-col items-center text-center mb-8">
       <div className="relative mb-6">
@@ -264,21 +273,6 @@ export default function Employees() {
                                           Edit Profile
                                       </button>
       </div>
-      </div>
-      </div>
-
-      <div className="mt-8 p-6 bg-primary-container rounded-xl text-white relative overflow-hidden">
-      <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-32 h-32 bg-secondary opacity-20 rounded-full blur-3xl"></div>
-      <h4 className="text-lg font-bold font-headline mb-2 relative z-10">Departmental Pulse</h4>
-      <p className="text-xs text-on-primary-container leading-relaxed mb-4 relative z-10">Real-time engagement metrics across all active enterprise clusters.</p>
-      <div className="flex gap-1 items-end h-16 relative z-10">
-      <div className="flex-1 bg-tertiary-fixed-dim/20 rounded-t h-[40%]"></div>
-      <div className="flex-1 bg-tertiary-fixed-dim/40 rounded-t h-[70%]"></div>
-      <div className="flex-1 bg-tertiary-fixed-dim/20 rounded-t h-[55%]"></div>
-      <div className="flex-1 bg-tertiary-fixed-dim/60 rounded-t h-[90%]"></div>
-      <div className="flex-1 bg-tertiary-fixed-dim/30 rounded-t h-[65%]"></div>
-      <div className="flex-1 bg-tertiary-fixed-dim/80 rounded-t h-[100%]"></div>
-      <div className="flex-1 bg-tertiary-fixed-dim/40 rounded-t h-[45%]"></div>
       </div>
       </div>
       </div>

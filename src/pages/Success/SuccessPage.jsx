@@ -299,6 +299,17 @@ export default function SuccessPage() {
 
       <main className="mx-auto min-h-screen max-w-[1440px] px-6 pb-24 pt-32 network-grid md:px-12">
         <input ref={fileInputRef} type="file" className="hidden" accept="image/*,.pdf,.doc,.docx" onChange={onFileSelected} />
+        {application.onboarding?.enabled && !application.onboarding?.finalSubmitted ? (
+          <div className="mb-10 flex flex-col gap-3 rounded-xl border border-secondary/30 bg-secondary/5 px-6 py-4 md:flex-row md:items-center md:justify-between">
+            <p className="text-sm font-semibold text-primary">You have an active onboarding checklist.</p>
+            <Link
+              to={`/applicant/onboarding/${application.onboarding.step || 1}`}
+              className="inline-flex justify-center rounded-lg bg-secondary px-5 py-2.5 text-center text-sm font-bold text-white"
+            >
+              Continue onboarding
+            </Link>
+          </div>
+        ) : null}
         <header className="mb-16">
           <div className="flex flex-col justify-between gap-8 md:flex-row md:items-end">
             <div className="max-w-2xl">
@@ -361,12 +372,12 @@ export default function SuccessPage() {
                     <div className="flex h-full flex-col rounded-xl border-t-4 border-t-secondary bg-white/80 p-6 shadow-[0_20px_40px_rgba(64,89,170,0.12)] ring-2 ring-secondary/20 transition-all glass-card hover:bg-white">
                       <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-white shadow-lg shadow-secondary/20">
                         <span className="material-symbols-outlined text-xl">hub</span>
-                      </div>
+                </div>
                       <h3 className="mb-1 font-headline text-sm font-bold text-secondary">{title}</h3>
                       <p className="mb-4 text-[11px] font-medium leading-tight text-on-surface-variant">{desc}</p>
                       <span className="animate-pulse text-[9px] font-bold uppercase text-secondary">{dateLine}</span>
-                    </div>
-                  </div>
+              </div>
+            </div>
                 );
               }
 
@@ -376,14 +387,14 @@ export default function SuccessPage() {
                     <div className="flex h-full flex-col rounded-xl border-t-4 border-t-primary-container p-6 transition-all glass-card hover:bg-white">
                       <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
                         <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                          check_circle
-                        </span>
-                      </div>
+                    check_circle
+                  </span>
+                </div>
                       <h3 className="mb-1 font-headline text-sm font-bold">{title}</h3>
                       <p className="mb-4 text-[11px] leading-tight text-on-surface-variant">{desc}</p>
                       <span className="text-[9px] font-bold uppercase text-on-surface-variant/60">{dateLine}</span>
-                    </div>
-                  </div>
+              </div>
+            </div>
                 );
               }
 
@@ -393,12 +404,12 @@ export default function SuccessPage() {
                     <div className="flex h-full flex-col rounded-xl border-t-4 border-t-outline-variant p-6 transition-all glass-card">
                       <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface-variant">
                         <span className="material-symbols-outlined text-xl">verified</span>
-                      </div>
+                </div>
                       <h3 className="mb-1 font-headline text-sm font-bold">{title}</h3>
                       <p className="mb-4 text-[11px] leading-tight text-on-surface-variant">{desc}</p>
                       <span className="text-[9px] font-bold uppercase text-outline-variant">{dateLine}</span>
-                    </div>
-                  </div>
+              </div>
+            </div>
                 );
               }
 
@@ -415,14 +426,16 @@ export default function SuccessPage() {
                 </div>
               );
             })}
-          </div>
+              </div>
         </section>
 
         <section className="mb-20">
           <div className="mb-8">
-            <h2 className="font-headline text-2xl font-extrabold text-primary">Required Documents</h2>
-            <p className="text-sm text-on-surface-variant">Upload required documents to proceed with onboarding</p>
-          </div>
+            <h2 className="font-headline text-2xl font-extrabold text-primary">Documents</h2>
+            <p className="text-sm text-on-surface-variant">
+              Upload documents when ready. Candidate documents are not required to proceed with onboarding at this time.
+            </p>
+            </div>
           <div className="glass-card overflow-hidden rounded-xl shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-left">
@@ -458,7 +471,7 @@ export default function SuccessPage() {
                         <span className="text-sm font-semibold">
                           {row.label}
                           {row.required ? <span className="ml-1 text-red-500">*</span> : null}
-                        </span>
+                  </span>
                       </td>
                       <td className="px-8 py-6">{uploadStatusBadge(displayStatus)}</td>
                       <td className="px-8 py-6">

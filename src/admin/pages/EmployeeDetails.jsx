@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import EmployeeBentoProfile from "../../components/EmployeeBentoProfile";
 import { getEmployeeById } from "../../data";
+import { buildProfileFormState } from "../../utils/employeeProfileFormState";
+import EmployeeTimesheetHistoryPanel from "./EmployeeTimesheetHistoryPanel";
 export default function EmployeeDetails() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -20,24 +22,7 @@ export default function EmployeeDetails() {
       : inactiveTopTabClass;
 
   const employee = getEmployeeById(id) || {};
-  const initialFormData = {
-    dateOfBirth: employee.personal?.dateOfBirth || "",
-    gender: employee.personal?.gender || "",
-    address: employee.personal?.address || "",
-    employmentType: employee.employment?.employmentType || "",
-    jobTitle: employee.employment?.jobTitle || employee.role || "",
-    client: employee.client || "Client A",
-    customClient: "",
-    shiftType: employee.employment?.shiftType || "",
-    salary: employee.employment?.salary || "",
-    payFrequency: employee.employment?.payFrequency || "",
-    contractType: employee.employment?.contractType || "",
-    contractTypeDescription: employee.employment?.contractTypeDescription || "",
-    employmentStatus: employee.employment?.employmentStatus || "",
-    employmentStatusTag: employee.employment?.employmentStatusTag || "",
-    joiningDate: employee.employment?.joiningDate || "",
-    contractEndDate: employee.employment?.contractEndDate || "",
-  };
+  const initialFormData = buildProfileFormState(employee);
   const [formData, setFormData] = useState(initialFormData);
   const [savedFormData, setSavedFormData] = useState(initialFormData);
   const [showSavePopup, setShowSavePopup] = useState(false);
@@ -52,6 +37,13 @@ export default function EmployeeDetails() {
     }, 2000);
     return () => window.clearTimeout(timeout);
   }, [showSavePopup]);
+
+  useEffect(() => {
+    const next = buildProfileFormState(getEmployeeById(id) || {});
+    setFormData(next);
+    setSavedFormData(next);
+    setIsEditMode(false);
+  }, [id]);
 
   const updateField = (field, value) => {
     setFormData((previous) => ({ ...previous, [field]: value }));
@@ -130,6 +122,7 @@ export default function EmployeeDetails() {
               employee={employee}
               formData={formData}
               isEditMode={isEditMode}
+              adminEditsPersonalDetailsOnly
               updateField={updateField}
               handleSalaryChange={handleSalaryChange}
               formatDateValue={formatDateValue}
@@ -165,9 +158,42 @@ export default function EmployeeDetails() {
             />
           </div>
         </>
-      ) : (
-        <div className="mx-auto w-full max-w-6xl flex-1 p-10"></div>
-      )}
+      ) : isTimesheetsTab ? (
+        <div className="relative min-h-0 flex-1 w-full">
+          <EmployeeTimesheetHistoryPanel id={id} />
+        </div>
+      ) : isDocumentsTab ? (
+        <div className="relative min-h-0 flex-1 w-full max-w-6xl mx-auto p-10 pb-16">
+          <h3 className="font-headline text-2xl font-extrabold text-primary tracking-tight mb-2">Documents submitted</h3>
+          <p className="text-sm text-on-primary-container mb-8">Files on record for {employee.name || "this employee"}.</p>
+          <ul className="space-y-3">
+            {(employee.documents || []).length === 0 ? (
+              <li className="text-sm text-on-primary-container/70 border border-dashed border-outline-variant/30 rounded-xl p-8 text-center">
+                No documents on file.
+              </li>
+            ) : (
+              (employee.documents || []).map((doc) => (
+                <li
+                  key={doc.id}
+                  className="glass-card rounded-xl border border-outline-variant/10 px-6 py-4 flex flex-wrap items-center justify-between gap-4 monolith-shadow"
+                >
+                  <div>
+                    <p className="font-bold text-primary">{doc.name}</p>
+                    <p className="text-xs text-on-primary-container mt-1">
+                      {doc.type}
+                      {doc.uploadDate ? ` · Uploaded ${doc.uploadDate}` : ""}
+                      {doc.expiryDate ? ` · Expires ${doc.expiryDate}` : ""}
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-surface-container-high text-on-primary-container">
+                    {doc.type || "Document"}
+                  </span>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      ) : null}
 
       {isProfileTab && (
       <div className="sticky bottom-0 w-full bg-white/80 backdrop-blur-md border-t border-outline-variant/10 py-4 px-10 md:hidden flex justify-between gap-4">

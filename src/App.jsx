@@ -18,6 +18,7 @@ const ApplicationSubmittedPremiumSuccess = lazy(() =>
 const AlreadyAppliedPremiumPage = lazy(() => import("./pages/ApplyFlow/AlreadyAppliedPremiumPage"));
 const SuccessPage = lazy(() => import("./pages/Success/SuccessPage"));
 const ApplicantLogin = lazy(() => import("./applicant/pages/ApplicantLogin"));
+const ApplicantOnboardingPage = lazy(() => import("./applicant/pages/ApplicantOnboardingPage"));
 const ProtectedApplicant = lazy(() => import("./applicant/components/ProtectedApplicant"));
 
 const AdminLayout = lazy(() => import("./admin/components/AdminLayout"));
@@ -35,7 +36,6 @@ const Reports = lazy(() => import("./admin/pages/Reports"));
 const Settings = lazy(() => import("./admin/pages/Settings"));
 const CompanyWorkspace = lazy(() => import("./admin/pages/CompanyWorkspace"));
 const OnboardingReview = lazy(() => import("./admin/pages/OnboardingReview"));
-const EmployeeTimesheetHistory = lazy(() => import("./admin/pages/EmployeeTimesheetHistory"));
 
 function RouteFallback() {
   return (
@@ -82,13 +82,21 @@ export default function App() {
               </ProtectedApplicant>
             }
           />
+          <Route
+            path="/applicant/onboarding/:step"
+            element={
+              <ProtectedApplicant>
+                <ApplicantOnboardingPage />
+              </ProtectedApplicant>
+            }
+          />
           <Route path="/about" element={<HomePage />} />
 
           <Route path="/admin/*" element={<AdminLayout />}>
             <Route index element={<Dashboard />} />
             <Route path="employees/onboarding/review" element={<OnboardingReview />} />
             <Route path="employees/onboarding" element={<EmployeeOnboarding />} />
-            <Route path="employees/:id/timesheets" element={<EmployeeTimesheetHistory />} />
+            <Route path="employees/:id/timesheets" element={<EmployeeDetails />} />
             <Route path="employees/:id/documents-submitted" element={<EmployeeDetails />} />
             <Route path="employees/:id" element={<EmployeeDetails />} />
             <Route path="employees" element={<Employees />} />

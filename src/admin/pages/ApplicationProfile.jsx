@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { hireApplicantAsEmployee } from "../../data/applicationEmployeeSync";
+import AdminDocumentApproval from "../../application_process/admin_document_approval/AdminDocumentApproval";
+import AdminFinalApproval from "../../application_process/admin_final_approval/AdminFinalApproval";
+import AdminProfileReview from "../../application_process/admin_profile_review/AdminProfileReview";
 import {
+  adminApproveOnboardingDocumentsBundle,
+  adminApproveOnboardingProfile,
+  getOnboardingAdminStep,
   moveApplicationToNextStage,
   setOnboardingVerification,
   updateApplication,
+  OFFER_STAGE_INDEX,
   useApplicationsSync,
 } from "../../data/applicationsStore";
 import { REQUIRED_DOCUMENT_ROWS } from "../../data/requiredDocumentTemplates";
@@ -49,6 +57,8 @@ export default function ApplicationProfile() {
   const [messageDraft, setMessageDraft] = useState("");
   const [isMessageSentPopupOpen, setIsMessageSentPopupOpen] = useState(false);
   const [isInterviewModalOpen, setIsInterviewModalOpen] = useState(false);
+  const [stageMoveError, setStageMoveError] = useState("");
+  const [hireMessage, setHireMessage] = useState("");
   const [interviewForm, setInterviewForm] = useState({
     type: INTERVIEW_TYPES[0],
     date: "",
@@ -68,9 +78,16 @@ export default function ApplicationProfile() {
     : 0;
   const progressPercent =
     stages.length > 1 ? (stageIndex / (stages.length - 1)) * 100 : 0;
+  const moveToNextDisabled =
+    applicationData.lifecycleStage === "employee" ||
+    (Boolean(applicationData.onboarding?.enabled) && stageIndex >= OFFER_STAGE_INDEX);
   const handleMoveToNextStage = () => {
     if (!Number.isFinite(numericId)) return;
-    moveApplicationToNextStage(numericId);
+    setStageMoveError("");
+    const result = moveApplicationToNextStage(numericId);
+    if (!result.success) {
+      setStageMoveError(result.error || "Unable to move stage.");
+    }
   };
   const handleSendMessage = () => {
     if (!messageDraft.trim() || !Number.isFinite(numericId)) return;
@@ -119,6 +136,32 @@ export default function ApplicationProfile() {
     );
   }
 
+  const isOnboardingAdminView =
+    applicationData.lifecycleStage === "onboarding" && Boolean(applicationData.onboarding?.enabled);
+  const onboardingAdminStep = getOnboardingAdminStep(applicationData.onboarding);
+  const onboardingStepName =
+    onboardingAdminStep === 1
+      ? "Profile Review"
+      : onboardingAdminStep === 2
+        ? "Document Approval"
+        : "Final Approval";
+
+  const notifyApplicationsUpdated = () => window.dispatchEvent(new Event("applications-updated"));
+  const handleAdminApproveProfile = () => {
+    adminApproveOnboardingProfile(numericId);
+    notifyApplicationsUpdated();
+  };
+  const handleAdminApproveDocuments = () => {
+    adminApproveOnboardingDocumentsBundle(numericId);
+    notifyApplicationsUpdated();
+  };
+  const handleFinalHire = () => {
+    const r = hireApplicantAsEmployee(numericId);
+    if (!r.ok) setHireMessage(r.error || "Hire failed");
+    else setHireMessage(`Promoted to employee (${r.employeeId}).`);
+    notifyApplicationsUpdated();
+  };
+
   return (
     <>
       <header className="fixed top-0 right-0 w-[calc(100%-16rem)] z-40 bg-white/60 backdrop-blur-xl border-b border-slate-200/15 flex items-center justify-between px-8 h-16 shadow-[0_40px_40px_rgba(0,6,21,0.04)]">
@@ -143,14 +186,40 @@ export default function ApplicationProfile() {
 
       <main className="ml-64 pt-24 pb-12 px-12 min-h-screen">
 
-      <nav className="flex items-center gap-2 text-xs font-medium text-outline mb-8 tracking-wide">
+      <nav className="flex items-center gap-2 text-xs font-medium text-outline mb-8 tracking-wide flex-wrap">
       <Link className="hover:text-primary transition-colors" to="/admin">Dashboard</Link>
       <span className="material-symbols-outlined text-[14px]" data-icon="chevron_right">chevron_right</span>
       <Link className="hover:text-primary transition-colors" to="/admin/applications">Applications</Link>
       <span className="material-symbols-outlined text-[14px]" data-icon="chevron_right">chevron_right</span>
-      <span className="text-primary-container">Applicant Profile</span>
+      {isOnboardingAdminView ? (
+        <>
+          <Link className="hover:text-primary transition-colors" to={`/admin/applications/${numericId}`}>
+            Applicant Profile
+          </Link>
+          <span className="material-symbols-outlined text-[14px]" data-icon="chevron_right">chevron_right</span>
+          <span className="text-on-surface-variant">Onboarding Process</span>
+          <span className="material-symbols-outlined text-[14px]" data-icon="chevron_right">chevron_right</span>
+          <span className="text-primary-container">{onboardingStepName}</span>
+        </>
+      ) : (
+        <span className="text-primary-container">Applicant Profile</span>
+      )}
       </nav>
 
+      {isOnboardingAdminView ? (
+        <div className="w-full">
+          {onboardingAdminStep === 1 && (
+            <AdminProfileReview application={applicationData} onApproveProfile={handleAdminApproveProfile} />
+          )}
+          {onboardingAdminStep === 2 && (
+            <AdminDocumentApproval application={applicationData} onApproveDocuments={handleAdminApproveDocuments} />
+          )}
+          {onboardingAdminStep === 3 && (
+            <AdminFinalApproval application={applicationData} onFinalHire={handleFinalHire} hireMessage={hireMessage} />
+          )}
+        </div>
+      ) : (
+        <>
       <section className="relative mb-12 rounded-xl overflow-hidden monolith-shadow">
       <div className="absolute inset-0 bg-primary-container overflow-hidden">
       <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_50%_50%,#4cd7f6_0%,transparent_70%)]"></div>
@@ -237,7 +306,7 @@ export default function ApplicationProfile() {
 
       <footer className="bg-primary-container/5 rounded-xl p-6 border border-primary-container/10">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
-      <button className="w-full px-6 py-3 border border-primary-container text-primary-container font-bold text-sm rounded-lg hover:bg-primary-container/5 transition-all active:scale-95" onClick={handleMoveToNextStage} type="button">
+      <button className="w-full px-6 py-3 border border-primary-container text-primary-container font-bold text-sm rounded-lg hover:bg-primary-container/5 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed" disabled={moveToNextDisabled} onClick={handleMoveToNextStage} type="button">
                           Move to Next Stage
                       </button>
       <button className="w-full px-6 py-3 border border-primary-container text-primary-container font-bold text-sm rounded-lg hover:bg-primary-container/5 transition-all active:scale-95 flex items-center justify-center gap-2" onClick={() => setIsInterviewModalOpen(true)} type="button">
@@ -250,6 +319,38 @@ export default function ApplicationProfile() {
                       </button>
       </div>
       </footer>
+
+      {stageMoveError ? (
+        <div className="mb-6 rounded-xl border border-error/30 bg-error-container/10 px-6 py-4 text-sm font-semibold text-error">
+          {stageMoveError}
+        </div>
+      ) : null}
+
+      {applicationData.employeeId && (applicationData.timesheets || []).length > 0 ? (
+        <div className="glass-card rounded-xl p-8 monolith-shadow mb-8">
+          <h3 className="font-headline font-bold text-xl mb-4">Timesheets (synced from employee portal)</h3>
+          <div className="overflow-x-auto rounded-lg border border-outline-variant/10">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-surface-container-low/50 text-[10px] uppercase tracking-widest text-outline">
+                <tr>
+                  <th className="px-4 py-3">Period</th>
+                  <th className="px-4 py-3">Total</th>
+                  <th className="px-4 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant/10">
+                {(applicationData.timesheets || []).map((t) => (
+                  <tr key={t.id}>
+                    <td className="px-4 py-3 font-medium text-primary">{t.dateRange || t.weekStart || "—"}</td>
+                    <td className="px-4 py-3">{Number(t.total || 0).toFixed(1)}</td>
+                    <td className="px-4 py-3 capitalize">{t.status || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
 
       <div className="glass-card rounded-xl p-8 monolith-shadow">
       <div className="flex items-center gap-3 mb-6">
@@ -439,6 +540,7 @@ export default function ApplicationProfile() {
         { label: "Location", value: getDisplayValue(applicationData.location) },
         { label: "Application Date", value: getDisplayValue(applicationData.appliedDate) },
         { label: "Current Stage", value: getDisplayValue(stages[stageIndex]?.name) },
+        { label: "Pipeline", value: getDisplayValue(applicationData.lifecycleStage) },
         { label: "Status", value: getDisplayValue(applicationData.status) },
       ].map((row) => (
       <div key={row.label}>
@@ -557,6 +659,8 @@ export default function ApplicationProfile() {
       </div>
       </div>
       </div>
+      </>
+      )}
       </main>
       {isInterviewModalOpen && (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/30 backdrop-blur-md">

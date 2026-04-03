@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { getApplicationsSnapshot } from "../../data/applicationsStore";
+import { getApplicationsSnapshot, getPostLoginPathForApplicant } from "../../data/applicationsStore";
+import { setEmployeeSessionId } from "../../employee/employeeSession";
 import { setApplicantSession } from "../applicantSession";
 
 export default function ApplicantLogin() {
@@ -26,7 +27,11 @@ export default function ApplicantLogin() {
       return;
     }
     setApplicantSession(match.id);
-    navigate("/applicant/dashboard", { replace: true });
+    const dest = getPostLoginPathForApplicant(match.id);
+    if (dest.employeeId) {
+      setEmployeeSessionId(dest.employeeId);
+    }
+    navigate(dest.path, { replace: true });
   };
 
   return (

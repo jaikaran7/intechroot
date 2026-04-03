@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
-import { getEmployees } from "@/data";
+import { useEffect, useMemo, useState } from "react";
+import { loadEmployeesStore, patchEmployeeTimesheet, subscribeEmployeesStore } from "@/employee/employeeEmployeesStore";
 
 const ensureTimesheets = (employees) => {
   return employees.map((emp) => {
@@ -52,6 +52,24 @@ const getWeekStartISO = (date) => {
 const calculateTotal = (weekData) =>
   Object.values(weekData).reduce((sum, val) => sum + Number(val || 0), 0);
 
+function formatAdminWeekRangeSubtitle(row) {
+  if (!row?.dateRange?.from || !row?.dateRange?.to) return "";
+  const a = formatMonthDay(row.dateRange.from);
+  const b = new Date(row.dateRange.to).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return `${a} – ${b}`;
+}
+
+function formatMonthDay(iso) {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function formatRejectionTimestamp(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
+}
+
 export default function Timesheets() {
   const entriesPerPage = 5;
   const [searchQuery, setSearchQuery] = useState("");
@@ -67,15 +85,10 @@ export default function Timesheets() {
   const [activeNote, setActiveNote] = useState("");
   const [feedbackModal, setFeedbackModal] = useState({ open: false, message: "" });
 
-  const employees = useMemo(() => {
-    try {
-      const list = getEmployees();
-      return Array.isArray(list) ? list : [];
-    } catch {
-      return [];
-    }
-  }, []);
-  const enrichedEmployees = useMemo(() => ensureTimesheets(employees), [employees]);
+  const [storeVersion, setStoreVersion] = useState(0);
+  useEffect(() => subscribeEmployeesStore(() => setStoreVersion((v) => v + 1)), []);
+
+  const enrichedEmployees = useMemo(() => ensureTimesheets(loadEmployeesStore()), [storeVersion]);
 
   const timesheetData = useMemo(() => {
     const currentWeekStartISO = getWeekStartISO(new Date());
@@ -118,14 +131,7 @@ export default function Timesheets() {
     );
   }, [enrichedEmployees]);
 
-  const [liveTimesheetRows, setLiveTimesheetRows] = useState([]);
-
-  useLayoutEffect(() => {
-    const safeTimesheetSource = Array.isArray(timesheetData) ? timesheetData : [];
-    setLiveTimesheetRows(safeTimesheetSource);
-  }, [timesheetData]);
-
-  const data = Array.isArray(liveTimesheetRows) ? liveTimesheetRows : [];
+  const data = Array.isArray(timesheetData) ? timesheetData : [];
 
   const filteredData = useMemo(() => {
     return data.filter((row) => {
@@ -187,47 +193,52 @@ export default function Timesheets() {
     return () => window.clearTimeout(timeout);
   }, [feedbackModal]);
 
-  const updateRowStatus = (id, status, rejectionNote = "") => {
-    setLiveTimesheetRows((previous) =>
-      previous.map((row) => (row.id === id ? { ...row, status, rejectionNote } : row)),
-    );
-  };
-
   const approveRow = (id) => {
+    const row = data.find((r) => r.id === id);
+    if (!row) return;
     setEditingRowId(null);
-    updateRowStatus(id, "Approved", "");
+    patchEmployeeTimesheet(row.employeeId, id, { status: "Approved", rejectionNote: "", rejectedAt: "" });
     setFeedbackModal({ open: true, message: "Timesheet Approved" });
   };
 
   const submitReject = () => {
-    if (!rejectingRowId) return;
-    updateRowStatus(rejectingRowId, "Rejected", rejectionReason.trim());
+    const reason = rejectionReason.trim();
+    if (!rejectingRowId || !reason) return;
+    const row = data.find((r) => r.id === rejectingRowId);
+    if (!row) return;
+    patchEmployeeTimesheet(row.employeeId, rejectingRowId, {
+      status: "Rejected",
+      rejectionNote: reason,
+      rejectedAt: new Date().toISOString(),
+    });
     setRejectingRowId(null);
     setRejectionReason("");
     setFeedbackModal({ open: true, message: "Timesheet Rejected" });
   };
 
   const sendBackToReviewStage = (id) => {
+    const row = data.find((r) => r.id === id);
+    if (!row) return;
     setEditingRowId(null);
-    setLiveTimesheetRows((previous) =>
-      previous.map((row) => (row.id === id ? { ...row, status: "Pending" } : row)),
-    );
+    patchEmployeeTimesheet(row.employeeId, id, { status: "Pending" });
     setActiveMenuId(null);
   };
+
   const handleChange = (id, day, value) => {
+    const row = data.find((r) => r.id === id);
+    if (!row) return;
     const normalizedValue = value.replace(/[^0-9.]/g, "");
     const numericValue = Number(normalizedValue);
-    setLiveTimesheetRows((previous) =>
-      previous.map((row) => {
-        if (row.id !== id) return row;
-        const updatedWeekData = {
-          ...row.weekData,
-          [day]: Number.isNaN(numericValue) ? 0 : numericValue,
-        };
-        return { ...row, weekData: updatedWeekData, total: calculateTotal(updatedWeekData) };
-      }),
-    );
+    const updatedWeekData = {
+      ...row.weekData,
+      [day]: Number.isNaN(numericValue) ? 0 : numericValue,
+    };
+    patchEmployeeTimesheet(row.employeeId, id, { weekData: updatedWeekData });
   };
+
+  const rejectingRow = rejectingRowId ? (data.find((r) => r.id === rejectingRowId) ?? null) : null;
+  const rejectingRangeLabel = rejectingRow ? formatAdminWeekRangeSubtitle(rejectingRow) : "";
+
   return (
     <>
       <main className="ml-64 min-h-screen">
@@ -395,10 +406,22 @@ export default function Timesheets() {
             ? "inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 uppercase tracking-tight"
             : row.status === "Rejected"
               ? "inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-[10px] font-extrabold bg-error-container text-error uppercase tracking-tight"
-              : "inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 uppercase tracking-tight"
+              : row.status === "Draft"
+                ? "inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-600 uppercase tracking-tight"
+                : "inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 uppercase tracking-tight"
         }
       >
-      <span className={`w-1.5 h-1.5 rounded-full ${row.status === "Approved" ? "bg-emerald-500" : row.status === "Rejected" ? "bg-error" : "bg-amber-500"}`}></span>
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${
+          row.status === "Approved"
+            ? "bg-emerald-500"
+            : row.status === "Rejected"
+              ? "bg-error"
+              : row.status === "Draft"
+                ? "bg-slate-400"
+                : "bg-amber-500"
+        }`}
+      ></span>
                                               {row.status}
                                           </span>
       </td>
@@ -484,24 +507,61 @@ export default function Timesheets() {
       <span className="material-symbols-outlined text-3xl" data-icon="add_task">add_task</span>
       </button>
       {rejectingRowId && (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/20 backdrop-blur-md">
-      <div className="glass-card rounded-xl p-6 w-[min(92vw,32rem)]">
-      <h4 className="text-lg font-bold text-primary mb-3">Reject Timesheet</h4>
-      <textarea className="w-full h-28 bg-white border border-slate-200 rounded p-3 text-sm focus:ring-0" onChange={(event) => setRejectionReason(event.target.value)} placeholder="Enter rejection reason..." value={rejectionReason}></textarea>
-      <div className="mt-4 flex justify-end gap-2">
-      <button className="px-4 py-2 text-xs font-bold border border-slate-200 rounded" onClick={() => setRejectingRowId(null)}>Cancel</button>
-      <button className="px-4 py-2 text-xs font-bold bg-primary-container text-white rounded" onClick={submitReject}>Submit</button>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/20 backdrop-blur-md p-4">
+      <div className="relative bg-white rounded-xl shadow-xl shadow-slate-900/10 w-full max-w-md p-8 border border-slate-100 font-body">
+      <button type="button" className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors" aria-label="Dismiss" onClick={() => { setRejectingRowId(null); setRejectionReason(""); }}>
+      <span className="material-symbols-outlined text-xl">close</span>
+      </button>
+      <div className="flex flex-col items-center text-center pt-2">
+      <div className="w-14 h-14 rounded-full bg-red-500 flex items-center justify-center mb-5 shadow-md shadow-red-500/20">
+      <span className="material-symbols-outlined text-3xl text-white font-bold" style={{ fontVariationSettings: "'FILL' 1" }}>priority_high</span>
+      </div>
+      <h4 className="text-xl font-extrabold text-[#0B1F3A] font-headline tracking-tight">Reject timesheet</h4>
+      <p className="text-sm text-slate-500 mt-2 max-w-sm leading-relaxed">
+        {rejectingRow
+          ? (
+            <>
+              Decline <span className="font-semibold text-slate-700">{rejectingRow.employeeName}&apos;s</span> timesheet
+              {rejectingRangeLabel ? ` for ${rejectingRangeLabel}` : ""}?
+            </>
+            )
+          : "Add feedback before declining this timesheet."}
+      </p>
+      </div>
+      <div className="mt-6">
+      <label className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-2">Admin comments</label>
+      <textarea className="w-full min-h-[120px] bg-slate-50 border border-slate-200 rounded-lg p-4 text-sm text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-[#4cd7f6]/25 focus:border-slate-300 resize-y" onChange={(event) => setRejectionReason(event.target.value)} placeholder="Explain what needs to change..." value={rejectionReason}/>
+      </div>
+      <p className="mt-4 flex items-center gap-1.5 text-xs text-slate-400">
+      <span className="material-symbols-outlined text-base text-slate-400">schedule</span>
+      This feedback will be shown to the employee.
+      </p>
+      <div className="mt-8 grid grid-cols-2 gap-3">
+      <button type="button" className="w-full py-3 px-4 text-sm font-bold rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors" onClick={() => { setRejectingRowId(null); setRejectionReason(""); }}>Dismiss</button>
+      <button type="button" className="w-full py-3 px-4 text-sm font-bold rounded-lg bg-[#0B1F3A] text-white hover:bg-slate-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed" disabled={!rejectionReason.trim()} onClick={submitReject}>Submit</button>
       </div>
       </div>
       </div>
       )}
       {activeNote && (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/20 backdrop-blur-md">
-      <div className="glass-card rounded-xl p-6 w-[min(92vw,32rem)]">
-      <h4 className="text-lg font-bold text-primary mb-3">Rejection Note</h4>
-      <p className="text-sm text-slate-600">{activeNote}</p>
-      <div className="mt-4 flex justify-end">
-      <button className="px-4 py-2 text-xs font-bold bg-primary-container text-white rounded" onClick={() => setActiveNote("")}>Close</button>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/20 backdrop-blur-md p-4">
+      <div className="relative bg-white rounded-xl shadow-xl shadow-slate-900/10 w-full max-w-md p-8 border border-slate-100 font-body">
+      <button type="button" className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors" aria-label="Close" onClick={() => setActiveNote("")}>
+      <span className="material-symbols-outlined text-xl">close</span>
+      </button>
+      <div className="flex flex-col items-center text-center pt-2">
+      <div className="w-14 h-14 rounded-full bg-red-500 flex items-center justify-center mb-5 shadow-md shadow-red-500/20">
+      <span className="material-symbols-outlined text-3xl text-white font-bold" style={{ fontVariationSettings: "'FILL' 1" }}>priority_high</span>
+      </div>
+      <h4 className="text-xl font-extrabold text-[#0B1F3A] font-headline tracking-tight">Rejection feedback</h4>
+      <p className="text-sm text-slate-500 mt-2">Employee-facing comments</p>
+      </div>
+      <div className="mt-6">
+      <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-2">Admin comments</p>
+      <div className="w-full bg-slate-50 border border-slate-200 rounded-lg p-4 text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{activeNote}</div>
+      </div>
+      <div className="mt-8 flex justify-end">
+      <button type="button" className="py-3 px-6 text-sm font-bold rounded-lg bg-[#0B1F3A] text-white hover:bg-slate-800 transition-colors" onClick={() => setActiveNote("")}>Dismiss</button>
       </div>
       </div>
       </div>

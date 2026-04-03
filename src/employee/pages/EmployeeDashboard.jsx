@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { getEmployeeFromStore } from "../employeeEmployeesStore";
+import { getEmployeeFromStore, subscribeEmployeesStore } from "../employeeEmployeesStore";
 import { getEmployeeSessionId } from "../employeeSession";
 import { addDaysISO, calculateTotal, getWeekStartISO, parseYMD } from "../timesheetUtils";
 
@@ -19,7 +19,9 @@ function documentStatusLabel(expiryDateStr) {
 
 export default function EmployeeDashboard() {
   const id = getEmployeeSessionId();
-  const employee = useMemo(() => (id ? getEmployeeFromStore(id) : null), [id]);
+  const [storeVersion, setStoreVersion] = useState(0);
+  useEffect(() => subscribeEmployeesStore(() => setStoreVersion((v) => v + 1)), []);
+  const employee = useMemo(() => (id ? getEmployeeFromStore(id) : null), [id, storeVersion]);
 
   const currentWeekStart = useMemo(() => getWeekStartISO(new Date()), []);
   const weekTs = useMemo(() => {
@@ -85,7 +87,7 @@ export default function EmployeeDashboard() {
   const recentTs = useMemo(() => {
     return [...(employee?.timesheets ?? [])]
       .sort((a, b) => String(b.weekStart).localeCompare(String(a.weekStart)))
-      .slice(0, 1);
+      .slice(0, 5);
   }, [employee]);
   const recentDoc = useMemo(() => {
     const docs = [...(employee?.documents ?? [])];
@@ -188,25 +190,31 @@ export default function EmployeeDashboard() {
         <section>
           <div className="flex justify-between items-center mb-6">
             <h4 className="text-xl font-headline font-bold text-primary">Recent Activity</h4>
-            <button type="button" className="text-xs font-bold text-secondary hover:underline transition-all bg-transparent border-none cursor-pointer">
+            <Link
+              className="text-xs font-bold text-secondary hover:underline transition-all"
+              to="/employee/timesheets"
+            >
               View Full History
-            </button>
+            </Link>
           </div>
           <div className="space-y-4">
-            {recentTs[0] && (
-              <div className="flex items-center gap-4 p-4 bg-surface-container-low rounded-lg border-l-4 border-secondary-container">
+            {recentTs.map((ts) => (
+              <div
+                className="flex items-center gap-4 p-4 bg-surface-container-low rounded-lg border-l-4 border-secondary-container"
+                key={ts.id}
+              >
                 <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-secondary shadow-sm">
                   <span className="material-symbols-outlined text-xl">upload_file</span>
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-on-surface">Timesheet {recentTs[0].status?.toLowerCase() || "updated"}</p>
-                  <p className="text-xs text-on-surface-variant">Week starting {recentTs[0].weekStart}</p>
+                  <p className="text-sm font-medium text-on-surface">Timesheet {ts.status?.toLowerCase() || "updated"}</p>
+                  <p className="text-xs text-on-surface-variant">Week starting {ts.weekStart}</p>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] font-bold py-1 px-2 rounded bg-surface-container-highest text-on-surface">{recentTs[0].status}</span>
+                  <span className="text-[10px] font-bold py-1 px-2 rounded bg-surface-container-highest text-on-surface">{ts.status}</span>
                 </div>
               </div>
-            )}
+            ))}
             {recentDoc && (
               <div className="flex items-center gap-4 p-4 bg-surface-container-low rounded-lg border-l-4 border-tertiary-fixed-dim">
                 <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-on-tertiary-fixed-variant shadow-sm">

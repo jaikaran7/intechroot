@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import applicationsSeed from "./applications.json";
 import { REQUIRED_DOCUMENT_ROWS } from "./requiredDocumentTemplates";
-import { hasUploadedFile, resolveDocVerification } from "../utils/onboardingDocumentRules";
+import { getExpiryBucket, hasUploadedFile, resolveDocVerification } from "../utils/onboardingDocumentRules";
 import { safeJsonParse } from "../utils/safeJsonParse";
 
 export const APPLICATIONS_STORAGE_KEY = "intechroot_applications_v1";
 const STORAGE_KEY = APPLICATIONS_STORAGE_KEY;
+
+/**
+ * When true, onboarding stage moves and step gating enforce fully uploaded, non-expired required documents.
+ * When false, incomplete documents are not blocking (enforcement still uses error "Candidate documents are incomplete" if this is turned on).
+ */
+export const ONBOARDING_REQUIRE_COMPLETE_DOCUMENTS = false;
 
 /** Strip base64 payloads so localStorage never throws (quota ~5MB). */
 function sanitizeAppsForStorage(apps) {
@@ -25,6 +31,71 @@ export const STAGE_ORDER = [
   "Client Interview",
   "Offer & Onboarding",
 ];
+
+export const OFFER_STAGE_INDEX = STAGE_ORDER.length - 1;
+
+const LIFECYCLE_BY_INDEX = ["applied", "screening", "technical", "client"];
+
+/** Admin onboarding wizard: 1 = profile review, 2 = documents, 3 = final hire. */
+export function getOnboardingAdminStep(onboarding) {
+  const ob = onboarding || {};
+  if (!ob.profileCompleted) return 1;
+  if (!ob.documentsCompleted) return 2;
+  return 3;
+}
+
+export function defaultOnboardingState() {
+  return {
+    enabled: false,
+    step: 1,
+    completed: false,
+    bgvLink: "",
+    profileCompleted: false,
+    documentsCompleted: false,
+    bgvCompleted: false,
+    finalSubmitted: false,
+    hireCompleted: false,
+  };
+}
+
+export function deriveLifecycleStage(app) {
+  if (!app) return "applied";
+  if (app.lifecycleStage === "employee") return "employee";
+  if (app.onboarding?.hireCompleted) return "employee";
+  if (app.onboarding?.enabled && !app.onboarding?.hireCompleted) return "onboarding";
+  const idx = Number.isFinite(Number(app.currentStageIndex)) ? Number(app.currentStageIndex) : 0;
+  if (idx >= OFFER_STAGE_INDEX) return "offer";
+  return LIFECYCLE_BY_INDEX[idx] || "applied";
+}
+
+export function validateRequiredDocumentsForOnboarding(app) {
+  if (!ONBOARDING_REQUIRE_COMPLETE_DOCUMENTS) return { ok: true };
+  const docs = mergeOnboardingDocumentList(app.onboardingDocuments || []);
+  for (const row of REQUIRED_DOCUMENT_ROWS) {
+    if (!row.required) continue;
+    const stored = docs.find((d) => d.templateKey === row.key);
+    if (!hasUploadedFile(stored)) {
+      return { ok: false, error: "Candidate documents are incomplete" };
+    }
+    const bucket = getExpiryBucket((stored?.expiryDate || "").slice(0, 10));
+    if (bucket === "expired") {
+      return { ok: false, error: "Candidate documents are incomplete" };
+    }
+  }
+  return { ok: true };
+}
+
+export function canAdminFinalizeHire(app) {
+  if (!app?.onboarding?.enabled) return false;
+  const documentsOk = ONBOARDING_REQUIRE_COMPLETE_DOCUMENTS ? app.onboarding.documentsCompleted : true;
+  return Boolean(
+    app.onboarding.profileCompleted &&
+      documentsOk &&
+      app.onboarding.bgvCompleted &&
+      app.onboarding.finalSubmitted &&
+      app.lifecycleStage !== "employee",
+  );
+}
 
 function cloneSeed() {
   try {
@@ -83,13 +154,22 @@ function syncOnboardingDocumentRow(doc) {
 
 export function normalizeApplication(app) {
   if (!app) return app;
-  return {
+  const onboarding = { ...defaultOnboardingState(), ...(app.onboarding || {}) };
+  const timesheets = Array.isArray(app.timesheets) ? app.timesheets : [];
+  const merged = {
     ...app,
     messages: Array.isArray(app.messages) ? app.messages : [],
     onboardingDocuments: mergeOnboardingDocumentList(app.onboardingDocuments),
     interview: app.interview ?? null,
     verificationDocuments: Array.isArray(app.verificationDocuments) ? app.verificationDocuments : [],
     interviews: Array.isArray(app.interviews) ? app.interviews : [],
+    onboarding,
+    timesheets,
+    employeeId: app.employeeId != null && app.employeeId !== "" ? app.employeeId : null,
+  };
+  return {
+    ...merged,
+    lifecycleStage: merged.lifecycleStage || deriveLifecycleStage(merged),
   };
 }
 
@@ -169,19 +249,130 @@ export function buildSyncedStages(app, currentStageIndex) {
   });
 }
 
+/**
+ * @returns {{ success: boolean; error?: string }}
+ */
 export function moveApplicationToNextStage(id) {
-  return updateApplication(id, (app) => {
-    const cur = Number.isFinite(Number(app.currentStageIndex)) ? Number(app.currentStageIndex) : 0;
-    const nextIdx = Math.min(cur + 1, STAGE_ORDER.length - 1);
+  const apps = getApplicationsSnapshot();
+  const app = apps.find((a) => Number(a.id) === Number(id));
+  if (!app) return { success: false, error: "Application not found." };
+  const cur = Number.isFinite(Number(app.currentStageIndex)) ? Number(app.currentStageIndex) : 0;
+
+  if (cur < OFFER_STAGE_INDEX) {
+    const nextIdx = cur + 1;
     const stageName = STAGE_ORDER[nextIdx];
-    return {
-      ...app,
+    updateApplication(id, (prev) => ({
+      ...prev,
       currentStageIndex: nextIdx,
       stage: stageName,
-      stages: buildSyncedStages(app, nextIdx),
-      status: nextIdx === STAGE_ORDER.length - 1 ? "Offer Sent" : "In Progress",
+      stages: buildSyncedStages(prev, nextIdx),
+      status: nextIdx === OFFER_STAGE_INDEX ? "Offer Sent" : "In Progress",
+      lifecycleStage: deriveLifecycleStage({
+        ...prev,
+        currentStageIndex: nextIdx,
+        onboarding: { ...defaultOnboardingState(), ...prev.onboarding },
+      }),
+    }));
+    return { success: true };
+  }
+
+  if (cur === OFFER_STAGE_INDEX && !app.onboarding?.enabled) {
+    const { ok, error } = validateRequiredDocumentsForOnboarding(app);
+    if (!ok) return { success: false, error: error || "Candidate documents are incomplete" };
+    updateApplication(id, (prev) => ({
+      ...prev,
+      onboarding: {
+        ...defaultOnboardingState(),
+        ...prev.onboarding,
+        enabled: true,
+        step: 1,
+      },
+      lifecycleStage: "onboarding",
+    }));
+    return { success: true };
+  }
+
+  return { success: false, error: "Candidate is already in onboarding or no further stage to advance." };
+}
+
+export function adminApproveOnboardingProfile(applicantId) {
+  return updateApplication(applicantId, (prev) => ({
+    ...prev,
+    onboarding: { ...defaultOnboardingState(), ...prev.onboarding, profileCompleted: true },
+  }));
+}
+
+export function adminApproveOnboardingDocumentsBundle(applicantId) {
+  return updateApplication(applicantId, (prev) => {
+    const list = [...(prev.onboardingDocuments || [])];
+    for (const row of REQUIRED_DOCUMENT_ROWS) {
+      if (!row.required) continue;
+      const ix = list.findIndex((d) => d.templateKey === row.key);
+      if (ix >= 0) {
+        list[ix] = {
+          ...list[ix],
+          verification: "verified",
+          verificationStatus: VERIFICATION_LEGACY.verified,
+        };
+      }
+    }
+    return {
+      ...prev,
+      onboardingDocuments: mergeOnboardingDocumentList(list),
+      onboarding: { ...defaultOnboardingState(), ...prev.onboarding, documentsCompleted: true },
     };
   });
+}
+
+export function adminSetBgvLink(applicantId, url) {
+  const trimmed = String(url || "").trim();
+  return updateApplication(applicantId, (prev) => ({
+    ...prev,
+    onboarding: { ...defaultOnboardingState(), ...prev.onboarding, bgvLink: trimmed },
+  }));
+}
+
+export function adminApproveBgv(applicantId) {
+  return updateApplication(applicantId, (prev) => ({
+    ...prev,
+    onboarding: { ...defaultOnboardingState(), ...prev.onboarding, bgvCompleted: true },
+  }));
+}
+
+export function applicantSetOnboardingStep(applicantId, step) {
+  const s = Math.max(1, Math.min(5, Number(step) || 1));
+  return updateApplication(applicantId, (prev) => ({
+    ...prev,
+    onboarding: { ...defaultOnboardingState(), ...prev.onboarding, step: s },
+  }));
+}
+
+export function applicantSubmitOnboardingFinal(applicantId) {
+  return updateApplication(applicantId, (prev) => ({
+    ...prev,
+    onboarding: {
+      ...defaultOnboardingState(),
+      ...prev.onboarding,
+      finalSubmitted: true,
+      completed: true,
+      step: 5,
+    },
+  }));
+}
+
+export function getPostLoginPathForApplicant(numericAppId) {
+  const apps = getApplicationsSnapshot();
+  const app = apps.find((a) => Number(a.id) === Number(numericAppId));
+  if (!app) return "/applicant/dashboard";
+  const normalized = normalizeApplication(app);
+  if (normalized.lifecycleStage === "employee" && normalized.employeeId) {
+    return { path: "/employee/dashboard", employeeId: String(normalized.employeeId) };
+  }
+  if (normalized.onboarding?.enabled && !normalized.onboarding?.finalSubmitted) {
+    const step = normalized.onboarding.step || 1;
+    return { path: `/applicant/onboarding/${step}` };
+  }
+  return { path: "/applicant/dashboard" };
 }
 
 export function appendNewApplicationFromForm(formData) {
@@ -217,6 +408,10 @@ export function appendNewApplicationFromForm(formData) {
     currentStageIndex: 0,
     messages: [],
     onboardingDocuments: [],
+    onboarding: defaultOnboardingState(),
+    timesheets: [],
+    employeeId: null,
+    lifecycleStage: "applied",
     interview: null,
   });
   apps.push(app);

@@ -1,5 +1,3 @@
-import { Link } from "react-router-dom";
-
 export function formatDateShort(value) {
   if (!value) return "—";
   const parsed = new Date(value);
@@ -51,6 +49,11 @@ export default function EmployeeBentoProfile({
   variant = "employee",
   formData = null,
   isEditMode = false,
+  /** When true (admin), Edit only unlocks Employee Details — not job/compensation/status. */
+  adminEditsPersonalDetailsOnly = false,
+  /** Employee portal: pen icon puts Employee Details in edit mode. */
+  personalDetailsEditMode = false,
+  onPersonalDetailsPenClick,
   updateField,
   handleSalaryChange,
   formatDateValue,
@@ -58,6 +61,9 @@ export default function EmployeeBentoProfile({
   heroActions = null,
 }) {
   const fd = buildFields(employee, formData);
+  const personalSectionEditable =
+    (variant === "admin" && isEditMode) || (variant === "employee" && personalDetailsEditMode);
+  const jobSectionEditable = variant === "admin" && isEditMode && !adminEditsPersonalDetailsOnly;
   const portraitSrc = employee.performance?.panelImage;
   const quickNote =
     employee.quickNotes ||
@@ -76,27 +82,7 @@ export default function EmployeeBentoProfile({
     ? (v) => formatDateValue(v)
     : (v) => formatDateMedium(v) || "—";
 
-  const defaultEmployeeHeroActions = (
-    <>
-      <Link
-        to="/employee/dashboard"
-        className="rounded-lg border border-outline-variant px-6 py-2.5 text-center text-sm font-semibold text-on-surface-variant transition-all hover:bg-surface-container active:scale-95"
-      >
-        Cancel
-      </Link>
-      <button
-        type="button"
-        disabled
-        className="cursor-not-allowed rounded-lg bg-primary-container px-8 py-2.5 text-sm font-semibold text-on-primary-container opacity-60 shadow-lg transition-all active:scale-95"
-        aria-disabled="true"
-        title="Profile is view-only"
-      >
-        Save Changes
-      </button>
-    </>
-  );
-
-  const resolvedHeroActions = heroActions ?? (variant === "employee" ? defaultEmployeeHeroActions : null);
+  const resolvedHeroActions = heroActions ?? null;
 
   return (
     <>
@@ -158,16 +144,27 @@ export default function EmployeeBentoProfile({
                     <span className="material-symbols-outlined text-blue-600">person_search</span>
                     Employee Details
                   </h3>
-                  <span className="material-symbols-outlined cursor-default text-slate-400" aria-hidden="true">
-                    edit
-                  </span>
+                  {variant === "employee" && onPersonalDetailsPenClick ? (
+                    <button
+                      type="button"
+                      onClick={onPersonalDetailsPenClick}
+                      className={`rounded-lg p-1.5 transition-colors ${
+                        personalDetailsEditMode
+                          ? "bg-primary-container/15 text-primary-container"
+                          : "text-slate-400 hover:bg-surface-container hover:text-blue-600"
+                      }`}
+                      aria-label="Edit employee details"
+                    >
+                      <span className="material-symbols-outlined text-xl">edit</span>
+                    </button>
+                  ) : null}
                 </div>
                 <div className="space-y-6">
                   <div>
                     <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-400">
                       Date of Birth
                     </label>
-                    {variant === "admin" && isEditMode ? (
+                    {personalSectionEditable ? (
                       <input
                         className="w-full border-b border-outline-variant bg-transparent py-2 text-sm font-medium text-primary focus:border-tertiary-fixed-dim focus:outline-none"
                         type="date"
@@ -182,7 +179,7 @@ export default function EmployeeBentoProfile({
                     <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-400">
                       Gender
                     </label>
-                    {variant === "admin" && isEditMode ? (
+                    {personalSectionEditable ? (
                       <select
                         className="w-full appearance-none border-b border-outline-variant bg-transparent py-2 text-sm font-medium text-primary focus:border-tertiary-fixed-dim focus:outline-none"
                         value={fd.gender}
@@ -201,7 +198,7 @@ export default function EmployeeBentoProfile({
                     <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-400">
                       Residential Address
                     </label>
-                    {variant === "admin" && isEditMode ? (
+                    {personalSectionEditable ? (
                       <input
                         className="w-full border-b border-outline-variant bg-transparent py-2 text-sm font-medium text-primary focus:border-tertiary-fixed-dim focus:outline-none"
                         type="text"
@@ -233,7 +230,7 @@ export default function EmployeeBentoProfile({
                     <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-400">
                       Employment Type
                     </label>
-                    {variant === "admin" && isEditMode ? (
+                    {personalSectionEditable ? (
                       <div className="mt-2 flex flex-wrap gap-2">
                         {["Full-Time", "Part-Time", "Contract"].map((opt) => (
                           <button
@@ -287,7 +284,7 @@ export default function EmployeeBentoProfile({
                       <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-400">
                         Job Title
                       </label>
-                      {variant === "admin" && isEditMode ? (
+                      {jobSectionEditable ? (
                         <input
                           className="w-full border-b border-outline-variant bg-transparent py-2 text-lg font-bold text-primary focus:border-tertiary-fixed-dim focus:outline-none"
                           type="text"
@@ -329,7 +326,7 @@ export default function EmployeeBentoProfile({
                       <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-400">
                         Shift Type
                       </label>
-                      {variant === "admin" && isEditMode ? (
+                      {jobSectionEditable ? (
                         <select
                           className="w-full appearance-none border-b border-outline-variant bg-transparent py-2 text-sm font-medium text-primary focus:border-tertiary-fixed-dim focus:outline-none"
                           value={fd.shiftType}
@@ -356,7 +353,7 @@ export default function EmployeeBentoProfile({
                   <div className="space-y-6">
                     <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-4">
                       <span className="text-sm text-slate-500">Annual Salary</span>
-                      {variant === "admin" && isEditMode ? (
+                      {jobSectionEditable ? (
                         <div className="relative min-w-[8rem]">
                           <span className="absolute left-0 top-1/2 -translate-y-1/2 font-bold text-slate-400">$</span>
                           <input
@@ -372,7 +369,7 @@ export default function EmployeeBentoProfile({
                     </div>
                     <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-4">
                       <span className="text-sm text-slate-500">Pay Frequency</span>
-                      {variant === "admin" && isEditMode ? (
+                      {jobSectionEditable ? (
                         <select
                           className="max-w-[10rem] appearance-none border-b border-outline-variant bg-transparent py-1 text-right text-sm font-medium text-primary focus:border-tertiary-fixed-dim focus:outline-none"
                           value={fd.payFrequency}
@@ -389,7 +386,7 @@ export default function EmployeeBentoProfile({
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center justify-between gap-4">
                         <span className="text-sm text-slate-500">Contract Type</span>
-                        {variant === "admin" && isEditMode ? (
+                        {jobSectionEditable ? (
                           <input
                             className="max-w-[12rem] border-b border-outline-variant bg-transparent py-1 text-right text-sm font-medium text-primary focus:border-tertiary-fixed-dim focus:outline-none"
                             type="text"
@@ -400,7 +397,7 @@ export default function EmployeeBentoProfile({
                           <span className="font-medium text-primary">{fd.contractType || "—"}</span>
                         )}
                       </div>
-                      {variant === "admin" && isEditMode ? (
+                      {jobSectionEditable ? (
                         <input
                           className="w-full border-b border-outline-variant bg-transparent py-1 text-xs text-on-primary-container focus:border-tertiary-fixed-dim focus:outline-none"
                           placeholder="Description"
@@ -424,7 +421,7 @@ export default function EmployeeBentoProfile({
                         <span
                           className={`h-2 w-2 shrink-0 animate-pulse rounded-full ${statusActive ? "bg-emerald-500" : "bg-amber-500"}`}
                         />
-                        {variant === "admin" && isEditMode ? (
+                        {jobSectionEditable ? (
                           <>
                             <input
                               className="min-w-0 flex-1 border-b border-outline-variant bg-transparent py-1 text-sm font-bold text-primary focus:border-tertiary-fixed-dim focus:outline-none"
@@ -451,7 +448,7 @@ export default function EmployeeBentoProfile({
                     </div>
                     <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                       <span className="text-sm text-slate-500">Joining Date</span>
-                      {variant === "admin" && isEditMode ? (
+                      {jobSectionEditable ? (
                         <input
                           className="border-b border-outline-variant bg-transparent py-1 text-sm font-medium text-primary focus:border-tertiary-fixed-dim focus:outline-none"
                           type="date"
@@ -464,7 +461,7 @@ export default function EmployeeBentoProfile({
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-slate-500">Contract End</span>
-                      {variant === "admin" && isEditMode ? (
+                      {jobSectionEditable ? (
                         <input
                           className="border-b border-outline-variant bg-transparent py-1 text-sm font-medium text-primary focus:border-tertiary-fixed-dim focus:outline-none"
                           type="date"
