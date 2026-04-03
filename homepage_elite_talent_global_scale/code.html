@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Elite Talent | Global IT Solutions</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Icons -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "error": "#ba1a1a",
+              "error-container": "#ffdad6",
+              "surface-dim": "#d8dadd",
+              "on-primary-fixed": "#071c36",
+              "primary-container": "#0b1f3a",
+              "secondary": "#4059aa",
+              "tertiary-fixed": "#acedff",
+              "surface-tint": "#4d5f7d",
+              "on-tertiary-container": "#0094ac",
+              "secondary-fixed": "#dce1ff",
+              "surface-container-low": "#f2f4f7",
+              "surface-bright": "#f7f9fc",
+              "on-primary-container": "#7587a7",
+              "on-secondary": "#ffffff",
+              "inverse-primary": "#b5c7ea",
+              "on-tertiary-fixed": "#001f26",
+              "inverse-surface": "#2d3133",
+              "on-surface": "#191c1e",
+              "primary": "#000615",
+              "on-primary": "#ffffff",
+              "on-surface-variant": "#44474d",
+              "on-tertiary": "#ffffff",
+              "surface-variant": "#e0e3e6",
+              "background": "#f7f9fc",
+              "on-primary-fixed-variant": "#364764",
+              "primary-fixed-dim": "#b5c7ea",
+              "on-error-container": "#93000a",
+              "surface-container-highest": "#e0e3e6",
+              "surface": "#f7f9fc",
+              "outline": "#75777e",
+              "surface-container-high": "#e6e8eb",
+              "tertiary-container": "#00232a",
+              "tertiary-fixed-dim": "#4cd7f6",
+              "on-secondary-fixed": "#00164e",
+              "on-tertiary-fixed-variant": "#004e5c",
+              "on-secondary-container": "#1d3989",
+              "on-error": "#ffffff",
+              "surface-container-lowest": "#ffffff",
+              "primary-fixed": "#d6e3ff",
+              "secondary-container": "#8fa7fe",
+              "surface-container": "#eceef1",
+              "secondary-fixed-dim": "#b6c4ff",
+              "tertiary": "#00080b",
+              "on-background": "#191c1e",
+              "outline-variant": "#c4c6ce",
+              "inverse-on-surface": "#eff1f4",
+              "on-secondary-fixed-variant": "#264191"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .glass-card {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(196, 198, 206, 0.15);
+        box-shadow: 0 40px 40px rgba(0, 6, 21, 0.04);
+      }
+      .dark .glass-card {
+        background: rgba(11, 31, 58, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+      }
+      .network-grid {
+        background-image: radial-gradient(circle, #c4c6ce 1px, transparent 1px);
+        background-size: 40px 40px;
+        opacity: 0.1;
+      }
+      .hero-gradient {
+        background: linear-gradient(135deg, #0b1f3a 0%, #1e3a8a 100%);
+      }
+    </style>
+</head>
+<body class="bg-background font-body text-on-surface selection:bg-tertiary-fixed-dim selection:text-on-tertiary-fixed">
+<!-- Top Navigation Bar -->
+<nav class="fixed top-0 w-full z-50 bg-white/60 dark:bg-[#000615]/60 backdrop-blur-xl shadow-[0px_40px_40px_rgba(0,6,21,0.04)]">
+<div class="max-w-7xl mx-auto flex justify-between items-center px-8 py-4">
+<div class="text-xl font-black tracking-tighter text-[#000615] dark:text-white font-headline">ELITE TALENT</div>
+<div class="hidden md:flex items-center gap-10">
+<a class="font-headline font-bold tracking-tight text-sm uppercase text-[#7587a7] dark:text-[#c4c6ce] hover:text-[#000615] dark:hover:text-white transition-colors" href="#">Services</a>
+<a class="font-headline font-bold tracking-tight text-sm uppercase text-[#7587a7] dark:text-[#c4c6ce] hover:text-[#000615] dark:hover:text-white transition-colors" href="#">Sectors</a>
+<a class="font-headline font-bold tracking-tight text-sm uppercase text-[#7587a7] dark:text-[#c4c6ce] hover:text-[#000615] dark:hover:text-white transition-colors" href="#">Careers</a>
+<a class="font-headline font-bold tracking-tight text-sm uppercase text-[#7587a7] dark:text-[#c4c6ce] hover:text-[#000615] dark:hover:text-white transition-colors" href="#">About Us</a>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden lg:flex items-center bg-surface-container-low px-4 py-2 rounded-lg border border-outline-variant/15">
+<span class="material-symbols-outlined text-on-surface-variant text-sm mr-2">search</span>
+<input class="bg-transparent border-none text-xs focus:ring-0 w-32 outline-none" placeholder="Search insights..." type="text"/>
+</div>
+<button class="bg-primary-container text-on-primary px-6 py-2.5 rounded-lg font-headline font-bold text-xs uppercase tracking-widest hover:translate-y-[-2px] transition-transform shadow-lg shadow-primary-container/20">
+                    Contact Us
+                </button>
+</div>
+</div>
+</nav>
+<!-- Hero Section -->
+<section class="relative min-h-screen flex items-center overflow-hidden pt-20">
+<!-- Animated Background Base -->
+<div class="absolute inset-0 hero-gradient -z-10"></div>
+<div class="absolute inset-0 network-grid -z-10"></div>
+<!-- Animated Elements -->
+<div class="absolute top-1/4 right-1/4 w-96 h-96 bg-tertiary-fixed-dim/20 rounded-full blur-[120px]"></div>
+<div class="absolute bottom-1/4 left-1/4 w-64 h-64 bg-secondary/20 rounded-full blur-[100px]"></div>
+<div class="max-w-7xl mx-auto px-8 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+<div class="lg:col-span-7 space-y-8">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 backdrop-blur-md">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed-dim animate-pulse"></span>
+<span class="text-xs font-bold text-white uppercase tracking-widest">Global Staffing Hub</span>
+</div>
+<h1 class="text-6xl md:text-7xl font-headline font-extrabold text-white leading-[1.1] tracking-tighter">
+                    Empowering Enterprises with <span class="text-tertiary-fixed-dim">Elite IT Talent</span>
+</h1>
+<p class="text-xl text-white/70 max-w-xl font-light leading-relaxed">
+                    We provide pre-vetted technology professionals and end-to-end IT solutions for global businesses scaling at the speed of thought.
+                </p>
+<div class="flex flex-wrap gap-4 pt-4">
+<button class="bg-tertiary-fixed-dim text-primary px-8 py-4 rounded-lg font-headline font-bold text-sm uppercase tracking-widest hover:bg-white transition-colors">
+                        Build Your Team
+                    </button>
+<button class="border border-white/30 text-white px-8 py-4 rounded-lg font-headline font-bold text-sm uppercase tracking-widest backdrop-blur-md hover:bg-white/10 transition-colors">
+                        Our Solutions
+                    </button>
+</div>
+</div>
+<!-- Floating Talent Profile Cards -->
+<div class="lg:col-span-5 relative hidden lg:block">
+<div class="glass-card absolute -top-12 -left-8 p-6 rounded-xl w-64 z-20">
+<div class="flex items-center gap-4 mb-4">
+<div class="w-12 h-12 rounded-full bg-surface-container-high overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="professional woman developer with glasses smiling confidently in a modern tech office setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC61zkM6_8aK-6bDcKkPPAo3iWTAOL-gW_iK8X79opT9YtKKNZIrFsKADePE9HIejIgY_9VbGXpbFFRQcmjJm_rp6t0jzk_u93DMP3CxNnhrW0lrc98LidgWtt4gYtk7bzVRuf5V6VnCHkMUDQisBLVL-1o0FwW6HEg_pQ2b7BU9lU8d71ihqYPbLSNZR0AKoYZF16yXkvVoydGa8HxgYALg9gPCAccjrC6NVv3gvE2wc80sjul5wbO6gJukt9JV-JD9NPlLP5-mkzD"/>
+</div>
+<div>
+<div class="text-sm font-bold">Sarah Chen</div>
+<div class="text-[10px] text-on-primary-container uppercase font-bold tracking-tighter">Senior SAP Consultant</div>
+</div>
+</div>
+<div class="flex gap-2">
+<span class="px-2 py-1 rounded-sm bg-tertiary-fixed-dim/20 text-tertiary-fixed-dim text-[10px] font-bold">VETTED</span>
+<span class="px-2 py-1 rounded-sm bg-secondary/10 text-secondary text-[10px] font-bold">AVAILABLE</span>
+</div>
+</div>
+<div class="glass-card p-6 rounded-xl w-72 translate-x-12 translate-y-12 z-10">
+<div class="text-xs font-bold text-on-primary-container mb-4 uppercase tracking-widest">Live Activity</div>
+<div class="space-y-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary text-lg">check_circle</span>
+<div class="text-xs">DevOps Team Scaled +4</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary-fixed-dim text-lg">bolt</span>
+<div class="text-xs">QA Sprint Started</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-primary-container text-lg">public</span>
+<div class="text-xs">New Client: Fortune 500 Retail</div>
+</div>
+</div>
+</div>
+<!-- Abstract Network Pulse SVG -->
+<div class="absolute inset-0 -z-10 opacity-30">
+<svg class="w-full h-full" viewbox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+<path d="M45.7,-78.2C58.9,-71.4,69.1,-58.5,76.5,-44.6C83.8,-30.7,88.4,-15.3,87.6,-0.5C86.7,14.4,80.4,28.7,72.4,41.4C64.4,54.1,54.7,65.1,42.5,73.1C30.4,81.1,15.2,86,0.3,85.5C-14.6,85.1,-29.2,79.2,-42.2,70.8C-55.2,62.4,-66.6,51.5,-75,38.6C-83.4,25.7,-88.9,10.9,-87.3,-3.1C-85.7,-17,-77.1,-30.1,-67,-41.2C-57,-52.3,-45.5,-61.4,-33.1,-68.8C-20.7,-76.3,-7.4,-82.1,7.2,-83.4C21.8,-84.6,32.5,-85.1,45.7,-78.2Z" fill="#4cd7f6" transform="translate(100 100)"></path>
+</svg>
+</div>
+</div>
+</div>
+</section>
+<!-- Metrics Section -->
+<section class="py-24 bg-surface relative">
+<div class="max-w-7xl mx-auto px-8">
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-8">
+<div class="glass-card p-10 rounded-xl group hover:bg-white transition-all duration-500">
+<div class="text-secondary mb-4 group-hover:scale-110 transition-transform duration-500">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">group</span>
+</div>
+<div class="text-4xl font-headline font-black text-primary">500+</div>
+<div class="text-sm font-bold text-on-primary-container uppercase tracking-widest mt-2">Consultants</div>
+</div>
+<div class="glass-card p-10 rounded-xl group hover:bg-white transition-all duration-500">
+<div class="text-tertiary-fixed-dim mb-4 group-hover:scale-110 transition-transform duration-500">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">business</span>
+</div>
+<div class="text-4xl font-headline font-black text-primary">50+</div>
+<div class="text-sm font-bold text-on-primary-container uppercase tracking-widest mt-2">Global Clients</div>
+</div>
+<div class="glass-card p-10 rounded-xl group hover:bg-white transition-all duration-500">
+<div class="text-secondary mb-4 group-hover:scale-110 transition-transform duration-500">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">terminal</span>
+</div>
+<div class="text-4xl font-headline font-black text-primary">10+</div>
+<div class="text-sm font-bold text-on-primary-container uppercase tracking-widest mt-2">Tech Stacks</div>
+</div>
+<div class="glass-card p-10 rounded-xl group hover:bg-white transition-all duration-500">
+<div class="text-tertiary-fixed-dim mb-4 group-hover:scale-110 transition-transform duration-500">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">support_agent</span>
+</div>
+<div class="text-4xl font-headline font-black text-primary">24/7</div>
+<div class="text-sm font-bold text-on-primary-container uppercase tracking-widest mt-2">Direct Support</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Services Bento Grid -->
+<section class="py-24 bg-surface-container-low">
+<div class="max-w-7xl mx-auto px-8">
+<div class="flex flex-col md:flex-row justify-between items-end gap-8 mb-16">
+<div class="max-w-2xl">
+<h2 class="text-4xl font-headline font-extrabold text-primary tracking-tighter mb-4">Architectural Solutions for Digital Dominance</h2>
+<p class="text-on-primary-container">Strategic IT services designed to bridge the gap between complex engineering and business growth.</p>
+</div>
+<div class="flex items-center gap-4 text-sm font-bold text-secondary uppercase tracking-widest">
+<span>View All Services</span>
+<span class="material-symbols-outlined">arrow_forward</span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+<!-- Service Cards -->
+<div class="glass-card p-8 rounded-xl hover:translate-y-[-8px] transition-all duration-300 group">
+<span class="material-symbols-outlined text-3xl text-secondary mb-6 block">badge</span>
+<h3 class="text-lg font-headline font-bold mb-3">IT Staffing</h3>
+<p class="text-sm text-on-primary-container leading-relaxed">Elite developers and architects deployed within 48 hours.</p>
+</div>
+<div class="glass-card p-8 rounded-xl bg-primary-container text-white border-none hover:translate-y-[-8px] transition-all duration-300">
+<span class="material-symbols-outlined text-3xl text-tertiary-fixed-dim mb-6 block">database</span>
+<h3 class="text-lg font-headline font-bold mb-3">SAP &amp; Enterprise</h3>
+<p class="text-sm text-white/70 leading-relaxed">Full-lifecycle implementation and optimization of enterprise ecosystems.</p>
+</div>
+<div class="glass-card p-8 rounded-xl hover:translate-y-[-8px] transition-all duration-300">
+<span class="material-symbols-outlined text-3xl text-secondary mb-6 block">insights</span>
+<h3 class="text-lg font-headline font-bold mb-3">BI &amp; Data</h3>
+<p class="text-sm text-on-primary-container leading-relaxed">Transforming raw data into predictive business intelligence.</p>
+</div>
+<div class="glass-card p-8 rounded-xl hover:translate-y-[-8px] transition-all duration-300">
+<span class="material-symbols-outlined text-3xl text-secondary mb-6 block">devices</span>
+<h3 class="text-lg font-headline font-bold mb-3">App Development</h3>
+<p class="text-sm text-on-primary-container leading-relaxed">Custom mobile and web applications built for scale.</p>
+</div>
+<div class="glass-card p-8 rounded-xl hover:translate-y-[-8px] transition-all duration-300">
+<span class="material-symbols-outlined text-3xl text-secondary mb-6 block">cloud</span>
+<h3 class="text-lg font-headline font-bold mb-3">Cloud &amp; DevOps</h3>
+<p class="text-sm text-on-primary-container leading-relaxed">Modernize your infrastructure with seamless CI/CD pipelines.</p>
+</div>
+<div class="glass-card p-8 rounded-xl hover:translate-y-[-8px] transition-all duration-300">
+<span class="material-symbols-outlined text-3xl text-secondary mb-6 block">verified_user</span>
+<h3 class="text-lg font-headline font-bold mb-3">QA Testing</h3>
+<p class="text-sm text-on-primary-container leading-relaxed">Rigorous automated and manual quality assurance workflows.</p>
+</div>
+<div class="glass-card p-8 rounded-xl hover:translate-y-[-8px] transition-all duration-300">
+<span class="material-symbols-outlined text-3xl text-secondary mb-6 block">router</span>
+<h3 class="text-lg font-headline font-bold mb-3">Infrastructure</h3>
+<p class="text-sm text-on-primary-container leading-relaxed">Resilient network architecture for mission-critical operations.</p>
+</div>
+<div class="glass-card p-8 rounded-xl hover:translate-y-[-8px] transition-all duration-300">
+<span class="material-symbols-outlined text-3xl text-secondary mb-6 block">rocket_launch</span>
+<h3 class="text-lg font-headline font-bold mb-3">Project Delivery</h3>
+<p class="text-sm text-on-primary-container leading-relaxed">End-to-end management from concept to global deployment.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- How It Works Stepper -->
+<section class="py-24 bg-white relative overflow-hidden">
+<div class="absolute right-0 top-0 w-1/3 h-full bg-surface-container-low -z-10 skew-x-[-12deg] translate-x-20"></div>
+<div class="max-w-7xl mx-auto px-8">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-16">
+<div class="lg:col-span-4">
+<h2 class="text-4xl font-headline font-extrabold text-primary tracking-tighter mb-6">Our Blueprint for Success</h2>
+<p class="text-on-primary-container mb-8">A streamlined methodology focused on precision hiring and rapid technical execution.</p>
+<button class="bg-primary text-white px-8 py-4 rounded-lg font-headline font-bold text-sm uppercase tracking-widest shadow-xl">Get Started</button>
+</div>
+<div class="lg:col-span-8 space-y-12">
+<div class="flex gap-8 group">
+<div class="flex flex-col items-center">
+<div class="w-14 h-14 rounded-full bg-secondary text-white flex items-center justify-center font-headline font-black text-xl shadow-lg shadow-secondary/20">1</div>
+<div class="w-[2px] h-full bg-outline-variant/30 my-2"></div>
+</div>
+<div class="pb-12">
+<h4 class="text-2xl font-headline font-bold mb-3">Discover &amp; Define</h4>
+<p class="text-on-primary-container max-w-xl">We analyze your project goals, technical requirements, and cultural fit to create a bespoke talent roadmap.</p>
+</div>
+</div>
+<div class="flex gap-8 group">
+<div class="flex flex-col items-center">
+<div class="w-14 h-14 rounded-full bg-tertiary-fixed-dim text-primary flex items-center justify-center font-headline font-black text-xl shadow-lg shadow-tertiary-fixed-dim/20">2</div>
+<div class="w-[2px] h-full bg-outline-variant/30 my-2"></div>
+</div>
+<div class="pb-12">
+<h4 class="text-2xl font-headline font-bold mb-3">Deploy Talent / Build Solution</h4>
+<p class="text-on-primary-container max-w-xl">Our engineers integrate with your existing teams or start building your greenfield solution immediately.</p>
+</div>
+</div>
+<div class="flex gap-8 group">
+<div class="flex flex-col items-center">
+<div class="w-14 h-14 rounded-full bg-primary-container text-white flex items-center justify-center font-headline font-black text-xl">3</div>
+</div>
+<div>
+<h4 class="text-2xl font-headline font-bold mb-3">Deliver &amp; Scale</h4>
+<p class="text-on-primary-container max-w-xl">Continuous optimization and scaling resources based on real-time project velocity and milestones.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Why Choose Us / Industries -->
+<section class="py-24 bg-primary text-white overflow-hidden relative">
+<div class="absolute inset-0 network-grid opacity-5"></div>
+<div class="max-w-7xl mx-auto px-8 relative">
+<div class="text-center mb-20">
+<h2 class="text-4xl md:text-5xl font-headline font-extrabold tracking-tighter mb-6">Built for the Modern Global Scale</h2>
+<p class="text-white/60 max-w-2xl mx-auto">Why the world's leading enterprises trust Elite Talent with their most critical engineering challenges.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-5 gap-8 mb-24">
+<div class="text-center group">
+<div class="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-6 group-hover:bg-tertiary-fixed-dim/20 transition-colors">
+<span class="material-symbols-outlined text-tertiary-fixed-dim">verified</span>
+</div>
+<h5 class="text-sm font-bold uppercase tracking-widest mb-2">Pre-vetted Talent</h5>
+<p class="text-xs text-white/50">Top 1% Global Experts</p>
+</div>
+<div class="text-center group">
+<div class="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-6 group-hover:bg-tertiary-fixed-dim/20 transition-colors">
+<span class="material-symbols-outlined text-tertiary-fixed-dim">speed</span>
+</div>
+<h5 class="text-sm font-bold uppercase tracking-widest mb-2">Fast Deployment</h5>
+<p class="text-xs text-white/50">Ready within 48h</p>
+</div>
+<div class="text-center group">
+<div class="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-6 group-hover:bg-tertiary-fixed-dim/20 transition-colors">
+<span class="material-symbols-outlined text-tertiary-fixed-dim">language</span>
+</div>
+<h5 class="text-sm font-bold uppercase tracking-widest mb-2">Global Model</h5>
+<p class="text-xs text-white/50">24/7 Delivery Cycles</p>
+</div>
+<div class="text-center group">
+<div class="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-6 group-hover:bg-tertiary-fixed-dim/20 transition-colors">
+<span class="material-symbols-outlined text-tertiary-fixed-dim">handshake</span>
+</div>
+<h5 class="text-sm font-bold uppercase tracking-widest mb-2">Flexible Terms</h5>
+<p class="text-xs text-white/50">Agile Engagement</p>
+</div>
+<div class="text-center group">
+<div class="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-6 group-hover:bg-tertiary-fixed-dim/20 transition-colors">
+<span class="material-symbols-outlined text-tertiary-fixed-dim">trending_up</span>
+</div>
+<h5 class="text-sm font-bold uppercase tracking-widest mb-2">Scalable Teams</h5>
+<p class="text-xs text-white/50">Grow as you build</p>
+</div>
+</div>
+<!-- Industries Horizontal Scroll / Grid -->
+<div class="bg-white/5 backdrop-blur-xl rounded-2xl p-12 border border-white/10">
+<div class="flex flex-col lg:flex-row items-center gap-12">
+<div class="lg:w-1/3">
+<h4 class="text-2xl font-headline font-bold mb-4">Industries of Focus</h4>
+<p class="text-white/60 text-sm">Specialized domain knowledge across high-stakes industrial sectors.</p>
+</div>
+<div class="lg:w-2/3 flex flex-wrap gap-4">
+<div class="px-6 py-3 rounded-full border border-white/20 hover:border-tertiary-fixed-dim transition-colors cursor-default">Finance</div>
+<div class="px-6 py-3 rounded-full border border-white/20 hover:border-tertiary-fixed-dim transition-colors cursor-default">Healthcare</div>
+<div class="px-6 py-3 rounded-full border border-white/20 hover:border-tertiary-fixed-dim transition-colors cursor-default">Retail</div>
+<div class="px-6 py-3 rounded-full border border-white/20 hover:border-tertiary-fixed-dim transition-colors cursor-default">Manufacturing</div>
+<div class="px-6 py-3 rounded-full border border-white/20 hover:border-tertiary-fixed-dim transition-colors cursor-default">Technology</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Testimonials & Clients -->
+<section class="py-24 bg-surface">
+<div class="max-w-7xl mx-auto px-8">
+<div class="flex flex-col lg:flex-row gap-16 items-center">
+<div class="lg:w-1/2 grid grid-cols-2 gap-8 opacity-40 grayscale group">
+<div class="h-24 bg-surface-container-high rounded-xl flex items-center justify-center p-6 hover:grayscale-0 transition-all duration-500 hover:opacity-100">
+<span class="font-black text-primary/40 tracking-tighter text-xl">CLIENT_A</span>
+</div>
+<div class="h-24 bg-surface-container-high rounded-xl flex items-center justify-center p-6 hover:grayscale-0 transition-all duration-500 hover:opacity-100">
+<span class="font-black text-primary/40 tracking-tighter text-xl">CLIENT_B</span>
+</div>
+<div class="h-24 bg-surface-container-high rounded-xl flex items-center justify-center p-6 hover:grayscale-0 transition-all duration-500 hover:opacity-100">
+<span class="font-black text-primary/40 tracking-tighter text-xl">CLIENT_C</span>
+</div>
+<div class="h-24 bg-surface-container-high rounded-xl flex items-center justify-center p-6 hover:grayscale-0 transition-all duration-500 hover:opacity-100">
+<span class="font-black text-primary/40 tracking-tighter text-xl">CLIENT_D</span>
+</div>
+</div>
+<div class="lg:w-1/2">
+<div class="glass-card p-12 rounded-2xl relative">
+<span class="material-symbols-outlined text-secondary text-5xl absolute -top-6 left-12 opacity-20">format_quote</span>
+<p class="text-xl font-body font-light italic leading-relaxed text-on-surface mb-8">
+                            "Elite Talent transformed our cloud migration strategy. The senior engineers they provided didn't just code; they helped redefine our entire infrastructure architecture for the next decade."
+                        </p>
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-surface-container-high overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="professional portrait of a CTO man in a clean studio lighting environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_LgOhCaTkCs8cq6TGtac_7S7U46X8VOsoLwinvvlmyc6jpcq3G2A53tDIWG_H2St8HM1rggKJ0UgJt4n8lFcgZagovO0HQhz0WxUqif2uzNb-ugpN10fexXWwEKAw-DUGDSNLtyAKILAUQcljlbsMhtd1_Uqk9yOplLwRomh1krvI1OLNyMGo55t5fSJtFNxh0e2sDuaVuagQzrBAnYql4iVQSubQP8oWN0d50moXZo8ztF-nrtFOC-B1XONXWdhs4f0bCocGw_no"/>
+</div>
+<div>
+<div class="text-sm font-bold">Marcus Thorne</div>
+<div class="text-xs text-on-primary-container">CTO, Global Finance Corp</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Final CTA -->
+<section class="py-24">
+<div class="max-w-7xl mx-auto px-8">
+<div class="bg-primary-container rounded-3xl p-16 text-center relative overflow-hidden">
+<!-- Decorative Glows -->
+<div class="absolute -top-24 -left-24 w-64 h-64 bg-secondary/30 rounded-full blur-[100px]"></div>
+<div class="absolute -bottom-24 -right-24 w-64 h-64 bg-tertiary-fixed-dim/30 rounded-full blur-[100px]"></div>
+<h2 class="text-4xl md:text-5xl font-headline font-extrabold text-white tracking-tighter mb-8 relative">Ready to Build Your Team Today?</h2>
+<div class="flex flex-col sm:flex-row gap-6 justify-center relative">
+<button class="bg-tertiary-fixed-dim text-primary px-10 py-5 rounded-lg font-headline font-bold text-sm uppercase tracking-widest hover:scale-105 transition-transform">Get a Free Quote</button>
+<button class="border border-white/20 text-white px-10 py-5 rounded-lg font-headline font-bold text-sm uppercase tracking-widest backdrop-blur-md hover:bg-white/10 transition-colors">Talk to an Expert</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Footer -->
+<footer class="bg-[#eceef1] dark:bg-[#000615] w-full border-t border-[#c4c6ce]/15">
+<div class="max-w-7xl mx-auto px-8 py-16 grid grid-cols-1 md:grid-cols-4 gap-12">
+<div class="space-y-6">
+<div class="text-lg font-bold text-[#0B1F3A] dark:text-white font-headline">ELITE TALENT</div>
+<p class="text-sm text-[#7587a7] dark:text-[#c4c6ce] leading-relaxed">Global architecture for enterprise scale. We bridge the human gap in technology.</p>
+<div class="flex gap-4">
+<div class="w-10 h-10 rounded-full bg-[#0B1F3A]/5 flex items-center justify-center text-[#0B1F3A] cursor-pointer hover:bg-secondary hover:text-white transition-all">
+<span class="material-symbols-outlined text-lg">share</span>
+</div>
+<div class="w-10 h-10 rounded-full bg-[#0B1F3A]/5 flex items-center justify-center text-[#0B1F3A] cursor-pointer hover:bg-secondary hover:text-white transition-all">
+<span class="material-symbols-outlined text-lg">mail</span>
+</div>
+</div>
+</div>
+<div>
+<h6 class="font-headline font-bold text-sm text-[#0B1F3A] dark:text-white mb-6 uppercase tracking-widest">Solutions</h6>
+<ul class="space-y-4 text-sm text-[#7587a7] dark:text-[#c4c6ce]">
+<li><a class="hover:text-[#4059aa] transition-colors" href="#">Staffing Solutions</a></li>
+<li><a class="hover:text-[#4059aa] transition-colors" href="#">Consulting Services</a></li>
+<li><a class="hover:text-[#4059aa] transition-colors" href="#">Global Delivery</a></li>
+<li><a class="hover:text-[#4059aa] transition-colors" href="#">Digital Transformation</a></li>
+</ul>
+</div>
+<div>
+<h6 class="font-headline font-bold text-sm text-[#0B1F3A] dark:text-white mb-6 uppercase tracking-widest">Company</h6>
+<ul class="space-y-4 text-sm text-[#7587a7] dark:text-[#c4c6ce]">
+<li><a class="hover:text-[#4059aa] transition-colors" href="#">About Us</a></li>
+<li><a class="hover:text-[#4059aa] transition-colors" href="#">Careers</a></li>
+<li><a class="hover:text-[#4059aa] transition-colors" href="#">Global Offices</a></li>
+<li><a class="hover:text-[#4059aa] transition-colors" href="#">Security</a></li>
+</ul>
+</div>
+<div>
+<h6 class="font-headline font-bold text-sm text-[#0B1F3A] dark:text-white mb-6 uppercase tracking-widest">Legal</h6>
+<ul class="space-y-4 text-sm text-[#7587a7] dark:text-[#c4c6ce]">
+<li><a class="hover:text-[#4059aa] transition-colors" href="#">Privacy Policy</a></li>
+<li><a class="hover:text-[#4059aa] transition-colors" href="#">Terms of Service</a></li>
+<li><a class="hover:text-[#4059aa] transition-colors" href="#">Cookie Settings</a></li>
+</ul>
+</div>
+</div>
+<div class="max-w-7xl mx-auto px-8 py-8 border-t border-[#c4c6ce]/15 flex flex-col md:flex-row justify-between items-center gap-4">
+<div class="text-xs text-[#7587a7] dark:text-[#c4c6ce] font-body">© 2024 Elite Talent &amp; Global Scale. Architectural Intelligence Reserved.</div>
+<div class="flex gap-6 text-xs font-bold text-[#0B1F3A] dark:text-white uppercase tracking-tighter">
+<span>EN</span>
+<span class="opacity-30">DE</span>
+<span class="opacity-30">FR</span>
+</div>
+</div>
+</footer>
+</body></html>

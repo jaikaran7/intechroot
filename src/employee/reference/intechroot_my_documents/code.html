@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>InTechRoot | Employee Documents</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-tertiary-container": "#0094ac",
+              "on-tertiary": "#ffffff",
+              "tertiary-container": "#00232a",
+              "tertiary-fixed": "#acedff",
+              "primary-fixed": "#d6e3ff",
+              "on-primary": "#ffffff",
+              "tertiary-fixed-dim": "#4cd7f6",
+              "surface-container-lowest": "#ffffff",
+              "surface-container-highest": "#e0e3e6",
+              "background": "#f7f9fc",
+              "secondary-container": "#8fa7fe",
+              "on-tertiary-fixed": "#001f26",
+              "on-primary-fixed": "#071c36",
+              "on-tertiary-fixed-variant": "#004e5c",
+              "primary-container": "#0b1f3a",
+              "surface-bright": "#f7f9fc",
+              "surface-container-high": "#e6e8eb",
+              "outline-variant": "#c4c6ce",
+              "primary-fixed-dim": "#b5c7ea",
+              "on-surface": "#191c1e",
+              "secondary": "#4059aa",
+              "inverse-on-surface": "#eff1f4",
+              "on-background": "#191c1e",
+              "surface-container": "#eceef1",
+              "on-secondary-container": "#1d3989",
+              "on-error-container": "#93000a",
+              "surface-container-low": "#f2f4f7",
+              "on-secondary-fixed": "#00164e",
+              "error-container": "#ffdad6",
+              "surface-tint": "#4d5f7d",
+              "error": "#ba1a1a",
+              "primary": "#000615",
+              "on-surface-variant": "#44474d",
+              "inverse-surface": "#2d3133",
+              "tertiary": "#00080b",
+              "surface": "#f7f9fc",
+              "inverse-primary": "#b5c7ea",
+              "on-primary-fixed-variant": "#364764",
+              "surface-variant": "#e0e3e6",
+              "surface-dim": "#d8dadd",
+              "outline": "#75777e",
+              "secondary-fixed-dim": "#b6c4ff",
+              "on-secondary": "#ffffff",
+              "on-error": "#ffffff",
+              "on-secondary-fixed-variant": "#264191",
+              "on-primary-container": "#7587a7",
+              "secondary-fixed": "#dce1ff"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(196, 198, 206, 0.15);
+            box-shadow: 0 40px 40px 0 rgba(0, 6, 21, 0.04);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 border-r border-white/10 bg-[#000615] flex flex-col py-8 px-4 z-50">
+<div class="mb-10 px-2">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-tertiary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">dataset</span>
+</div>
+<div>
+<div class="text-xl font-bold text-white tracking-[-0.02em] font-headline">InTechRoot</div>
+<div class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Employee Portal</div>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white transition-all duration-200 hover:bg-white/10 group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="dashboard">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-[#acedff] font-bold border-r-2 border-[#acedff] bg-white/5 group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="badge">badge</span>
+<span class="text-sm">Employees</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white transition-all duration-200 hover:bg-white/10 group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="history_toggle_off">history_toggle_off</span>
+<span class="text-sm font-medium">Timesheets</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white transition-all duration-200 hover:bg-white/10 group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="payments">payments</span>
+<span class="text-sm font-medium">Payroll</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white transition-all duration-200 hover:bg-white/10 group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="work_history">work_history</span>
+<span class="text-sm font-medium">Job Placements</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white transition-all duration-200 hover:bg-white/10 group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="analytics">analytics</span>
+<span class="text-sm font-medium">Reports</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white transition-all duration-200 hover:bg-white/10 group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</nav>
+<div class="mt-auto px-4 pt-4 border-t border-white/5">
+<div class="flex items-center gap-3">
+<img alt="User Profile" class="w-10 h-10 rounded-lg object-cover" data-alt="professional headshot of a corporate executive in a dark suit with a neutral studio background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDAWUfre3Rqrhrr6Wmwg-LP7H0gfm6LXbOZrwqDwDcu3SaW47s3Ou-H_mzlNPoFMh3w6iijXpFIH97tEzrKBt2LDap-RiEF_0FD1lEfwKDjdBd2UV09NG0wZDZnZF17dgLDJJNSeffuEwY4TWT9m8Z1BQ9F_wbwXzmIY2oAN3qZ-3fVazcPbvWZ41UaRigqJDYyOyDky9mtEvJBgQBSfPtRXjbjpNGh70-nHWc1j5ZND2QD3XPPzrcm3esnf1_dNsxzQVw4iE0JDjPj"/>
+<div class="overflow-hidden">
+<p class="text-xs font-bold text-white truncate">Marcus Sterling</p>
+<p class="text-[10px] text-slate-500 truncate">HR Administrator</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 z-40 bg-white/60 backdrop-blur-xl flex justify-between items-center px-8">
+<div class="flex items-center gap-4 w-1/3">
+<div class="relative w-full max-w-sm group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+<input class="w-full bg-surface-container-low border-none focus:ring-2 focus:ring-[#4cd7f6]/20 py-2 pl-10 pr-4 rounded-lg text-sm transition-all" placeholder="Search across portal..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<button class="text-slate-500 hover:text-[#4cd7f6] transition-colors relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-error rounded-full border-2 border-white"></span>
+</button>
+<button class="text-slate-500 hover:text-[#4cd7f6] transition-colors">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</button>
+<div class="h-8 w-[1px] bg-outline-variant/30 mx-2"></div>
+<div class="flex items-center gap-2">
+<span class="text-xs font-semibold text-primary-container">Employee Documents</span>
+<span class="material-symbols-outlined text-xs text-slate-400">arrow_forward_ios</span>
+<span class="text-xs font-bold text-secondary">Compliance</span>
+</div>
+</div>
+</header>
+<!-- Content Canvas -->
+<div class="mt-16 p-8 flex-1">
+<!-- Header Section -->
+<div class="mb-10 flex justify-between items-end">
+<div>
+<h1 class="text-4xl font-extrabold text-primary-container tracking-tight mb-2">Employee Documents</h1>
+<p class="text-on-surface-variant max-w-md">Manage, track, and verify essential employee certifications and legal documentation with automated expiry alerts.</p>
+</div>
+<button class="bg-primary-container text-on-primary px-6 py-3 rounded flex items-center gap-2 hover:translate-y-[-2px] transition-all shadow-lg shadow-primary-container/20">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">add</span>
+<span class="font-bold text-sm">Upload New Document</span>
+</button>
+</div>
+<!-- Filters Bar -->
+<div class="glass-card rounded-xl p-4 mb-8 flex flex-wrap items-center gap-6">
+<div class="flex-1 min-w-[200px]">
+<label class="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5 ml-1">Search Documents</label>
+<div class="relative">
+<input class="w-full bg-surface-container border-none text-sm px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-tertiary-fixed-dim/20" placeholder="Filter by name..." type="text"/>
+</div>
+</div>
+<div class="w-48">
+<label class="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5 ml-1">Document Type</label>
+<select class="w-full bg-surface-container border-none text-sm px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-tertiary-fixed-dim/20">
+<option>All Types</option>
+<option>ID</option>
+<option>Contract</option>
+<option>Certification</option>
+<option>Tax Form</option>
+</select>
+</div>
+<div class="w-48">
+<label class="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5 ml-1">Status</label>
+<select class="w-full bg-surface-container border-none text-sm px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-tertiary-fixed-dim/20">
+<option>All Statuses</option>
+<option>VALID</option>
+<option>EXPIRING SOON</option>
+<option>EXPIRED</option>
+</select>
+</div>
+<div class="flex items-end h-full self-end pb-0.5">
+<button class="p-2.5 bg-surface-container-high hover:bg-surface-container-highest rounded-lg transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">tune</span>
+</button>
+</div>
+</div>
+<!-- Documents Table Container -->
+<div class="glass-card rounded-xl overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low/50">
+<th class="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Document Name</th>
+<th class="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Type</th>
+<th class="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Upload Date</th>
+<th class="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Expiry Date</th>
+<th class="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Status</th>
+<th class="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-blue-50 flex items-center justify-center text-blue-600">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">description</span>
+</div>
+<span class="font-bold text-primary-container text-sm">Passport Copy</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="text-xs font-semibold px-2.5 py-1 rounded bg-slate-100 text-slate-600">ID</span>
+</td>
+<td class="px-6 py-5 text-sm text-on-surface-variant">Oct 12, 2023</td>
+<td class="px-6 py-5 text-sm text-on-surface-variant">Oct 12, 2028</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-1.5 text-emerald-600">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+<span class="text-[10px] font-bold uppercase tracking-wider">VALID</span>
+</div>
+</td>
+<td class="px-6 py-5 text-right">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors hover:bg-white rounded" title="View">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors hover:bg-white rounded" title="Download">
+<span class="material-symbols-outlined text-[20px]">download</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-purple-50 flex items-center justify-center text-purple-600">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">contract</span>
+</div>
+<span class="font-bold text-primary-container text-sm">Employment Contract</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="text-xs font-semibold px-2.5 py-1 rounded bg-slate-100 text-slate-600">Contract</span>
+</td>
+<td class="px-6 py-5 text-sm text-on-surface-variant">Sep 24, 2023</td>
+<td class="px-6 py-5 text-sm text-slate-400 italic">N/A</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-1.5 text-emerald-600">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+<span class="text-[10px] font-bold uppercase tracking-wider">VALID</span>
+</div>
+</td>
+<td class="px-6 py-5 text-right">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors hover:bg-white rounded" title="View">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors hover:bg-white rounded" title="Download">
+<span class="material-symbols-outlined text-[20px]">download</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="bg-amber-50/30 hover:bg-amber-50/50 transition-colors group">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-amber-50 flex items-center justify-center text-amber-600">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">assignment_ind</span>
+</div>
+<span class="font-bold text-primary-container text-sm">Work Permit</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="text-xs font-semibold px-2.5 py-1 rounded bg-slate-100 text-slate-600">ID</span>
+</td>
+<td class="px-6 py-5 text-sm text-on-surface-variant">Oct 01, 2023</td>
+<td class="px-6 py-5 text-sm text-amber-700 font-bold underline decoration-amber-200">Nov 15, 2023</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-1.5 text-amber-600">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>
+<span class="text-[10px] font-bold uppercase tracking-wider">EXPIRING SOON</span>
+</div>
+</td>
+<td class="px-6 py-5 text-right">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors hover:bg-white rounded" title="View">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors hover:bg-white rounded" title="Download">
+<span class="material-symbols-outlined text-[20px]">download</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="p-4 bg-surface-container-low/30 flex justify-between items-center">
+<span class="text-xs text-on-surface-variant">Showing 1-3 of 42 documents</span>
+<div class="flex items-center gap-2">
+<button class="p-2 text-slate-400 hover:text-primary transition-colors" disabled="">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="px-3 py-1 bg-primary-container text-white text-xs font-bold rounded">1</button>
+<button class="px-3 py-1 hover:bg-surface-container-high text-xs font-bold rounded transition-colors">2</button>
+<button class="px-3 py-1 hover:bg-surface-container-high text-xs font-bold rounded transition-colors">3</button>
+<button class="p-2 text-slate-600 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Stats Overview (Asymmetric Element) -->
+<div class="mt-12 grid grid-cols-12 gap-8">
+<div class="col-span-12 lg:col-span-8">
+<div class="glass-card p-6 rounded-xl flex items-center justify-between border-l-4 border-l-[#4cd7f6]">
+<div class="flex items-center gap-6">
+<div class="w-16 h-16 rounded-full bg-tertiary-fixed/30 flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary-fixed-dim text-3xl">policy</span>
+</div>
+<div>
+<h3 class="text-xl font-bold text-primary-container">Compliance Audit Score</h3>
+<p class="text-on-surface-variant text-sm">Your department currently maintains a 98% document accuracy rate.</p>
+</div>
+</div>
+<div class="text-right">
+<span class="text-4xl font-black text-primary-container">98%</span>
+<div class="w-32 h-1 bg-surface-container-highest mt-2 overflow-hidden rounded-full">
+<div class="bg-tertiary-fixed-dim h-full w-[98%]"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="col-span-12 lg:col-span-4">
+<div class="bg-primary-container p-6 rounded-xl relative overflow-hidden h-full flex flex-col justify-center">
+<div class="relative z-10">
+<p class="text-[#acedff] text-[10px] font-bold uppercase tracking-[0.2em] mb-2">Next Step</p>
+<h3 class="text-white text-lg font-bold leading-tight">Run full audit report for Q4 compliance review.</h3>
+<button class="mt-4 text-white text-xs font-bold flex items-center gap-2 group">
+                                Generate Report <span class="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</div>
+<span class="material-symbols-outlined absolute -bottom-4 -right-4 text-white/10 text-[120px] select-none" style="font-variation-settings: 'FILL' 1;">analytics</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Decoration -->
+<footer class="mt-auto px-8 py-4 bg-surface-container-low/30 border-t border-outline-variant/10 text-center">
+<p class="text-[10px] text-slate-400 font-medium tracking-widest uppercase">InTechRoot Enterprise Architecture • Node ID: 882-99-ALPHA</p>
+</footer>
+</main>
+<!-- FAB (Suppressed based on context rules - not needed for this detailed task page) -->
+</body></html>

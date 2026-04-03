@@ -1,0 +1,114 @@
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+  50% {
+    transform: translateY(-15px) rotate(0.5deg);
+  }
+}
+@keyframes mesh {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  vertical-align: middle;
+}
+.glass-card {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.05),
+    0 20px 25px -5px rgba(0, 6, 21, 0.05),
+    inset 0 0 20px rgba(255, 255, 255, 0.3);
+}
+.glass-sidebar {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(32px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 10px 30px rgba(0, 6, 21, 0.03);
+}
+.network-grid {
+  background-image: radial-gradient(circle, #3b82f6 0.5px, transparent 0.5px);
+  background-size: 40px 40px;
+  opacity: 0.1;
+}
+.mesh-gradient {
+  position: absolute;
+  width: 140%;
+  height: 140%;
+  top: -20%;
+  left: -20%;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(30, 58, 138, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.15) 0%, transparent 40%);
+  animation: mesh 15s ease-in-out infinite;
+  filter: blur(60px);
+  z-index: -1;
+}
+.floating-element {
+  animation: float 8s ease-in-out infinite;
+}
+.monolith-text {
+  letter-spacing: -0.04em;
+}
+.hero-gradient {
+  background: radial-gradient(circle at 0% 0%, #0b1f3a 0%, #000615 100%);
+}
+
+/* Careers page uses a different token palette than Home. */
+.careers-page .text-secondary {
+  color: rgb(30 58 138) !important;
+}
+.careers-page .bg-secondary {
+  background-color: rgb(30 58 138) !important;
+}
+.careers-page .bg-secondary\/5 {
+  background-color: rgb(30 58 138 / 0.05) !important;
+}
+.careers-page .bg-secondary\/10 {
+  background-color: rgb(30 58 138 / 0.1) !important;
+}
+.careers-page .bg-secondary\/40 {
+  background-color: rgb(30 58 138 / 0.4) !important;
+}
+.careers-page .border-secondary\/20 {
+  border-color: rgb(30 58 138 / 0.2) !important;
+}
+.careers-page .hover\:bg-secondary:hover {
+  background-color: rgb(30 58 138) !important;
+}
+.careers-page .hover\:text-secondary:hover {
+  color: rgb(30 58 138) !important;
+}
+
+.careers-page .text-tertiary-fixed {
+  color: rgb(59 130 246) !important;
+}
+.careers-page .bg-tertiary-fixed {
+  background-color: rgb(59 130 246) !important;
+}
+.careers-page .bg-tertiary-fixed\/10 {
+  background-color: rgb(59 130 246 / 0.1) !important;
+}
+.careers-page .bg-tertiary-fixed\/20 {
+  background-color: rgb(59 130 246 / 0.2) !important;
+}
+.careers-page .hover\:bg-tertiary-fixed:hover {
+  background-color: rgb(59 130 246) !important;
+}
+.careers-page .hover\:border-tertiary-fixed\/50:hover {
+  border-color: rgb(59 130 246 / 0.5) !important;
+}

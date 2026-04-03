@@ -1,0 +1,327 @@
+[
+  {
+    "id": 1,
+    "jobId": "senior-cloud-architect",
+    "name": "Elena Novikova",
+    "role": "SAP Architect",
+    "experience": "8 Yrs",
+    "location": "Berlin, Germany",
+    "email": "elena@sap-pro.tech",
+    "phone": "+49 176 459 293 88",
+    "stage": "Technical Evaluation",
+    "status": "In Progress",
+    "skills": ["SAP S/4HANA", "Azure Cloud", "Python", "IT Strategy", "Fiori", "Agile Mngmt", "Cloud Arch", "SQL", "German (C2)"],
+    "appliedDate": "October 14, 2023",
+    "documents": {
+      "resume": "#",
+      "coverLetter": "#",
+      "portfolio": "https://elenanova.tech"
+    },
+    "stages": [
+      { "name": "Application Submitted", "date": "Oct 14", "status": "completed" },
+      { "name": "Profile Screening", "date": "Oct 18", "status": "completed" },
+      { "name": "Technical Evaluation", "date": "Oct 24", "status": "current" },
+      { "name": "Client Interview", "date": "Pending", "status": "upcoming" },
+      { "name": "Offer & Onboarding", "date": "Pending", "status": "upcoming" }
+    ],
+    "currentStageIndex": 2,
+    "messages": [],
+    "onboardingDocuments": [
+      {
+        "id": "passport",
+        "templateKey": "passport",
+        "name": "Passport (Front & Back)",
+        "fileName": "Elena_Novikova_Passport.pdf",
+        "fileData": "",
+        "fileUrl": "/sample.pdf",
+        "expiryDate": "2026-04-02",
+        "status": "uploaded",
+        "verification": "verified",
+        "verificationStatus": "Verified"
+      },
+      {
+        "id": "workAuth",
+        "templateKey": "workAuth",
+        "name": "Work Authorization",
+        "fileName": "Work_Auth.pdf",
+        "fileData": "",
+        "fileUrl": "/sample.pdf",
+        "expiryDate": "2026-12-31",
+        "status": "uploaded",
+        "verification": "unapproved",
+        "verificationStatus": "Unapproved"
+      }
+    ],
+    "interviews": [
+      {
+        "id": "int1",
+        "title": "Technical Round 1",
+        "type": "Technical",
+        "date": "2026-03-20",
+        "time": "10:30 AM",
+        "status": "completed"
+      },
+      {
+        "id": "int2",
+        "title": "System Design",
+        "type": "Technical",
+        "date": "2026-05-15",
+        "time": "02:00 PM",
+        "status": "scheduled"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "jobId": "senior-cloud-architect",
+    "name": "James Miller",
+    "role": "Cloud Engineer",
+    "experience": "6 Yrs",
+    "location": "Toronto, Canada",
+    "email": "james@cloudhub.io",
+    "phone": "+1 (416) 555-0198",
+    "stage": "Profile Screening",
+    "status": "Under Review",
+    "skills": ["SAP S/4HANA", "Azure Cloud", "Python", "IT Strategy", "Fiori", "Agile Mngmt", "Cloud Arch", "SQL", "German (C2)"],
+    "appliedDate": "October 18, 2023",
+    "documents": {
+      "resume": "#",
+      "coverLetter": "#",
+      "portfolio": ""
+    },
+    "stages": [
+      { "name": "Application Submitted", "date": "Oct 14", "status": "completed" },
+      { "name": "Profile Screening", "date": "Oct 18", "status": "current" },
+      { "name": "Technical Evaluation", "date": "Oct 24", "status": "upcoming" },
+      { "name": "Client Interview", "date": "Pending", "status": "upcoming" },
+      { "name": "Offer & Onboarding", "date": "Pending", "status": "upcoming" }
+    ],
+    "currentStageIndex": 1,
+    "messages": []
+  },
+  {
+    "id": 3,
+    "jobId": "devops-engineer-contract",
+    "name": "Sarah Chen",
+    "role": "DevOps Lead",
+    "experience": "12 Yrs",
+    "location": "Singapore",
+    "email": "sarah@devops.ai",
+    "phone": "+65 8123 4567",
+    "stage": "Offer & Onboarding",
+    "status": "Offer Sent",
+    "skills": ["SAP S/4HANA", "Azure Cloud", "Python", "IT Strategy", "Fiori", "Agile Mngmt", "Cloud Arch", "SQL", "German (C2)"],
+    "appliedDate": "October 21, 2023",
+    "documents": {
+      "resume": "#",
+      "coverLetter": "",
+      "portfolio": "https://sarahchen.dev"
+    },
+    "stages": [
+      { "name": "Application Submitted", "date": "Oct 14", "status": "completed" },
+      { "name": "Profile Screening", "date": "Oct 18", "status": "completed" },
+      { "name": "Technical Evaluation", "date": "Oct 24", "status": "completed" },
+      { "name": "Client Interview", "date": "Pending", "status": "completed" },
+      { "name": "Offer & Onboarding", "date": "Pending", "status": "current" }
+    ],
+    "currentStageIndex": 4,
+    "messages": []
+  },
+  {
+    "id": 4,
+    "jobId": "senior-cloud-architect",
+    "name": "Rahul Sharma",
+    "role": "Full Stack Developer",
+    "experience": "5 Yrs",
+    "location": "Bangalore, India",
+    "email": "rahul@stack.dev",
+    "phone": "+91 98765 12345",
+    "stage": "Technical Evaluation",
+    "status": "In Progress",
+    "skills": ["SAP S/4HANA", "Azure Cloud", "Python", "IT Strategy", "Fiori", "Agile Mngmt", "Cloud Arch", "SQL", "German (C2)"],
+    "appliedDate": "October 11, 2023",
+    "documents": {
+      "resume": "#",
+      "coverLetter": "#",
+      "portfolio": ""
+    },
+    "stages": [
+      { "name": "Application Submitted", "date": "Oct 14", "status": "completed" },
+      { "name": "Profile Screening", "date": "Oct 18", "status": "completed" },
+      { "name": "Technical Evaluation", "date": "Oct 24", "status": "current" },
+      { "name": "Client Interview", "date": "Pending", "status": "upcoming" },
+      { "name": "Offer & Onboarding", "date": "Pending", "status": "upcoming" }
+    ],
+    "currentStageIndex": 2,
+    "messages": []
+  },
+  {
+    "id": 5,
+    "jobId": "growth-marketing-expert",
+    "name": "Aisha Khan",
+    "role": "Data Scientist",
+    "experience": "7 Yrs",
+    "location": "Dubai, UAE",
+    "email": "aisha@ml.ai",
+    "phone": "+971 50 123 4567",
+    "stage": "Profile Screening",
+    "status": "Under Review",
+    "skills": ["SAP S/4HANA", "Azure Cloud", "Python", "IT Strategy", "Fiori", "Agile Mngmt", "Cloud Arch", "SQL", "German (C2)"],
+    "appliedDate": "October 16, 2023",
+    "documents": {
+      "resume": "#",
+      "coverLetter": "",
+      "portfolio": "https://aishakhan.ai"
+    },
+    "stages": [
+      { "name": "Application Submitted", "date": "Oct 14", "status": "completed" },
+      { "name": "Profile Screening", "date": "Oct 18", "status": "current" },
+      { "name": "Technical Evaluation", "date": "Oct 24", "status": "upcoming" },
+      { "name": "Client Interview", "date": "Pending", "status": "upcoming" },
+      { "name": "Offer & Onboarding", "date": "Pending", "status": "upcoming" }
+    ],
+    "currentStageIndex": 1,
+    "messages": []
+  },
+  {
+    "id": 6,
+    "jobId": "growth-marketing-expert",
+    "name": "Michael Scott",
+    "role": "Project Manager",
+    "experience": "10 Yrs",
+    "location": "New York, USA",
+    "email": "michael@corp.com",
+    "phone": "+1 (212) 555-0144",
+    "stage": "Client Interview",
+    "status": "Scheduled",
+    "skills": ["SAP S/4HANA", "Azure Cloud", "Python", "IT Strategy", "Fiori", "Agile Mngmt", "Cloud Arch", "SQL", "German (C2)"],
+    "appliedDate": "October 13, 2023",
+    "documents": {
+      "resume": "#",
+      "coverLetter": "#",
+      "portfolio": ""
+    },
+    "stages": [
+      { "name": "Application Submitted", "date": "Oct 14", "status": "completed" },
+      { "name": "Profile Screening", "date": "Oct 18", "status": "completed" },
+      { "name": "Technical Evaluation", "date": "Oct 24", "status": "completed" },
+      { "name": "Client Interview", "date": "Pending", "status": "current" },
+      { "name": "Offer & Onboarding", "date": "Pending", "status": "upcoming" }
+    ],
+    "currentStageIndex": 3,
+    "messages": []
+  },
+  {
+    "id": 7,
+    "jobId": "senior-cloud-architect",
+    "name": "Carlos Vega",
+    "role": "Backend Engineer",
+    "experience": "6 Yrs",
+    "location": "Madrid, Spain",
+    "email": "carlos@backend.dev",
+    "phone": "+34 600 555 778",
+    "stage": "Technical Evaluation",
+    "status": "In Progress",
+    "skills": ["SAP S/4HANA", "Azure Cloud", "Python", "IT Strategy", "Fiori", "Agile Mngmt", "Cloud Arch", "SQL", "German (C2)"],
+    "appliedDate": "October 19, 2023",
+    "documents": {
+      "resume": "#",
+      "coverLetter": "",
+      "portfolio": "https://carlosvega.dev"
+    },
+    "stages": [
+      { "name": "Application Submitted", "date": "Oct 14", "status": "completed" },
+      { "name": "Profile Screening", "date": "Oct 18", "status": "completed" },
+      { "name": "Technical Evaluation", "date": "Oct 24", "status": "current" },
+      { "name": "Client Interview", "date": "Pending", "status": "upcoming" },
+      { "name": "Offer & Onboarding", "date": "Pending", "status": "upcoming" }
+    ],
+    "currentStageIndex": 2,
+    "messages": []
+  },
+  {
+    "id": 8,
+    "jobId": "ux-research-lead",
+    "name": "Priya Nair",
+    "role": "QA Engineer",
+    "experience": "4 Yrs",
+    "location": "Hyderabad, India",
+    "email": "priya@test.qa",
+    "phone": "+91 98765 99887",
+    "stage": "Profile Screening",
+    "status": "Under Review",
+    "skills": ["SAP S/4HANA", "Azure Cloud", "Python", "IT Strategy", "Fiori", "Agile Mngmt", "Cloud Arch", "SQL", "German (C2)"],
+    "appliedDate": "October 17, 2023",
+    "documents": {
+      "resume": "#",
+      "coverLetter": "#",
+      "portfolio": ""
+    },
+    "stages": [
+      { "name": "Application Submitted", "date": "Oct 14", "status": "completed" },
+      { "name": "Profile Screening", "date": "Oct 18", "status": "current" },
+      { "name": "Technical Evaluation", "date": "Oct 24", "status": "upcoming" },
+      { "name": "Client Interview", "date": "Pending", "status": "upcoming" },
+      { "name": "Offer & Onboarding", "date": "Pending", "status": "upcoming" }
+    ],
+    "currentStageIndex": 1,
+    "messages": []
+  },
+  {
+    "id": 9,
+    "jobId": "senior-cloud-architect",
+    "name": "Daniel Kim",
+    "role": "Frontend Developer",
+    "experience": "5 Yrs",
+    "location": "Seoul, Korea",
+    "email": "daniel@ui.dev",
+    "phone": "+82 10 5555 1212",
+    "stage": "Technical Evaluation",
+    "status": "In Progress",
+    "skills": ["SAP S/4HANA", "Azure Cloud", "Python", "IT Strategy", "Fiori", "Agile Mngmt", "Cloud Arch", "SQL", "German (C2)"],
+    "appliedDate": "October 12, 2023",
+    "documents": {
+      "resume": "#",
+      "coverLetter": "",
+      "portfolio": "https://danielkim.ui"
+    },
+    "stages": [
+      { "name": "Application Submitted", "date": "Oct 14", "status": "completed" },
+      { "name": "Profile Screening", "date": "Oct 18", "status": "completed" },
+      { "name": "Technical Evaluation", "date": "Oct 24", "status": "current" },
+      { "name": "Client Interview", "date": "Pending", "status": "upcoming" },
+      { "name": "Offer & Onboarding", "date": "Pending", "status": "upcoming" }
+    ],
+    "currentStageIndex": 2,
+    "messages": []
+  },
+  {
+    "id": 10,
+    "jobId": "ux-research-lead",
+    "name": "Emma Wilson",
+    "role": "Product Designer",
+    "experience": "6 Yrs",
+    "location": "London, UK",
+    "email": "emma@design.io",
+    "phone": "+44 20 7946 0101",
+    "stage": "Client Interview",
+    "status": "Scheduled",
+    "skills": ["SAP S/4HANA", "Azure Cloud", "Python", "IT Strategy", "Fiori", "Agile Mngmt", "Cloud Arch", "SQL", "German (C2)"],
+    "appliedDate": "October 20, 2023",
+    "documents": {
+      "resume": "#",
+      "coverLetter": "#",
+      "portfolio": ""
+    },
+    "stages": [
+      { "name": "Application Submitted", "date": "Oct 14", "status": "completed" },
+      { "name": "Profile Screening", "date": "Oct 18", "status": "completed" },
+      { "name": "Technical Evaluation", "date": "Oct 24", "status": "completed" },
+      { "name": "Client Interview", "date": "Pending", "status": "current" },
+      { "name": "Offer & Onboarding", "date": "Pending", "status": "upcoming" }
+    ],
+    "currentStageIndex": 3,
+    "messages": []
+  }
+]
+

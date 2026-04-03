@@ -1,0 +1,453 @@
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { getEmployees } from "../../data";
+import { useApplicationsSync } from "../../data/applicationsStore";
+import AdminSidebar from "../components/AdminSidebar";
+
+export default function Dashboard() {
+  const navigate = useNavigate();
+  const [selectedDepartment, setSelectedDepartment] = useState("All");
+  const { applications } = useApplicationsSync();
+  const employees = useMemo(() => getEmployees(), []);
+
+  const pipelineData = useMemo(() => {
+    const sourcedTotal = applications.length;
+
+    const currentStageIndex = (app) => {
+      const idx = Number(app?.currentStageIndex);
+      return Number.isFinite(idx) ? idx : 0;
+    };
+
+    // Pipeline buckets derived from applications' currentStageIndex.
+    // stages: 0=Application Submitted, 1=Profile Screening, 2=Technical Evaluation, 3=Client Interview, 4=Offer & Onboarding
+    const screeningTotal = applications.filter((app) => currentStageIndex(app) >= 1).length;
+    const evaluationTotal = applications.filter((app) => currentStageIndex(app) >= 2).length;
+    const offerTotal = applications.filter((app) => currentStageIndex(app) >= 4).length;
+
+    // No explicit hired stage exists in the current dummy dataset, but keep the bucket for future API parity.
+    const hiredTotal = applications.filter((app) => app?.status === "Hired" || app?.stage === "Hired").length;
+
+    // Allocate stage totals across the existing dashboard department buckets using employee department distribution.
+    const itEngineeringDepartments = ["Engineering", "Infrastructure", "Development", "Security", "Quality", "Analytics"];
+    const isITEngineering = (dept) => itEngineeringDepartments.includes(dept);
+    const isStrategicConsulting = (dept) => dept === "Strategy";
+
+    const itEngineeringCount = employees.filter((e) => isITEngineering(e.department)).length;
+    const strategicCount = employees.filter((e) => isStrategicConsulting(e.department)).length;
+    const corporateCount = Math.max(0, employees.length - itEngineeringCount - strategicCount);
+
+    const totalEmployees = employees.length;
+    const weights =
+      totalEmployees === 0
+        ? [1 / 3, 1 / 3, 1 / 3]
+        : [itEngineeringCount / totalEmployees, strategicCount / totalEmployees, corporateCount / totalEmployees];
+
+    const alloc = (total, weight) => Math.round(total * weight);
+
+    return [
+      {
+        department: "IT & Engineering",
+        sourced: alloc(sourcedTotal, weights[0]),
+        screening: alloc(screeningTotal, weights[0]),
+        evaluation: alloc(evaluationTotal, weights[0]),
+        offer: alloc(offerTotal, weights[0]),
+        hired: alloc(hiredTotal, weights[0]),
+      },
+      {
+        department: "Strategic Consulting",
+        sourced: alloc(sourcedTotal, weights[1]),
+        screening: alloc(screeningTotal, weights[1]),
+        evaluation: alloc(evaluationTotal, weights[1]),
+        offer: alloc(offerTotal, weights[1]),
+        hired: alloc(hiredTotal, weights[1]),
+      },
+      {
+        department: "Corporate Operations",
+        sourced: alloc(sourcedTotal, weights[2]),
+        screening: alloc(screeningTotal, weights[2]),
+        evaluation: alloc(evaluationTotal, weights[2]),
+        offer: alloc(offerTotal, weights[2]),
+        hired: alloc(hiredTotal, weights[2]),
+      },
+    ];
+  }, [applications, employees]);
+
+  const pipelineDepartments = useMemo(
+    () => ["All", ...pipelineData.map((item) => item.department)],
+    [pipelineData],
+  );
+
+  const pipelineMetrics = useMemo(() => {
+    const filteredData =
+      selectedDepartment === "All"
+        ? pipelineData
+        : pipelineData.filter((item) => item.department === selectedDepartment);
+
+    const totals = filteredData.reduce(
+      (acc, item) => {
+        acc.sourced += item.sourced;
+        acc.screening += item.screening;
+        acc.evaluation += item.evaluation;
+        acc.offer += item.offer;
+        acc.hired += item.hired;
+        return acc;
+      },
+      { sourced: 0, screening: 0, evaluation: 0, offer: 0, hired: 0 },
+    );
+
+    const sourcedBase = totals.sourced || 1;
+    return {
+      totals,
+      percentages: {
+        sourced: totals.sourced > 0 ? 100 : 0,
+        screening: Math.round((totals.screening / sourcedBase) * 100),
+        evaluation: Math.round((totals.evaluation / sourcedBase) * 100),
+        offer: Math.round((totals.offer / sourcedBase) * 100),
+        hired: Math.round((totals.hired / sourcedBase) * 100),
+      },
+    };
+  }, [pipelineData, selectedDepartment]);
+  return (
+    <>
+      <AdminSidebar />
+
+      <header className="sticky top-0 z-40 w-full flex items-center justify-between h-16 px-8 ml-64 bg-white/60 backdrop-blur-xl border-b border-slate-200/50 shadow-sm shadow-slate-200/20">
+      <div className="flex items-center gap-4 flex-1">
+      <div className="relative w-full max-w-md group">
+      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+      <input className="w-full bg-surface-container-low border-none rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-[#4cd7f6]/20 transition-all placeholder:text-slate-400" placeholder="Search operations, employees, or reports..." type="text"/>
+      </div>
+      </div>
+      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-2">
+      <button className="p-2 text-slate-500 hover:bg-slate-50 rounded-lg transition-all">
+      <span className="material-symbols-outlined" data-icon="notifications">notifications</span>
+      </button>
+      <button className="p-2 text-slate-500 hover:bg-slate-50 rounded-lg transition-all">
+      <span className="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+      </button>
+      </div>
+      <div className="h-8 w-[1px] bg-slate-200"></div>
+      <div className="flex items-center gap-3">
+      <div className="text-right">
+      <p className="text-xs font-bold text-primary leading-tight">Sarah Jenkins</p>
+      <p className="text-[10px] text-on-primary-container leading-tight">Operations Director</p>
+      </div>
+      <img alt="Administrator Profile" className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" data-alt="professional portrait of a confident female executive with a friendly expression in a modern office setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBzXz-N8I7RoB_PxK2jJY9vE40zbAc7a9LBK_gxjU1SCf1tQn7J5t96TwFLOly-_hj16_kL9eT-x-QgwOQLG5HZ4pFsjfNL7ZDskZ8gRmeNq8BciEXZERU_dl4_pJBEtz2RKbFp-VznPYWjiUoLkqcKuz7qeJVozPYm4E1TTZ6TD20LlfEJszGz6EcB2zhG8ZmvIQRCK_9bx5ELYF9939yNjKOKbY1_8oVuSNdhkOGGEjhteOeVY84xI8rCv0G2ZeVbtE_BqR2mdLPD"/>
+      </div>
+      </div>
+      </header>
+
+      <main className="ml-64 p-8 min-h-screen">
+
+      <section className="mb-10 flex items-end justify-between">
+      <div className="max-w-2xl">
+      <span className="text-secondary font-bold text-xs tracking-widest uppercase mb-2 block">System Overview</span>
+      <h2 className="text-4xl font-extrabold font-headline text-primary tracking-tight">Executive Dashboard</h2>
+      <p className="text-on-surface-variant mt-2 text-lg">Real-time enterprise metrics for Q4 operations and human capital management.</p>
+      </div>
+      <div className="flex gap-3">
+      <button className="px-6 py-2.5 bg-white border border-outline-variant text-primary font-bold rounded-lg shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
+      <span className="material-symbols-outlined text-sm">download</span> Export Report
+                      </button>
+      <button className="px-6 py-2.5 bg-primary-container text-white font-bold rounded-lg shadow-md hover:translate-y-[-2px] transition-all flex items-center gap-2">
+      <span className="material-symbols-outlined text-sm">add</span> New Placement
+                      </button>
+      </div>
+      </section>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+
+      <div className="bg-surface-container-lowest rounded-xl p-8 border border-outline-variant/15 shadow-[0_40px_40px_-20px_rgba(0,6,21,0.04)] relative overflow-hidden group">
+      <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+      <span className="material-symbols-outlined text-8xl" style={{fontVariationSettings: "'FILL' 1"}}>person_search</span>
+      </div>
+      <div className="relative z-10">
+      <div className="w-12 h-12 bg-secondary-fixed flex items-center justify-center rounded-lg mb-6">
+      <span className="material-symbols-outlined text-on-secondary-container" style={{fontVariationSettings: "'FILL' 1"}}>person_search</span>
+      </div>
+      <p className="text-on-surface-variant font-medium text-sm">Active Applicants</p>
+      <h3 className="text-5xl font-extrabold font-headline text-primary my-2">1,284</h3>
+      <div className="flex items-center gap-2 text-emerald-600 text-sm font-bold mt-4">
+      <span className="material-symbols-outlined text-xs">trending_up</span>
+      <span>+12.4% this month</span>
+      </div>
+      </div>
+      </div>
+
+      <div className="bg-surface-container-lowest rounded-xl p-8 border border-outline-variant/15 shadow-[0_40px_40px_-20px_rgba(0,6,21,0.04)] relative overflow-hidden group">
+      <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+      <span className="material-symbols-outlined text-8xl" style={{fontVariationSettings: "'FILL' 1"}}>group</span>
+      </div>
+      <div className="relative z-10">
+      <div className="w-12 h-12 bg-tertiary-fixed flex items-center justify-center rounded-lg mb-6">
+      <span className="material-symbols-outlined text-on-tertiary-fixed-variant" style={{fontVariationSettings: "'FILL' 1"}}>group</span>
+      </div>
+      <p className="text-on-surface-variant font-medium text-sm">Managed Workforce</p>
+      <h3 className="text-5xl font-extrabold font-headline text-primary my-2">4,902</h3>
+      <div className="flex items-center gap-2 text-slate-500 text-sm font-bold mt-4">
+      <span className="material-symbols-outlined text-xs">remove</span>
+      <span>Stable utilization</span>
+      </div>
+      </div>
+      </div>
+
+      <div className="bg-surface-container-lowest rounded-xl p-8 border border-outline-variant/15 shadow-[0_40px_40px_-20px_rgba(0,6,21,0.04)] relative overflow-hidden group">
+      <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+      <span className="material-symbols-outlined text-8xl" style={{fontVariationSettings: "'FILL' 1"}}>account_balance_wallet</span>
+      </div>
+      <div className="relative z-10">
+      <div className="w-12 h-12 bg-primary-fixed flex items-center justify-center rounded-lg mb-6">
+      <span className="material-symbols-outlined text-on-primary-fixed-variant" style={{fontVariationSettings: "'FILL' 1"}}>account_balance_wallet</span>
+      </div>
+      <p className="text-on-surface-variant font-medium text-sm">Pending Payroll</p>
+      <h3 className="text-5xl font-extrabold font-headline text-primary my-2">$428K</h3>
+      <div className="flex items-center gap-2 text-error text-sm font-bold mt-4">
+      <span className="material-symbols-outlined text-xs">warning</span>
+      <span>Due in 48 hours</span>
+      </div>
+      </div>
+      </div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-8">
+
+      <div className="col-span-12 lg:col-span-8 bg-surface-container-lowest rounded-xl p-8 border border-outline-variant/15 shadow-[0_40px_40px_-20px_rgba(0,6,21,0.04)]">
+      <div className="flex items-center justify-between mb-8">
+      <h4 className="text-xl font-bold font-headline text-primary">Recruitment Pipeline</h4>
+      <select className="bg-surface-container border-none text-sm rounded-lg py-1 px-3 focus:ring-0" value={selectedDepartment} onChange={(event) => setSelectedDepartment(event.target.value)}>
+      {pipelineDepartments.map((department) => (
+        <option key={department} value={department}>
+          {department === "All" ? "All Departments" : department}
+        </option>
+      ))}
+      </select>
+      </div>
+      <div className="flex items-end gap-2 h-64">
+
+      <div className="flex-1 flex flex-col justify-end gap-3 group h-full">
+      <div className="bg-primary-container/10 w-full h-full rounded-t-lg relative flex flex-col justify-end items-center pb-4 transition-all group-hover:bg-primary-container/20">
+      <div className="bg-primary-container w-full h-[100%] rounded-t-lg flex items-center justify-center">
+      <span className="text-white text-xs font-bold">{pipelineMetrics.percentages.sourced}%</span>
+      </div>
+      </div>
+      <p className="text-center text-[10px] uppercase font-bold text-slate-400 tracking-wider">Sourced</p>
+      </div>
+
+      <div className="flex-1 flex flex-col justify-end gap-3 group h-full">
+      <div className="bg-primary-container/10 w-full h-full rounded-t-lg relative flex flex-col justify-end items-center pb-4 transition-all group-hover:bg-primary-container/20">
+      <div className="bg-secondary-container w-full rounded-t-lg flex items-center justify-center" style={{ height: `${pipelineMetrics.percentages.screening}%` }}>
+      <span className="text-white text-xs font-bold">{pipelineMetrics.percentages.screening}%</span>
+      </div>
+      </div>
+      <p className="text-center text-[10px] uppercase font-bold text-slate-400 tracking-wider">Screening</p>
+      </div>
+
+      <div className="flex-1 flex flex-col justify-end gap-3 group h-full">
+      <div className="bg-primary-container/10 w-full h-full rounded-t-lg relative flex flex-col justify-end items-center pb-4 transition-all group-hover:bg-primary-container/20">
+      <div className="bg-secondary w-full rounded-t-lg flex items-center justify-center" style={{ height: `${pipelineMetrics.percentages.evaluation}%` }}>
+      <span className="text-white text-xs font-bold">{pipelineMetrics.percentages.evaluation}%</span>
+      </div>
+      </div>
+      <p className="text-center text-[10px] uppercase font-bold text-slate-400 tracking-wider">Evaluation</p>
+      </div>
+
+      <div className="flex-1 flex flex-col justify-end gap-3 group h-full">
+      <div className="bg-primary-container/10 w-full h-full rounded-t-lg relative flex flex-col justify-end items-center pb-4 transition-all group-hover:bg-primary-container/20">
+      <div className="bg-tertiary-fixed-dim w-full rounded-t-lg flex items-center justify-center" style={{ height: `${pipelineMetrics.percentages.offer}%` }}>
+      <span className="text-primary-container text-xs font-bold">{pipelineMetrics.percentages.offer}%</span>
+      </div>
+      </div>
+      <p className="text-center text-[10px] uppercase font-bold text-slate-400 tracking-wider">Offer</p>
+      </div>
+
+      <div className="flex-1 flex flex-col justify-end gap-3 group h-full">
+      <div className="bg-primary-container/10 w-full h-full rounded-t-lg relative flex flex-col justify-end items-center pb-4 transition-all group-hover:bg-primary-container/20">
+      <div className="bg-emerald-400 w-full rounded-t-lg flex items-center justify-center" style={{ height: `${pipelineMetrics.percentages.hired}%` }}>
+      <span className="text-emerald-900 text-[10px] font-black">{pipelineMetrics.percentages.hired}%</span>
+      </div>
+      </div>
+      <p className="text-center text-[10px] uppercase font-bold text-slate-400 tracking-wider">Hired</p>
+      </div>
+      </div>
+      </div>
+
+      <div className="col-span-12 lg:col-span-4 bg-primary-container rounded-xl p-8 text-white relative overflow-hidden shadow-2xl">
+
+      <div className="absolute top-0 right-0 w-64 h-64 bg-secondary/20 blur-[100px] -mr-32 -mt-32 rounded-full"></div>
+      <div className="absolute bottom-0 left-0 w-48 h-48 bg-tertiary-fixed-dim/10 blur-[80px] -ml-24 -mb-24 rounded-full"></div>
+      <div className="relative z-10 h-full flex flex-col">
+      <h4 className="text-lg font-bold font-headline mb-1">Payroll Efficiency</h4>
+      <p className="text-on-primary-container text-xs mb-8">Operational overhead analysis</p>
+      <div className="flex-1 flex items-center justify-center">
+      <div className="relative w-40 h-40">
+      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+      <circle className="text-white/10" cx="50" cy="50" fill="transparent" r="40" stroke="currentColor" strokeWidth="12"></circle>
+      <circle className="text-tertiary-fixed-dim" cx="50" cy="50" fill="transparent" r="40" stroke="currentColor" strokeDasharray="251.2" strokeDashoffset="60" strokeLinecap="round" strokeWidth="12"></circle>
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+      <span className="text-3xl font-extrabold font-headline">76%</span>
+      <span className="text-[10px] uppercase tracking-tighter opacity-60">Optimized</span>
+      </div>
+      </div>
+      </div>
+      <div className="mt-auto pt-6 space-y-3">
+      <div className="flex items-center justify-between text-sm">
+      <span className="opacity-70">Salaries &amp; Wages</span>
+      <span className="font-bold">$384,200</span>
+      </div>
+      <div className="flex items-center justify-between text-sm">
+      <span className="opacity-70">Contractor Fees</span>
+      <span className="font-bold">$112,900</span>
+      </div>
+      <div className="w-full h-[1px] bg-white/10 my-2"></div>
+      <button className="w-full py-2 bg-white/10 hover:bg-white/20 transition-all rounded-lg text-xs font-bold uppercase tracking-widest" onClick={() => navigate("/admin/reports")}>Open Analytics</button>
+      </div>
+      </div>
+      </div>
+
+      <div className="col-span-12 bg-surface-container-lowest rounded-xl border border-outline-variant/15 shadow-[0_40px_40px_-20px_rgba(0,6,21,0.04)] overflow-hidden">
+      <div className="p-8 border-b border-slate-50 flex items-center justify-between">
+      <div>
+      <h4 className="text-xl font-bold font-headline text-primary">Recent Talent Pipeline</h4>
+      <p className="text-on-surface-variant text-sm mt-1">Reviewing candidates from high-priority enterprise roles.</p>
+      </div>
+      <button className="text-secondary font-bold text-sm hover:underline cursor-pointer" onClick={() => navigate("/admin/applications")}>View All Candidates</button>
+      </div>
+      <div className="overflow-x-auto">
+      <table className="w-full text-left">
+      <thead>
+      <tr className="bg-surface-container-low/50">
+      <th className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Candidate</th>
+      <th className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Applied Role</th>
+      <th className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Status</th>
+      <th className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Match Score</th>
+      <th className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Actions</th>
+      </tr>
+      </thead>
+      <tbody className="divide-y divide-slate-100">
+
+      <tr className="hover:bg-slate-50 transition-all group">
+      <td className="px-8 py-5">
+      <div className="flex items-center gap-3">
+      <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden">
+      <img alt="Candidate" className="w-full h-full object-cover" data-alt="close-up of a professional man in his 30s with a sharp haircut and navy blue blazer looking directly at the camera" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAb3aptqurQzmhFbp_gDQ7FMQtxK1QL9ltpKaZ62x1EHG7_V_IZql5IIVZseIGCSbv15YZv3zU7YZjBKUle6zp2iu8GWR10Lr6Jrn4_7HGnjnhMnA50vwYvwU9mYKY80RjZkNnYaaHeTyOiE4w1G_yheEHZSn4MjgoxTbL-VymuMIcjyGhgtGaJkOwrS7CDjeEOPdsgvKFG68PJMICcdQWQvHQ4rzkYDc_KjxbC71TicZLUUZa6zpQNtDHMHvxqSmofbqnAaN1FF9ex"/>
+      </div>
+      <div>
+      <p className="text-sm font-bold text-primary">Alexander Thron</p>
+      <p className="text-[11px] text-slate-400">London, UK</p>
+      </div>
+      </div>
+      </td>
+      <td className="px-8 py-5">
+      <p className="text-sm text-on-surface">Senior DevOps Architect</p>
+      <p className="text-[11px] text-slate-400">Infrastructure Dept.</p>
+      </td>
+      <td className="px-8 py-5">
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-tertiary-fixed text-on-tertiary-fixed-variant">Interviewing</span>
+      </td>
+      <td className="px-8 py-5">
+      <div className="flex items-center gap-2">
+      <div className="flex-1 bg-slate-100 h-1.5 rounded-full overflow-hidden w-24">
+      <div className="bg-primary-container h-full w-[94%]"></div>
+      </div>
+      <span className="text-xs font-bold text-primary">94%</span>
+      </div>
+      </td>
+      <td className="px-8 py-5">
+      <button className="p-2 text-slate-400 hover:text-primary transition-colors">
+      <span className="material-symbols-outlined text-xl">more_vert</span>
+      </button>
+      </td>
+      </tr>
+
+      <tr className="bg-surface-container-low hover:bg-slate-50 transition-all group">
+      <td className="px-8 py-5">
+      <div className="flex items-center gap-3">
+      <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden">
+      <img alt="Candidate" className="w-full h-full object-cover" data-alt="professional headshot of a middle-aged woman with glasses and a friendly, intelligent gaze in an architectural firm setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJymlLONDjAkIZ878UaP3czGSKxUmWTbcYjD4tT74KebF10PnYCxA3BWqEwelRgCGMbFWPGvrRCSF_ZmOE7PWUnWVnnDv5JH7we0q4LrMAbQvgIwXVqPO_bIP_gJJyXe_2vqKVEXlAngFUn_ZWARblazqcghUsikA4EljsIBIA7x6mNfv-QNYll8olUkmSqGt7u5MTt0PzPFQ4o6XAEnm_0Lww57QrzQPxdCTNVcMuYWTRRNYjwa0nUVHTyOqkM6VsfyVM1gkrFoSh"/>
+      </div>
+      <div>
+      <p className="text-sm font-bold text-primary">Elena Rodriguez</p>
+      <p className="text-[11px] text-slate-400">Madrid, Spain</p>
+      </div>
+      </div>
+      </td>
+      <td className="px-8 py-5">
+      <p className="text-sm text-on-surface">Lead Solution Strategist</p>
+      <p className="text-[11px] text-slate-400">Corporate Strategy</p>
+      </td>
+      <td className="px-8 py-5">
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">Review Complete</span>
+      </td>
+      <td className="px-8 py-5">
+      <div className="flex items-center gap-2">
+      <div className="flex-1 bg-slate-200 h-1.5 rounded-full overflow-hidden w-24">
+      <div className="bg-primary-container h-full w-[88%]"></div>
+      </div>
+      <span className="text-xs font-bold text-primary">88%</span>
+      </div>
+      </td>
+      <td className="px-8 py-5">
+      <button className="p-2 text-slate-400 hover:text-primary transition-colors">
+      <span className="material-symbols-outlined text-xl">more_vert</span>
+      </button>
+      </td>
+      </tr>
+
+      <tr className="hover:bg-slate-50 transition-all group">
+      <td className="px-8 py-5">
+      <div className="flex items-center gap-3">
+      <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden">
+      <img alt="Candidate" className="w-full h-full object-cover" data-alt="young male professional wearing a light grey suit and white shirt, looking thoughtful in a modern minimalist workspace" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMW8KGItU251ViiyhEuYAz_C1oO0St7oBdY3yHI02Ld1Me-0aBrUbl9BK_gTxU0JsLsN-ip3veHJrdc9BA0SHdMSutoBIamBKpWCccG2lminl33XVFJNIwDxCj_Kvk-E3sNeiaNwsUsIEe4zEbcJwN3b9bsBb_WDqjaa0yCaNFJef6xqgaRAcEriP2IitaSNi_UJOsbslIcnXYiFV8S60BLMzDvhvTAaiPoxOlN8rg6fM87k97zUszaj0kXe02-IoJQtln-UppcoLP"/>
+      </div>
+      <div>
+      <p className="text-sm font-bold text-primary">Marcus Wu</p>
+      <p className="text-[11px] text-slate-400">Toronto, CA</p>
+      </div>
+      </div>
+      </td>
+      <td className="px-8 py-5">
+      <p className="text-sm text-on-surface">Cybersecurity Consultant</p>
+      <p className="text-[11px] text-slate-400">Network Security</p>
+      </td>
+      <td className="px-8 py-5">
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-fixed text-on-secondary-container">Background Check</span>
+      </td>
+      <td className="px-8 py-5">
+      <div className="flex items-center gap-2">
+      <div className="flex-1 bg-slate-100 h-1.5 rounded-full overflow-hidden w-24">
+      <div className="bg-primary-container h-full w-[91%]"></div>
+      </div>
+      <span className="text-xs font-bold text-primary">91%</span>
+      </div>
+      </td>
+      <td className="px-8 py-5">
+      <button className="p-2 text-slate-400 hover:text-primary transition-colors">
+      <span className="material-symbols-outlined text-xl">more_vert</span>
+      </button>
+      </td>
+      </tr>
+      </tbody>
+      </table>
+      </div>
+      </div>
+      </div>
+
+      <footer className="mt-12 flex items-center justify-between px-4 pb-8">
+      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-2">
+      <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span>
+      <span className="text-xs text-slate-500 font-medium">Core Engine Stable</span>
+      </div>
+      <div className="flex items-center gap-2">
+      <span className="w-2 h-2 rounded-full bg-slate-300"></span>
+      <span className="text-xs text-slate-500 font-medium">Last Sync: 2m ago</span>
+      </div>
+      </div>
+      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">© 2024 InTechRoot Enterprise v4.2.0-Alpha</p>
+      </footer>
+      </main>
+    </>
+  );
+}

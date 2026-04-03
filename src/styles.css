@@ -1,0 +1,36 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+/* Shared with Stitch mocks (employee profile, admin cards) — not scoped to marketing pages */
+.material-symbols-outlined {
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 400,
+    "GRAD" 0,
+    "opsz" 24;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(196, 198, 206, 0.15);
+}
+
+.tonal-shift {
+  background-color: #f2f4f7;
+}
+
+.network-motif {
+  background-image: radial-gradient(circle at 2px 2px, rgba(0, 6, 21, 0.05) 1px, transparent 0);
+  background-size: 40px 40px;
+}

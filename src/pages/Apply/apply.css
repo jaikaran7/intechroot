@@ -1,0 +1,17 @@
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(196, 198, 206, 0.15);
+}
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+.network-bg {
+  background-image: radial-gradient(circle at 2px 2px, rgba(117, 135, 167, 0.05) 1px, transparent 0);
+  background-size: 40px 40px;
+}
+.floating-label-group:focus-within label,
+.floating-label-group input:not(:placeholder-shown) + label {
+  transform: translateY(-1.5rem) scale(0.85);
+  color: #4059aa;
+}

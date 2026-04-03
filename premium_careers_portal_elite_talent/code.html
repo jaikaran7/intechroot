@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Careers | ELITE TALENT</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "error": "#ba1a1a",
+              "error-container": "#ffdad6",
+              "surface-dim": "#d8dadd",
+              "on-primary-fixed": "#071c36",
+              "primary-container": "#0b1f3a",
+              "secondary": "#1E3A8A",
+              "tertiary-fixed": "#3B82F6",
+              "surface-tint": "#4d5f7d",
+              "on-tertiary-container": "#0094ac",
+              "secondary-fixed": "#dce1ff",
+              "surface-container-low": "#f2f4f7",
+              "surface-bright": "#f7f9fc",
+              "on-primary-container": "#7587a7",
+              "on-secondary": "#ffffff",
+              "inverse-primary": "#b5c7ea",
+              "on-tertiary-fixed": "#001f26",
+              "inverse-surface": "#2d3133",
+              "on-surface": "#191c1e",
+              "primary": "#000615",
+              "on-primary": "#ffffff",
+              "on-surface-variant": "#44474d",
+              "on-tertiary": "#ffffff",
+              "surface-variant": "#e0e3e6",
+              "background": "#f7f9fc",
+              "on-primary-fixed-variant": "#364764",
+              "primary-fixed-dim": "#b5c7ea",
+              "on-error-container": "#93000a",
+              "surface-container-highest": "#e0e3e6",
+              "surface": "#f7f9fc",
+              "outline": "#75777e",
+              "surface-container-high": "#e6e8eb",
+              "tertiary-container": "#00232a",
+              "tertiary-fixed-dim": "#4cd7f6",
+              "on-secondary-fixed": "#00164e",
+              "on-tertiary-fixed-variant": "#004e5c",
+              "on-secondary-container": "#1d3989",
+              "on-error": "#ffffff",
+              "surface-container-lowest": "#ffffff",
+              "primary-fixed": "#d6e3ff",
+              "secondary-container": "#8fa7fe",
+              "surface-container": "#eceef1",
+              "secondary-fixed-dim": "#b6c4ff",
+              "tertiary": "#00080b",
+              "on-background": "#191c1e",
+              "outline-variant": "#c4c6ce",
+              "inverse-on-surface": "#eff1f4",
+              "on-secondary-fixed-variant": "#264191"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0); }
+            50% { transform: translateY(-15px) rotate(0.5deg); }
+        }
+        @keyframes mesh {
+            0% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0, 0) scale(1); }
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.45);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 20px 25px -5px rgba(0, 6, 21, 0.05), inset 0 0 20px rgba(255, 255, 255, 0.3);
+        }
+        .glass-sidebar {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(32px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 10px 30px rgba(0, 6, 21, 0.03);
+        }
+        .network-grid {
+            background-image: radial-gradient(circle, #3B82F6 0.5px, transparent 0.5px);
+            background-size: 40px 40px;
+            opacity: 0.1;
+        }
+        .mesh-gradient {
+            position: absolute;
+            width: 140%;
+            height: 140%;
+            top: -20%;
+            left: -20%;
+            background: radial-gradient(circle at 20% 20%, rgba(30, 58, 138, 0.15) 0%, transparent 40%),
+                        radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.15) 0%, transparent 40%);
+            animation: mesh 15s ease-in-out infinite;
+            filter: blur(60px);
+            z-index: -1;
+        }
+        .floating-element {
+            animation: float 8s ease-in-out infinite;
+        }
+        .monolith-text {
+            letter-spacing: -0.04em;
+        }
+        .hero-gradient {
+            background: radial-gradient(circle at 0% 0%, #0b1f3a 0%, #000615 100%);
+        }
+    </style>
+</head>
+<body class="bg-background font-body text-on-surface selection:bg-tertiary-fixed-dim/30 overflow-x-hidden">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-[100] transition-all duration-500">
+<div class="absolute inset-0 bg-white/40 backdrop-blur-2xl border-b border-white/20"></div>
+<div class="max-w-7xl mx-auto flex justify-between items-center px-8 py-5 relative">
+<div class="text-2xl font-black tracking-tighter text-primary font-headline flex items-center gap-2 cursor-pointer" onclick="window.location.href='{{DATA:SCREEN:SCREEN_12}}'">
+<span class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+<span class="text-white text-sm font-black">ET</span>
+</span>
+                ELITE TALENT
+            </div>
+<div class="hidden md:flex items-center gap-12">
+<a class="font-headline font-bold tracking-widest text-[10px] uppercase text-on-surface-variant hover:text-primary transition-all relative group" href="{{DATA:SCREEN:SCREEN_12}}">
+                    Services
+                    <span class="absolute -bottom-1 left-0 w-0 h-[2px] bg-secondary group-hover:w-full transition-all duration-300"></span>
+</a>
+<a class="font-headline font-bold tracking-widest text-[10px] uppercase text-on-surface-variant hover:text-primary transition-all relative group" href="{{DATA:SCREEN:SCREEN_12}}">
+                    Sectors
+                    <span class="absolute -bottom-1 left-0 w-0 h-[2px] bg-secondary group-hover:w-full transition-all duration-300"></span>
+</a>
+<a class="font-headline font-bold tracking-widest text-[10px] uppercase text-primary transition-all relative" href="#">
+                    Careers
+                    <span class="absolute -bottom-1 left-0 w-full h-[2px] bg-tertiary-fixed"></span>
+</a>
+<a class="font-headline font-bold tracking-widest text-[10px] uppercase text-on-surface-variant hover:text-primary transition-all relative group" href="{{DATA:SCREEN:SCREEN_9}}">
+                    About Us
+                    <span class="absolute -bottom-1 left-0 w-0 h-[2px] bg-secondary group-hover:w-full transition-all duration-300"></span>
+</a>
+</div>
+<div class="flex items-center gap-6">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">search</button>
+<button class="bg-primary-container text-on-primary px-7 py-3 rounded-full font-headline font-bold text-[10px] uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-all shadow-lg">
+                    Contact Us
+                </button>
+</div>
+</div>
+</nav>
+<main class="min-h-screen">
+<!-- Hero Section -->
+<section class="relative min-h-[90vh] flex items-center pt-32 pb-24 overflow-hidden hero-gradient">
+<div class="mesh-gradient opacity-60"></div>
+<div class="absolute inset-0 network-grid opacity-20"></div>
+<!-- Floating Decorative Elements -->
+<div class="absolute top-1/4 right-[10%] w-64 h-64 bg-tertiary-fixed/10 rounded-full blur-[100px] floating-element" style="animation-delay: -2s;"></div>
+<div class="absolute bottom-1/4 left-[5%] w-48 h-48 bg-secondary/10 rounded-full blur-[80px] floating-element" style="animation-delay: -4s;"></div>
+<div class="max-w-7xl mx-auto px-8 relative z-10">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-20 items-center">
+<div class="lg:col-span-7 space-y-10">
+<div class="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
+<span class="relative flex h-3 w-3">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary-fixed opacity-75"></span>
+<span class="relative inline-flex rounded-full h-3 w-3 bg-tertiary-fixed"></span>
+</span>
+<span class="text-[10px] font-bold text-white uppercase tracking-[0.3em]">Future-Proof Your Ambition</span>
+</div>
+<h1 class="text-7xl md:text-8xl font-headline font-extrabold text-white leading-[0.95] tracking-tighter monolith-text">
+                            Build Your Career with <br/>
+<span class="bg-gradient-to-r from-white via-tertiary-fixed to-secondary bg-clip-text text-transparent">Global Legends.</span>
+</h1>
+<p class="text-xl text-white/60 max-w-2xl font-light leading-relaxed">
+                            Join an elite network of architectural intelligence and high-level strategy. We connect world-class IT talent with the most ambitious digital transformations on the planet.
+                        </p>
+<div class="flex flex-wrap gap-6 pt-6">
+<button class="group relative px-10 py-5 overflow-hidden rounded-full transition-all duration-500 shadow-2xl" onclick="document.querySelector('section.max-w-7xl.mx-auto.px-8.py-32').scrollIntoView({behavior: 'smooth'})">
+<div class="absolute inset-0 bg-tertiary-fixed transition-transform group-hover:scale-110"></div>
+<span class="relative font-headline font-bold text-[11px] uppercase tracking-[0.25em] text-primary">View Open Roles</span>
+</button>
+<button class="px-10 py-5 rounded-full border border-white/20 text-white font-headline font-bold text-[11px] uppercase tracking-[0.25em] backdrop-blur-md hover:bg-white/5 transition-all" onclick="window.location.href='{{DATA:SCREEN:SCREEN_10}}'">
+                                Submit Resume
+                            </button>
+</div>
+</div>
+<div class="lg:col-span-5 relative hidden lg:block">
+<div class="relative z-20 w-full aspect-[4/5] glass-card rounded-[2.5rem] overflow-hidden border-white/10 p-2">
+<img alt="Collaboration in modern office" class="w-full h-full object-cover rounded-[2rem] grayscale contrast-125 opacity-80" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA5ksx9Z0zxWsf23TQD58QilTvyqRUNjPcN4TBRx3V7xIfm13SJf4CKmAoJdlKmjoxuVGbCV6aX8m7xiA1B5glb5juiB8rLhjfKr79itwOOYWILCn376WW3tiP_VQb9NuJ1nVIf3Q8FMc-WGOL8HjvE5Oa21u3q-pzDdqEIRiLxLRHFMGWZNZnNAf_qnRvWFwfCcrPkdQJBSR4fPyC84a6Ise1MxUeJzsVWKeOeLV0REeXvFl5NXqL8qR48tHuibv7APOZi-O01JosM"/>
+<div class="absolute inset-0 bg-gradient-to-t from-[#000615] via-transparent to-transparent opacity-60"></div>
+</div>
+<!-- Floating Data Node -->
+<div class="absolute -bottom-10 -right-10 z-30 floating-element">
+<div class="glass-card p-6 rounded-3xl w-64 border-white/30 text-primary">
+<div class="text-[10px] font-black text-secondary uppercase tracking-widest mb-4">Network Status</div>
+<div class="space-y-4">
+<div class="flex items-center gap-3">
+<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+<div class="text-[11px] font-semibold">Active Placements: 482</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="w-2 h-2 rounded-full bg-blue-500"></span>
+<div class="text-[11px] font-semibold">High Priority: 12</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Featured Section -->
+<section class="py-32 relative overflow-hidden bg-white">
+<div class="max-w-7xl mx-auto px-8 relative">
+<div class="flex flex-col md:flex-row justify-between items-end gap-12 mb-20">
+<div class="max-w-2xl">
+<div class="text-secondary font-black text-[11px] uppercase tracking-[0.4em] mb-4">Urgent Opportunities</div>
+<h2 class="text-6xl font-headline font-extrabold text-primary tracking-tighter leading-[0.95]">Architectural <br/>Strategic Roles</h2>
+</div>
+<div class="hidden md:block text-on-surface-variant text-sm font-medium opacity-50">Updated 2 hours ago</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<!-- Featured Card 1 -->
+<div class="glass-card p-10 rounded-[2.5rem] hover:-translate-y-3 transition-all duration-700 group flex flex-col h-full">
+<div class="flex justify-between items-start mb-10">
+<div class="w-14 h-14 rounded-2xl bg-secondary/5 flex items-center justify-center group-hover:bg-secondary/10 transition-colors">
+<span class="material-symbols-outlined text-3xl text-secondary">architecture</span>
+</div>
+<span class="bg-secondary text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-tighter">Urgent</span>
+</div>
+<h3 class="text-2xl font-headline font-bold mb-4 group-hover:text-secondary transition-colors duration-500">Senior Solutions Architect</h3>
+<p class="text-on-surface-variant text-sm mb-10 flex items-center gap-2 opacity-70">
+<span class="material-symbols-outlined text-sm">location_on</span> Zurich, CH (Remote)
+                        </p>
+<div class="flex flex-wrap gap-2 mb-10 mt-auto">
+<span class="bg-surface-container-high/50 px-3 py-1 rounded-lg text-[10px] font-bold text-primary uppercase tracking-wider">Azure</span>
+<span class="bg-surface-container-high/50 px-3 py-1 rounded-lg text-[10px] font-bold text-primary uppercase tracking-wider">Kafka</span>
+</div>
+<button class="w-full py-4 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-full hover:bg-secondary transition-all duration-500 shadow-lg" onclick="window.location.href='{{DATA:SCREEN:SCREEN_10}}'">Apply Position</button>
+</div>
+<!-- Featured Card 2 -->
+<div class="glass-card p-10 rounded-[2.5rem] hover:-translate-y-3 transition-all duration-700 group flex flex-col h-full border-secondary/20 shadow-2xl scale-105 z-10">
+<div class="flex justify-between items-start mb-10">
+<div class="w-14 h-14 rounded-2xl bg-tertiary-fixed/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-3xl text-tertiary-fixed">shield_lock</span>
+</div>
+<span class="bg-tertiary-fixed text-primary text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-tighter">Featured</span>
+</div>
+<h3 class="text-2xl font-headline font-bold mb-4 group-hover:text-tertiary-fixed transition-colors duration-500">Head of Cybersecurity</h3>
+<p class="text-on-surface-variant text-sm mb-10 flex items-center gap-2 opacity-70">
+<span class="material-symbols-outlined text-sm">location_on</span> London, UK (Hybrid)
+                        </p>
+<div class="flex flex-wrap gap-2 mb-10 mt-auto">
+<span class="bg-surface-container-high/50 px-3 py-1 rounded-lg text-[10px] font-bold text-primary uppercase tracking-wider">CISO</span>
+<span class="bg-surface-container-high/50 px-3 py-1 rounded-lg text-[10px] font-bold text-primary uppercase tracking-wider">GRC</span>
+</div>
+<button class="w-full py-4 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-full hover:bg-tertiary-fixed hover:text-primary transition-all duration-500 shadow-xl" onclick="window.location.href='{{DATA:SCREEN:SCREEN_10}}'">Apply Position</button>
+</div>
+<!-- Featured Card 3 -->
+<div class="glass-card p-10 rounded-[2.5rem] hover:-translate-y-3 transition-all duration-700 group flex flex-col h-full">
+<div class="flex justify-between items-start mb-10">
+<div class="w-14 h-14 rounded-2xl bg-primary/5 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-3xl text-primary">psychology</span>
+</div>
+<span class="bg-primary text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-tighter">Strategic</span>
+</div>
+<h3 class="text-2xl font-headline font-bold mb-4 group-hover:text-secondary transition-colors duration-500">AI Engineering Lead</h3>
+<p class="text-on-surface-variant text-sm mb-10 flex items-center gap-2 opacity-70">
+<span class="material-symbols-outlined text-sm">location_on</span> New York, USA (On-site)
+                        </p>
+<div class="flex flex-wrap gap-2 mb-10 mt-auto">
+<span class="bg-surface-container-high/50 px-3 py-1 rounded-lg text-[10px] font-bold text-primary uppercase tracking-wider">LLMs</span>
+<span class="bg-surface-container-high/50 px-3 py-1 rounded-lg text-[10px] font-bold text-primary uppercase tracking-wider">PyTorch</span>
+</div>
+<button class="w-full py-4 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-full hover:bg-secondary transition-all duration-500 shadow-lg" onclick="window.location.href='{{DATA:SCREEN:SCREEN_10}}'">Apply Position</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Main Job Portal -->
+<section class="max-w-7xl mx-auto px-8 py-32 flex flex-col lg:flex-row gap-16">
+<!-- Sidebar Filter -->
+<aside class="w-full lg:w-80 flex-shrink-0">
+<div class="sticky top-28 glass-sidebar p-10 rounded-[2rem]">
+<div class="flex items-center justify-between mb-10">
+<h4 class="font-headline font-extrabold text-primary tracking-tight">Filters</h4>
+<button class="text-[9px] font-black text-secondary uppercase tracking-widest hover:opacity-50 transition-opacity">Reset All</button>
+</div>
+<div class="space-y-12">
+<div>
+<label class="block text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em] mb-6">Role Sector</label>
+<div class="space-y-4">
+<label class="flex items-center gap-4 cursor-pointer group">
+<input checked="" class="w-4 h-4 rounded-md border-outline-variant text-secondary focus:ring-secondary/20 transition-all" type="checkbox"/>
+<span class="text-sm font-medium text-on-surface-variant group-hover:text-primary">Engineering</span>
+</label>
+<label class="flex items-center gap-4 cursor-pointer group">
+<input class="w-4 h-4 rounded-md border-outline-variant text-secondary focus:ring-secondary/20 transition-all" type="checkbox"/>
+<span class="text-sm font-medium text-on-surface-variant group-hover:text-primary">Design &amp; UX</span>
+</label>
+<label class="flex items-center gap-4 cursor-pointer group">
+<input class="w-4 h-4 rounded-md border-outline-variant text-secondary focus:ring-secondary/20 transition-all" type="checkbox"/>
+<span class="text-sm font-medium text-on-surface-variant group-hover:text-primary">Strategy</span>
+</label>
+</div>
+</div>
+<div>
+<label class="block text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em] mb-6">Seniority</label>
+<div class="space-y-4">
+<label class="flex items-center gap-4 cursor-pointer group">
+<input checked="" class="w-4 h-4 rounded-md border-outline-variant text-secondary focus:ring-secondary/20 transition-all" type="checkbox"/>
+<span class="text-sm font-medium text-on-surface-variant group-hover:text-primary">Senior (5-10 yrs)</span>
+</label>
+<label class="flex items-center gap-4 cursor-pointer group">
+<input class="w-4 h-4 rounded-md border-outline-variant text-secondary focus:ring-secondary/20 transition-all" type="checkbox"/>
+<span class="text-sm font-medium text-on-surface-variant group-hover:text-primary">Executive (10+ yrs)</span>
+</label>
+</div>
+</div>
+<div>
+<label class="block text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em] mb-6">Contract</label>
+<div class="space-y-4">
+<label class="flex items-center gap-4 cursor-pointer group">
+<input checked="" class="w-4 h-4 rounded-md border-outline-variant text-secondary focus:ring-secondary/20 transition-all" type="checkbox"/>
+<span class="text-sm font-medium text-on-surface-variant group-hover:text-primary">Permanent</span>
+</label>
+<label class="flex items-center gap-4 cursor-pointer group">
+<input class="w-4 h-4 rounded-md border-outline-variant text-secondary focus:ring-secondary/20 transition-all" type="checkbox"/>
+<span class="text-sm font-medium text-on-surface-variant group-hover:text-primary">Consulting</span>
+</label>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Job List Container -->
+<div class="flex-1 space-y-10">
+<!-- Search Input Bar -->
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-6 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-secondary transition-colors">search</span>
+<input class="w-full pl-16 pr-8 py-6 glass-card rounded-3xl border-white/40 focus:ring-4 focus:ring-secondary/5 focus:outline-none transition-all placeholder:text-on-surface-variant/40 placeholder:font-medium" placeholder="Search architectural roles by title, skill or vector..." type="text"/>
+</div>
+<!-- Job Card 1 -->
+<div class="glass-card p-10 rounded-[2.5rem] border-white/40 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-700 group flex flex-col md:flex-row gap-10 items-start md:items-center">
+<div class="w-20 h-20 bg-surface-container-low rounded-[1.5rem] flex items-center justify-center flex-shrink-0 text-primary border border-white/20">
+<span class="material-symbols-outlined text-4xl">cloud_sync</span>
+</div>
+<div class="flex-1">
+<div class="flex flex-col md:flex-row md:items-center gap-4 mb-4">
+<h3 class="text-2xl font-headline font-extrabold text-primary group-hover:text-secondary transition-colors duration-500">Principal Cloud Engineer</h3>
+<span class="bg-primary-container/10 text-primary text-[9px] font-black px-3 py-1 rounded-full tracking-widest uppercase">Consulting</span>
+</div>
+<div class="flex flex-wrap items-center gap-x-8 gap-y-3 text-sm font-medium text-on-surface-variant opacity-60">
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-lg">location_on</span>Berlin, DE</span>
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-lg">schedule</span>Full Time</span>
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-lg">payments</span>€120k - €150k</span>
+</div>
+</div>
+<div class="flex md:flex-col items-center gap-4 w-full md:w-auto">
+<button class="flex-1 md:w-36 py-4 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-full hover:bg-secondary transition-all duration-500 shadow-lg" onclick="window.location.href='{{DATA:SCREEN:SCREEN_10}}'">Apply Now</button>
+<button class="p-4 glass-card rounded-full border-white/20 hover:bg-surface-container-low transition-colors"><span class="material-symbols-outlined text-xl text-primary">bookmark</span></button>
+</div>
+</div>
+<!-- Job Card 2 -->
+<div class="glass-card p-10 rounded-[2.5rem] border-white/40 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-700 group flex flex-col md:flex-row gap-10 items-start md:items-center">
+<div class="w-20 h-20 bg-surface-container-low rounded-[1.5rem] flex items-center justify-center flex-shrink-0 text-primary border border-white/20">
+<span class="material-symbols-outlined text-4xl">verified_user</span>
+</div>
+<div class="flex-1">
+<div class="flex flex-col md:flex-row md:items-center gap-4 mb-4">
+<h3 class="text-2xl font-headline font-extrabold text-primary group-hover:text-secondary transition-colors duration-500">Security Compliance Officer</h3>
+<span class="bg-surface-container-high text-on-surface-variant text-[9px] font-black px-3 py-1 rounded-full tracking-widest uppercase">Permanent</span>
+</div>
+<div class="flex flex-wrap items-center gap-x-8 gap-y-3 text-sm font-medium text-on-surface-variant opacity-60">
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-lg">location_on</span>Singapore</span>
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-lg">home_work</span>Hybrid</span>
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-lg">history</span>Posted 3d ago</span>
+</div>
+</div>
+<div class="flex md:flex-col items-center gap-4 w-full md:w-auto">
+<button class="flex-1 md:w-36 py-4 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-full hover:bg-secondary transition-all duration-500 shadow-lg" onclick="window.location.href='{{DATA:SCREEN:SCREEN_10}}'">Apply Now</button>
+<button class="p-4 glass-card rounded-full border-white/20 hover:bg-surface-container-low transition-colors"><span class="material-symbols-outlined text-xl text-primary">bookmark</span></button>
+</div>
+</div>
+<!-- Job Card 3 -->
+<div class="glass-card p-10 rounded-[2.5rem] border-white/40 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-700 group flex flex-col md:flex-row gap-10 items-start md:items-center">
+<div class="w-20 h-20 bg-surface-container-low rounded-[1.5rem] flex items-center justify-center flex-shrink-0 text-primary border border-white/20">
+<span class="material-symbols-outlined text-4xl">monitoring</span>
+</div>
+<div class="flex-1">
+<div class="flex flex-col md:flex-row md:items-center gap-4 mb-4">
+<h3 class="text-2xl font-headline font-extrabold text-primary group-hover:text-secondary transition-colors duration-500">Data Science Director</h3>
+<span class="bg-tertiary-fixed/20 text-primary text-[9px] font-black px-3 py-1 rounded-full tracking-widest uppercase">Strategic</span>
+</div>
+<div class="flex flex-wrap items-center gap-x-8 gap-y-3 text-sm font-medium text-on-surface-variant opacity-60">
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-lg">location_on</span>San Francisco, CA</span>
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-lg">groups</span>Team Lead</span>
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-lg">rocket_launch</span>Scaleup</span>
+</div>
+</div>
+<div class="flex md:flex-col items-center gap-4 w-full md:w-auto">
+<button class="flex-1 md:w-36 py-4 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-full hover:bg-secondary transition-all duration-500 shadow-lg" onclick="window.location.href='{{DATA:SCREEN:SCREEN_10}}'">Apply Now</button>
+<button class="p-4 glass-card rounded-full border-white/20 hover:bg-surface-container-low transition-colors"><span class="material-symbols-outlined text-xl text-primary">bookmark</span></button>
+</div>
+</div>
+<div class="pt-16 text-center">
+<button class="font-black text-[10px] text-secondary uppercase tracking-[0.4em] hover:opacity-50 transition-opacity flex items-center gap-4 mx-auto group">
+                        Load More Opportunities
+                        <span class="material-symbols-outlined group-hover:translate-x-2 transition-transform">east</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Talent Pool Section -->
+<section class="max-w-7xl mx-auto px-8 py-40">
+<div class="relative p-1 md:p-1 rounded-[4rem] overflow-hidden bg-primary-container group">
+<div class="absolute inset-0 mesh-gradient opacity-40 group-hover:opacity-60 transition-opacity duration-1000"></div>
+<div class="absolute inset-0 bg-gradient-to-br from-secondary/40 to-transparent"></div>
+<div class="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-20 items-center p-16 md:p-24">
+<div class="space-y-10">
+<div class="inline-block px-4 py-2 rounded-full border border-white/10 backdrop-blur-md">
+<span class="text-[10px] font-black text-tertiary-fixed uppercase tracking-[0.4em]">Strategic Reserve</span>
+</div>
+<h2 class="text-6xl font-headline font-extrabold text-white tracking-tighter leading-tight monolith-text">Can't find the perfect role today?</h2>
+<p class="text-xl text-white/60 leading-relaxed font-light">
+                            Join our Elite Talent Pool. Our architectural intelligence matches candidates with stealth-mode startups and enterprise giants before roles are even public.
+                        </p>
+<ul class="space-y-6">
+<li class="flex items-center gap-4 text-white font-medium">
+<span class="material-symbols-outlined text-tertiary-fixed text-2xl">verified</span>
+                                Priority access to unlisted global roles
+                            </li>
+<li class="flex items-center gap-4 text-white font-medium">
+<span class="material-symbols-outlined text-tertiary-fixed text-2xl">verified</span>
+                                Executive compensation strategy advice
+                            </li>
+<li class="flex items-center gap-4 text-white font-medium">
+<span class="material-symbols-outlined text-tertiary-fixed text-2xl">verified</span>
+                                Global relocation and visa assistance
+                            </li>
+</ul>
+</div>
+<div class="glass-card p-2 rounded-[2.5rem] border-white/10 backdrop-blur-3xl">
+<div class="bg-white/5 p-12 rounded-[2.25rem] flex flex-col items-center text-center">
+<div class="w-24 h-24 bg-tertiary-fixed/10 rounded-full flex items-center justify-center mb-10 border border-white/10">
+<span class="material-symbols-outlined text-5xl text-tertiary-fixed">cloud_upload</span>
+</div>
+<h4 class="text-white font-extrabold text-2xl mb-4">Drop your resume here</h4>
+<p class="text-white/40 text-sm mb-12 font-medium">PDF, DOCX up to 10MB</p>
+<div class="w-full border-2 border-dashed border-white/20 rounded-[2rem] p-16 hover:border-tertiary-fixed/50 hover:bg-white/5 transition-all cursor-pointer group/upload" onclick="window.location.href='{{DATA:SCREEN:SCREEN_10}}'">
+<span class="text-white/40 text-sm font-black uppercase tracking-widest group-hover/upload:text-white transition-colors">Click to browse or drag &amp; drop</span>
+</div>
+<button class="mt-12 w-full py-6 bg-tertiary-fixed text-primary font-black uppercase tracking-[0.3em] text-[10px] rounded-full hover:bg-white transition-all duration-500 shadow-2xl" onclick="window.location.href='{{DATA:SCREEN:SCREEN_10}}'">Submit to Talent Pool</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-background border-t border-outline-variant/10 pt-24 pb-12">
+<div class="max-w-7xl mx-auto px-8 grid grid-cols-1 md:grid-cols-4 gap-20 mb-24">
+<div class="space-y-8">
+<div class="text-2xl font-black tracking-tighter font-headline text-primary flex items-center gap-2 cursor-pointer" onclick="window.location.href='{{DATA:SCREEN:SCREEN_12}}'">
+<span class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+<span class="text-white text-sm font-black">ET</span>
+</span>
+                    ELITE TALENT
+                </div>
+<p class="text-sm text-on-primary-container/60 leading-relaxed max-w-xs font-medium">
+                    Global architectural intelligence for the modern enterprise. We bridge the human gap in high-stakes technology.
+                </p>
+<div class="flex gap-4">
+<div class="w-12 h-12 rounded-xl bg-surface-container-high flex items-center justify-center hover:bg-secondary hover:text-white transition-all cursor-pointer group">
+<span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">public</span>
+</div>
+<div class="w-12 h-12 rounded-xl bg-surface-container-high flex items-center justify-center hover:bg-secondary hover:text-white transition-all cursor-pointer group">
+<span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">hub</span>
+</div>
+<div class="w-12 h-12 rounded-xl bg-surface-container-high flex items-center justify-center hover:bg-secondary hover:text-white transition-all cursor-pointer group">
+<span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">terminal</span>
+</div>
+</div>
+</div>
+<div>
+<h6 class="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-10">Navigation</h6>
+<ul class="space-y-6 text-sm font-semibold text-on-primary-container/70">
+<li><a class="hover:text-secondary transition-colors" href="{{DATA:SCREEN:SCREEN_12}}">Services</a></li>
+<li><a class="hover:text-secondary transition-colors" href="{{DATA:SCREEN:SCREEN_12}}">Sectors</a></li>
+<li><a class="text-primary" href="{{DATA:SCREEN:SCREEN_12}}">Careers</a></li>
+<li><a class="hover:text-secondary transition-colors" href="{{DATA:SCREEN:SCREEN_12}}">About Us</a></li>
+</ul>
+</div>
+<div>
+<h6 class="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-10">Intelligence</h6>
+<ul class="space-y-6 text-sm font-semibold text-on-primary-container/70">
+<li><a class="hover:text-secondary transition-colors" href="{{DATA:SCREEN:SCREEN_12}}">Global Offices</a></li>
+<li><a class="hover:text-secondary transition-colors" href="{{DATA:SCREEN:SCREEN_12}}">Security Core</a></li>
+<li><a class="hover:text-secondary transition-colors" href="{{DATA:SCREEN:SCREEN_12}}">Relocation Support</a></li>
+<li><a class="hover:text-secondary transition-colors" href="{{DATA:SCREEN:SCREEN_12}}">Privacy Hub</a></li>
+</ul>
+</div>
+<div>
+<h6 class="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-10">Legal</h6>
+<ul class="space-y-6 text-sm font-semibold text-on-primary-container/70">
+<li><a class="hover:text-secondary transition-colors" href="{{DATA:SCREEN:SCREEN_12}}">Privacy Policy</a></li>
+<li><a class="hover:text-secondary transition-colors" href="{{DATA:SCREEN:SCREEN_12}}">Terms of Service</a></li>
+</ul>
+<div class="mt-16">
+<p class="text-[10px] text-on-primary-container/40 font-bold uppercase tracking-widest">
+                        © 2024 ELITE TALENT &amp; GLOBAL SCALE. ARCHITECTURAL INTELLIGENCE RESERVED.
+                    </p>
+</div>
+</div>
+</div>
+</footer>
+<script>
+        document.addEventListener('scroll', () => {
+            const scrolled = window.pageYOffset;
+            const nav = document.querySelector('nav');
+            if (scrolled > 100) {
+                nav.classList.add('py-3');
+                nav.querySelector('.absolute').classList.add('bg-white/80');
+            } else {
+                nav.classList.remove('py-3');
+                nav.querySelector('.absolute').classList.remove('bg-white/80');
+            }
+        });
+    </script>
+</body></html>

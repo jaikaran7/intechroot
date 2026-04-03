@@ -1,0 +1,290 @@
+import { useEffect, useMemo, useState } from "react";
+import applicationsSeed from "./applications.json";
+import { REQUIRED_DOCUMENT_ROWS } from "./requiredDocumentTemplates";
+import { hasUploadedFile, resolveDocVerification } from "../utils/onboardingDocumentRules";
+
+export const APPLICATIONS_STORAGE_KEY = "intechroot_applications_v1";
+const STORAGE_KEY = APPLICATIONS_STORAGE_KEY;
+
+/** Strip base64 payloads so localStorage never throws (quota ~5MB). */
+function sanitizeAppsForStorage(apps) {
+  return apps.map((app) => ({
+    ...app,
+    onboardingDocuments: (app.onboardingDocuments || []).map((doc) => ({
+      ...doc,
+      fileData: "",
+    })),
+  }));
+}
+
+export const STAGE_ORDER = [
+  "Application Submitted",
+  "Profile Screening",
+  "Technical Evaluation",
+  "Client Interview",
+  "Offer & Onboarding",
+];
+
+function cloneSeed() {
+  return JSON.parse(JSON.stringify(applicationsSeed));
+}
+
+const VERIFICATION_LEGACY = {
+  unapproved: "Unapproved",
+  waiting: "Waiting for Verification",
+  verified: "Verified",
+  rejected: "Rejected",
+};
+
+function defaultOnboardingDoc(row) {
+  return {
+    id: row.key,
+    templateKey: row.key,
+    name: row.label,
+    status: "not_uploaded",
+    verification: "unapproved",
+    expiryDate: "",
+    fileUrl: null,
+    fileName: "",
+    fileData: "",
+    verificationStatus: "Unapproved",
+  };
+}
+
+function mergeOnboardingDocumentList(existing) {
+  const prevByKey = new Map((existing || []).map((d) => [d.templateKey || d.id, d]));
+  return REQUIRED_DOCUMENT_ROWS.map((row) => {
+    const prev = prevByKey.get(row.key);
+    const merged = prev
+      ? { ...defaultOnboardingDoc(row), ...prev, templateKey: row.key, name: row.label, id: prev.id || row.key }
+      : defaultOnboardingDoc(row);
+    return syncOnboardingDocumentRow(merged);
+  });
+}
+
+function syncOnboardingDocumentRow(doc) {
+  if (!doc || typeof doc !== "object") return doc;
+  const uploaded = hasUploadedFile(doc);
+  const verification = resolveDocVerification(doc);
+  return {
+    ...doc,
+    status: uploaded ? "uploaded" : "not_uploaded",
+    verification,
+    verificationStatus: VERIFICATION_LEGACY[verification] || "Unapproved",
+  };
+}
+
+export function normalizeApplication(app) {
+  if (!app) return app;
+  return {
+    ...app,
+    messages: Array.isArray(app.messages) ? app.messages : [],
+    onboardingDocuments: mergeOnboardingDocumentList(app.onboardingDocuments),
+    interview: app.interview ?? null,
+    verificationDocuments: Array.isArray(app.verificationDocuments) ? app.verificationDocuments : [],
+    interviews: Array.isArray(app.interviews) ? app.interviews : [],
+  };
+}
+
+export function getApplicationsSnapshot() {
+  if (typeof window === "undefined") {
+    return cloneSeed().map(normalizeApplication);
+  }
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const normalized = parsed.map(normalizeApplication);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeAppsForStorage(normalized)));
+        } catch {
+          /* ignore */
+        }
+        return sanitizeAppsForStorage(normalized);
+      }
+    }
+  } catch {
+    /* fall through */
+  }
+  const seed = cloneSeed().map(normalizeApplication);
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
+  } catch {
+    /* ignore */
+  }
+  return seed;
+}
+
+export function setApplicationsSnapshot(apps) {
+  if (typeof window === "undefined") return;
+  const sanitized = sanitizeAppsForStorage(apps);
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+  } catch {
+    /* quota or private mode — still notify UI */
+  }
+  window.dispatchEvent(new CustomEvent("applications-updated"));
+}
+
+export function updateApplication(id, updater) {
+  const apps = getApplicationsSnapshot();
+  const idx = apps.findIndex((a) => Number(a.id) === Number(id));
+  if (idx === -1) return null;
+  const prev = apps[idx];
+  const next = typeof updater === "function" ? updater({ ...prev }) : { ...prev, ...updater };
+  apps[idx] = normalizeApplication(next);
+  setApplicationsSnapshot(apps);
+  return apps[idx];
+}
+
+export function buildSyncedStages(app, currentStageIndex) {
+  const capped = Math.max(0, Math.min(currentStageIndex, STAGE_ORDER.length - 1));
+  return STAGE_ORDER.map((name, i) => {
+    const prev = app.stages?.find((s) => s.name === name);
+    const status = i < capped ? "completed" : i === capped ? "current" : "upcoming";
+    let date = prev?.date;
+    if (!date || date === "Pending") {
+      if (i < capped) date = prev?.date && prev.date !== "Pending" ? prev.date : "Completed";
+      else if (i === capped) date = "In Progress";
+      else date = "Pending";
+    }
+    return { name, date, status };
+  });
+}
+
+export function moveApplicationToNextStage(id) {
+  return updateApplication(id, (app) => {
+    const cur = Number.isFinite(Number(app.currentStageIndex)) ? Number(app.currentStageIndex) : 0;
+    const nextIdx = Math.min(cur + 1, STAGE_ORDER.length - 1);
+    const stageName = STAGE_ORDER[nextIdx];
+    return {
+      ...app,
+      currentStageIndex: nextIdx,
+      stage: stageName,
+      stages: buildSyncedStages(app, nextIdx),
+      status: nextIdx === STAGE_ORDER.length - 1 ? "Offer Sent" : "In Progress",
+    };
+  });
+}
+
+export function appendNewApplicationFromForm(formData) {
+  const apps = getApplicationsSnapshot();
+  const nextId = apps.length ? Math.max(...apps.map((a) => Number(a.id) || 0)) + 1 : 1;
+  const stages = STAGE_ORDER.map((name, i) => ({
+    name,
+    date:
+      i === 0
+        ? new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+        : "Pending",
+    status: i === 0 ? "current" : "upcoming",
+  }));
+  const app = normalizeApplication({
+    id: nextId,
+    jobId: formData.jobId != null && String(formData.jobId).trim() !== "" ? String(formData.jobId) : "applied",
+    name: formData.name,
+    role: formData.discipline,
+    experience: formData.experience,
+    location: "",
+    email: formData.email,
+    phone: formData.phone,
+    stage: STAGE_ORDER[0],
+    status: "Submitted",
+    skills: [],
+    appliedDate: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+    documents: {
+      resume: formData.resumeName ? "#" : "",
+      coverLetter: "",
+      portfolio: "",
+    },
+    stages,
+    currentStageIndex: 0,
+    messages: [],
+    onboardingDocuments: [],
+    interview: null,
+  });
+  apps.push(app);
+  setApplicationsSnapshot(apps);
+  return app;
+}
+
+export function upsertOnboardingDocument(applicantId, templateKey, payload) {
+  return updateApplication(applicantId, (app) => {
+    const list = [...(app.onboardingDocuments || [])];
+    const ix = list.findIndex((d) => d.templateKey === templateKey);
+    const row = {
+      templateKey,
+      id: templateKey,
+      name: payload.name,
+      fileName: payload.fileName,
+      fileData: "",
+      fileUrl: "/sample.pdf",
+      expiryDate: payload.expiryDate,
+      status: "uploaded",
+      verification: "unapproved",
+      verificationStatus: "Unapproved",
+    };
+    if (ix >= 0) list[ix] = { ...list[ix], ...row };
+    else list.push(row);
+    return { ...app, onboardingDocuments: list };
+  });
+}
+
+/**
+ * @param {"unapproved"|"waiting"|"verified"|"rejected"} verification
+ */
+export function setOnboardingVerification(applicantId, templateKey, verification) {
+  const legacy = VERIFICATION_LEGACY[verification] || "Unapproved";
+  return updateApplication(applicantId, (app) => {
+    const list = [...(app.onboardingDocuments || [])];
+    const ix = list.findIndex((d) => d.templateKey === templateKey);
+    const template = REQUIRED_DOCUMENT_ROWS.find((r) => r.key === templateKey);
+    if (ix < 0) {
+      list.push({
+        id: templateKey,
+        templateKey,
+        name: template?.label || templateKey,
+        fileName: "",
+        fileData: "",
+        fileUrl: null,
+        expiryDate: template?.expiry ? String(template.expiry).slice(0, 10) : "",
+        verification,
+        verificationStatus: legacy,
+      });
+    } else {
+      list[ix] = { ...list[ix], verification, verificationStatus: legacy };
+    }
+    return { ...app, onboardingDocuments: list };
+  });
+}
+
+export function submitOnboardingDocumentForVerification(applicantId, templateKey) {
+  return setOnboardingVerification(applicantId, templateKey, "waiting");
+}
+
+/** @deprecated use setOnboardingVerification */
+export function setOnboardingVerificationStatus(applicantId, templateKey, verificationStatus) {
+  const map = { Verified: "verified", Rejected: "rejected", "Waiting for Verification": "waiting", Unapproved: "unapproved" };
+  const v = map[verificationStatus];
+  if (!v) return null;
+  return setOnboardingVerification(applicantId, templateKey, v);
+}
+
+export function useApplicationsSync() {
+  const [version, setVersion] = useState(0);
+  const refresh = () => setVersion((v) => v + 1);
+  useEffect(() => {
+    const onUpdate = () => refresh();
+    window.addEventListener("applications-updated", onUpdate);
+    const onStorage = (e) => {
+      if (e.storageArea === localStorage && e.key === STORAGE_KEY) refresh();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("applications-updated", onUpdate);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+  const applications = useMemo(() => getApplicationsSnapshot(), [version]);
+  return { applications, refresh, version };
+}
