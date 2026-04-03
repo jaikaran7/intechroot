@@ -1,10 +1,6 @@
-import AdminSidebar from "../components/AdminSidebar";
-
 export default function Reports() {
   return (
     <>
-      <AdminSidebar />
-
       <header className="fixed top-0 right-0 left-64 h-16 bg-white/60 backdrop-blur-xl z-40 flex items-center justify-between px-8 border-b border-slate-200/50 shadow-sm shadow-slate-200/20">
       <div className="flex items-center bg-surface-container-low rounded-lg px-3 py-1.5 w-96 group focus-within:ring-2 focus-within:ring-[#4cd7f6]/20 transition-all">
       <span className="material-symbols-outlined text-slate-400 text-sm" data-icon="search">search</span>

@@ -19,6 +19,8 @@ const AlreadyAppliedPremiumPage = lazy(() => import("./pages/ApplyFlow/AlreadyAp
 const SuccessPage = lazy(() => import("./pages/Success/SuccessPage"));
 const ApplicantLogin = lazy(() => import("./applicant/pages/ApplicantLogin"));
 const ProtectedApplicant = lazy(() => import("./applicant/components/ProtectedApplicant"));
+
+const AdminLayout = lazy(() => import("./admin/components/AdminLayout"));
 const Dashboard = lazy(() => import("./admin/pages/Dashboard"));
 const Employees = lazy(() => import("./admin/pages/Employees"));
 const EmployeeDetails = lazy(() => import("./admin/pages/EmployeeDetails"));
@@ -81,22 +83,26 @@ export default function App() {
             }
           />
           <Route path="/about" element={<HomePage />} />
-          <Route path="/admin" element={<Dashboard />} />
-          <Route path="/admin/employees" element={<Employees />} />
-          <Route path="/admin/employees/onboarding" element={<EmployeeOnboarding />} />
-          <Route path="/admin/employees/:id" element={<EmployeeDetails />} />
-          <Route path="/admin/employees/:id/timesheets" element={<EmployeeTimesheetHistory />} />
-          <Route path="/admin/employees/:id/documents-submitted" element={<EmployeeDetails />} />
-          <Route path="/admin/applications" element={<Applications />} />
-          <Route path="/admin/applications/:id" element={<ApplicationProfile />} />
-          <Route path="/admin/timesheets" element={<Timesheets />} />
-          <Route path="/admin/payroll" element={<Payroll />} />
-          <Route path="/admin/job-postings/:id" element={<JobDetails />} />
-          <Route path="/admin/job-postings" element={<JobPostings />} />
-          <Route path="/admin/reports" element={<Reports />} />
-          <Route path="/admin/settings" element={<Settings />} />
-          <Route path="/admin/settings/company-workspace" element={<CompanyWorkspace />} />
-          <Route path="/admin/employees/onboarding/review" element={<OnboardingReview />} />
+
+          <Route path="/admin/*" element={<AdminLayout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="employees/onboarding/review" element={<OnboardingReview />} />
+            <Route path="employees/onboarding" element={<EmployeeOnboarding />} />
+            <Route path="employees/:id/timesheets" element={<EmployeeTimesheetHistory />} />
+            <Route path="employees/:id/documents-submitted" element={<EmployeeDetails />} />
+            <Route path="employees/:id" element={<EmployeeDetails />} />
+            <Route path="employees" element={<Employees />} />
+            <Route path="applications/:id" element={<ApplicationProfile />} />
+            <Route path="applications" element={<Applications />} />
+            <Route path="timesheets" element={<Timesheets />} />
+            <Route path="payroll" element={<Payroll />} />
+            <Route path="job-postings/:id" element={<JobDetails />} />
+            <Route path="job-postings" element={<JobPostings />} />
+            <Route path="reports" element={<Reports />} />
+            <Route path="settings/company-workspace" element={<CompanyWorkspace />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
+
           <Route path="/employee/login" element={<EmployeeLogin />} />
           <Route path="/employee/dashboard" element={<ProtectedEmployee><EmployeeDashboard /></ProtectedEmployee>} />
           <Route path="/employee/profile" element={<ProtectedEmployee><EmployeeProfilePage /></ProtectedEmployee>} />

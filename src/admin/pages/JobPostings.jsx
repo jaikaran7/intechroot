@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getJobs } from "@/data";
 import { loadJobPostingsFromSession, persistJobPostingsToSession } from "../jobPostingsSession";
-import AdminSidebar from "../components/AdminSidebar";
 import CreateJobModal from "../components/CreateJobModal";
 
 export default function JobPostings() {
@@ -122,8 +121,6 @@ export default function JobPostings() {
 
   return (
     <>
-      <AdminSidebar />
-
       <main className="ml-64 min-h-screen relative flex flex-col">
         <header className="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 z-40 bg-[#ffffff]/60 dark:bg-[#000615]/60 backdrop-blur-2xl flex justify-between items-center px-8">
           <div className="flex items-center gap-6">

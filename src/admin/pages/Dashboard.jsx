@@ -2,13 +2,19 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getEmployees } from "../../data";
 import { useApplicationsSync } from "../../data/applicationsStore";
-import AdminSidebar from "../components/AdminSidebar";
-
 export default function Dashboard() {
   const navigate = useNavigate();
   const [selectedDepartment, setSelectedDepartment] = useState("All");
-  const { applications } = useApplicationsSync();
-  const employees = useMemo(() => getEmployees(), []);
+  const { applications: appsFromSync } = useApplicationsSync();
+  const applications = Array.isArray(appsFromSync) ? appsFromSync : [];
+  const employees = useMemo(() => {
+    try {
+      const list = getEmployees();
+      return Array.isArray(list) ? list : [];
+    } catch {
+      return [];
+    }
+  }, []);
 
   const pipelineData = useMemo(() => {
     const sourcedTotal = applications.length;
@@ -109,8 +115,6 @@ export default function Dashboard() {
   }, [pipelineData, selectedDepartment]);
   return (
     <>
-      <AdminSidebar />
-
       <header className="sticky top-0 z-40 w-full flex items-center justify-between h-16 px-8 ml-64 bg-white/60 backdrop-blur-xl border-b border-slate-200/50 shadow-sm shadow-slate-200/20">
       <div className="flex items-center gap-4 flex-1">
       <div className="relative w-full max-w-md group">

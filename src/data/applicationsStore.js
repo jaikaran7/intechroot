@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import applicationsSeed from "./applications.json";
 import { REQUIRED_DOCUMENT_ROWS } from "./requiredDocumentTemplates";
 import { hasUploadedFile, resolveDocVerification } from "../utils/onboardingDocumentRules";
+import { safeJsonParse } from "../utils/safeJsonParse";
 
 export const APPLICATIONS_STORAGE_KEY = "intechroot_applications_v1";
 const STORAGE_KEY = APPLICATIONS_STORAGE_KEY;
@@ -26,7 +27,13 @@ export const STAGE_ORDER = [
 ];
 
 function cloneSeed() {
-  return JSON.parse(JSON.stringify(applicationsSeed));
+  try {
+    const base = applicationsSeed && typeof applicationsSeed === "object" ? applicationsSeed : [];
+    const list = Array.isArray(base) ? base : [];
+    return JSON.parse(JSON.stringify(list.length ? list : []));
+  } catch {
+    return [];
+  }
 }
 
 const VERIFICATION_LEGACY = {
@@ -87,33 +94,42 @@ export function normalizeApplication(app) {
 }
 
 export function getApplicationsSnapshot() {
-  if (typeof window === "undefined") {
-    return cloneSeed().map(normalizeApplication);
-  }
   try {
+    if (typeof window === "undefined") {
+      const seeded = cloneSeed().map(normalizeApplication);
+      return Array.isArray(seeded) ? seeded : [];
+    }
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        const normalized = parsed.map(normalizeApplication);
+    const parsed = safeJsonParse(raw, null);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      try {
+        const normalized = parsed.map(normalizeApplication).filter(Boolean);
+        const stored = sanitizeAppsForStorage(normalized);
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeAppsForStorage(normalized)));
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
         } catch {
-          /* ignore */
+          /* ignore quota / private mode */
         }
-        return sanitizeAppsForStorage(normalized);
+        return Array.isArray(stored) ? stored : normalized;
+      } catch {
+        /* normalize failed — reseed */
       }
     }
-  } catch {
-    /* fall through */
+    const seed = cloneSeed().map(normalizeApplication).filter(Boolean);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
+    } catch {
+      /* ignore */
+    }
+    return Array.isArray(seed) ? seed : [];
+  } catch (e) {
+    console.error("getApplicationsSnapshot:", e);
+    try {
+      return cloneSeed().map(normalizeApplication).filter(Boolean);
+    } catch {
+      return [];
+    }
   }
-  const seed = cloneSeed().map(normalizeApplication);
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
-  } catch {
-    /* ignore */
-  }
-  return seed;
 }
 
 export function setApplicationsSnapshot(apps) {
@@ -285,6 +301,19 @@ export function useApplicationsSync() {
       window.removeEventListener("storage", onStorage);
     };
   }, []);
-  const applications = useMemo(() => getApplicationsSnapshot(), [version]);
+  const applications = useMemo(() => {
+    try {
+      const list = getApplicationsSnapshot();
+      return Array.isArray(list) ? list : [];
+    } catch (e) {
+      console.error("useApplicationsSync:", e);
+      return [];
+    }
+  }, [version]);
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log("Applications:", applications);
+    }
+  }, [applications]);
   return { applications, refresh, version };
 }

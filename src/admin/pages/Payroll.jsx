@@ -1,11 +1,6 @@
-
-import AdminSidebar from "../components/AdminSidebar";
-
 export default function Payroll() {
   return (
     <>
-      <AdminSidebar />
-
       <header className="sticky top-0 z-40 w-full bg-white/60 backdrop-blur-xl border-b border-slate-200/50 shadow-sm shadow-slate-200/20 flex items-center justify-between h-16 px-8 ml-64">
       <div className="flex items-center gap-4 flex-1">
       <div className="relative w-full max-w-md focus-within:ring-2 focus-within:ring-[#4cd7f6]/20 transition-all rounded-lg">

@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import EmployeeBentoProfile from "../../components/EmployeeBentoProfile";
 import { getEmployeeById } from "../../data";
-import AdminSidebar from "../components/AdminSidebar";
-
 export default function EmployeeDetails() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -95,9 +93,6 @@ export default function EmployeeDetails() {
   };
   return (
     <>
-
-      <AdminSidebar />
-
       <main className="relative ml-64 flex min-h-screen flex-col bg-surface network-motif">
 
       <header className="w-full sticky top-0 z-40 bg-white/60 dark:bg-[#000615]/60 backdrop-blur-xl shadow-[0_40px_40px_rgba(0,6,21,0.04)] flex justify-between items-center h-16 px-8 w-full tonal-shift bg-[#f7f9fc] dark:bg-[#000615]">

@@ -1,6 +1,4 @@
 import { useCallback, useMemo, useState } from "react";
-import AdminSidebar from "../components/AdminSidebar";
-
 const DEFAULT_AVATAR =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuAZAstf2l7nurH0FVNijxz28ssbWt9b_s3mJBDdVKO3Ad-qivVdQaKVYGafaBt-1iXCTWZmzHzItdKbydw_5MfjBeKhx__9rGYrrUL6mkdo-QqrsepFWCHu__iaHk39YK5o2bmxeCdSkgQpEhQ-J84diCG9T2s1pZq0230XCaYRsdppWlWFf-cDn43QaEgPoK71rCBm1I7kqSzWCCCUdfGC2T080UYxqnmTFJqSG4FUjAt82x561bF24mYEb_Qm1MPpx-g70tAOjPNn";
 
@@ -120,7 +118,6 @@ export default function Settings() {
 
   return (
     <>
-      <AdminSidebar />
       <header className="sticky top-0 z-40 w-full bg-white/60 dark:bg-slate-950/60 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 flex items-center justify-between h-16 px-8 ml-64 shadow-sm shadow-slate-200/20">
         <div className="flex items-center flex-1 max-w-xl">
           <div className="relative w-full group">

@@ -1,6 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { getEmployeeById } from "../../data";
-import AdminSidebar from "../components/AdminSidebar";
 
 export default function EmployeeTimesheetHistory() {
   const navigate = useNavigate();
@@ -34,8 +33,6 @@ export default function EmployeeTimesheetHistory() {
 
   return (
     <>
-<AdminSidebar />
-
 <main className="ml-64 min-h-screen relative network-bg">
 
 <header className="sticky top-0 z-40 flex items-center justify-between px-8 w-full h-16 border-b border-outline-variant/15 bg-white/60 backdrop-blur-xl monolith-shadow">

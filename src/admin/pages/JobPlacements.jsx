@@ -1,10 +1,6 @@
-import AdminSidebar from "../components/AdminSidebar";
-
 export default function JobPlacements() {
   return (
     <>
-      <AdminSidebar />
-
       <main className="ml-64 min-h-screen">
 
       <header className="sticky top-0 z-40 w-full bg-white/60 dark:bg-slate-950/60 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 shadow-sm shadow-slate-200/20 flex items-center justify-between h-16 px-8">

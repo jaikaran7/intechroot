@@ -3,8 +3,6 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { getJobs } from "@/data";
 import { useApplicationsSync } from "../../data/applicationsStore";
 import { loadJobPostingsFromSession, persistJobPostingsToSession } from "../jobPostingsSession";
-import AdminSidebar from "../components/AdminSidebar";
-
 function splitTitle(title) {
   const words = title.trim().split(/\s+/);
   if (words.length <= 1) return { line1: title, line2: null };
@@ -143,7 +141,6 @@ export default function JobDetails() {
   if (!job) {
     return (
       <>
-        <AdminSidebar />
         <main className="ml-64 min-h-screen bg-surface bg-[radial-gradient(circle_at_2px_2px,rgba(0,6,21,0.05)_1px,transparent_0)] bg-[length:40px_40px] pt-16 font-body text-on-surface font-['Inter']">
           <div className="mx-auto max-w-7xl px-12 py-10">
             <p className="text-on-surface-variant">Job not found.</p>
@@ -165,8 +162,6 @@ export default function JobDetails() {
 
   return (
     <div className="min-h-screen bg-surface font-body text-on-surface selection:bg-tertiary-fixed selection:text-on-tertiary-fixed">
-      <AdminSidebar />
-
       <header className="fixed right-0 top-0 z-30 flex h-16 w-[calc(100%-16rem)] items-center justify-between border-b border-[#c4c6ce]/15 bg-white/60 px-8 font-['Inter'] text-sm font-medium backdrop-blur-xl dark:bg-[#000615]/60">
         <div className="flex w-1/3 items-center gap-4">
           <div className="group relative w-full">

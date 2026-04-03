@@ -1,12 +1,9 @@
 import { useNavigate } from "react-router-dom";
-import AdminSidebar from "../components/AdminSidebar";
 
 export default function OnboardingReview() {
   const navigate = useNavigate();
   return (
     <>
-<AdminSidebar />
-
 <main className="ml-64 min-h-screen relative">
 
 <header className="fixed top-0 right-0 left-64 h-16 bg-white/60 backdrop-blur-xl z-40 border-b border-slate-200/15 flex items-center justify-between px-8">

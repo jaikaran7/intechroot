@@ -1,5 +1,6 @@
 import jobApplicationsSeed from "../data/jobApplications.json";
 import { getJobs } from "../data";
+import { safeJsonParse } from "./safeJsonParse";
 
 const STORAGE_KEY = "intechroot_job_applications_v1";
 
@@ -38,10 +39,8 @@ export function getJobApplications() {
   if (typeof window === "undefined") return cloneSeed();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
-    }
+    const parsed = safeJsonParse(raw, null);
+    if (Array.isArray(parsed)) return parsed;
   } catch {
     /* fall through */
   }
@@ -56,7 +55,11 @@ export function getJobApplications() {
 
 export function setJobApplications(applications) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(applications));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(applications));
+  } catch {
+    /* quota / private mode */
+  }
   window.dispatchEvent(new CustomEvent("job-applications-updated"));
 }
 

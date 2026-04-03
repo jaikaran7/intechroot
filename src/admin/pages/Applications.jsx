@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useApplicationsSync } from "../../data/applicationsStore";
-import AdminSidebar from "../components/AdminSidebar";
 
 export default function Applications() {
   const navigate = useNavigate();
@@ -18,9 +17,10 @@ export default function Applications() {
   const [applications, setApplications] = useState([]);
 
   useEffect(() => {
+    const list = Array.isArray(storeApplications) ? storeApplications : [];
     setApplications((previous) => {
       const selectedMap = new Map(previous.map((application) => [application.id, application.isSelected]));
-      return storeApplications.map((application) => ({
+      return list.map((application) => ({
         ...application,
         isSelected: selectedMap.get(application.id) ?? false,
       }));
@@ -52,15 +52,16 @@ export default function Applications() {
   const getExperienceValue = (experience) => parseInt(experience, 10);
 
   const filteredApplications = applications.filter((application) => {
+    if (!application) return false;
     const query = searchFilter.trim().toLowerCase();
     const isSearchMatch =
       query.length === 0 ||
-      application.name.toLowerCase().includes(query) ||
-      application.role.toLowerCase().includes(query) ||
-      application.location.toLowerCase().includes(query) ||
-      application.email.toLowerCase().includes(query) ||
-      application.stage.toLowerCase().includes(query) ||
-      application.status.toLowerCase().includes(query);
+      String(application.name ?? "").toLowerCase().includes(query) ||
+      String(application.role ?? "").toLowerCase().includes(query) ||
+      String(application.location ?? "").toLowerCase().includes(query) ||
+      String(application.email ?? "").toLowerCase().includes(query) ||
+      String(application.stage ?? "").toLowerCase().includes(query) ||
+      String(application.status ?? "").toLowerCase().includes(query);
 
     const isRoleMatch = roleFilter === "All" || application.role === roleFilter;
     const years = getExperienceValue(application.experience);
@@ -96,8 +97,6 @@ export default function Applications() {
   }, [filteredApplications, selectedApplication, selectedApplicationId]);
   return (
     <>
-      <AdminSidebar />
-
       <main className="ml-64 min-h-screen">
 
       <header className="fixed top-0 right-0 left-64 h-16 bg-slate-50/60 backdrop-blur-xl shadow-[0_40px_40px_0px_rgba(0,6,21,0.04)] flex items-center justify-between px-8 w-full z-40">

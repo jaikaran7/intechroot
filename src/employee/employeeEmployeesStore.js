@@ -1,20 +1,26 @@
 import baseEmployees from "../data/employees.json";
+import { safeJsonParse } from "../utils/safeJsonParse";
 
 const KEY = "employee_portal_employees_data_v1";
 
-const deepClone = (data) => JSON.parse(JSON.stringify(data));
+function cloneBaseEmployees() {
+  try {
+    const list = Array.isArray(baseEmployees) ? baseEmployees : [];
+    return JSON.parse(JSON.stringify(list));
+  } catch {
+    return [];
+  }
+}
 
 export function loadEmployeesStore() {
   try {
     const raw = sessionStorage.getItem(KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
-    }
+    const parsed = safeJsonParse(raw, null);
+    if (Array.isArray(parsed)) return parsed;
   } catch {
     /* ignore */
   }
-  return deepClone(baseEmployees);
+  return cloneBaseEmployees();
 }
 
 export function persistEmployeesStore(employees) {

@@ -1,12 +1,10 @@
 import { useNavigate } from "react-router-dom";
-import AdminSidebar from "../components/AdminSidebar";
 
 export default function EmployeeOnboarding() {
   const navigate = useNavigate();
 
   return (
     <>
-      <AdminSidebar />
       <header className="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 bg-white/60 dark:bg-[#000615]/60 backdrop-blur-xl flex items-center justify-between px-8 z-40 shadow-sm dark:shadow-none font-['Inter'] font-medium">
       <div className="flex items-center bg-surface-container rounded-lg px-4 py-1.5 w-96">
       <span className="material-symbols-outlined text-outline text-lg">search</span>

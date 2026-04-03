@@ -9,8 +9,6 @@ import {
 import { REQUIRED_DOCUMENT_ROWS } from "../../data/requiredDocumentTemplates";
 import { onboardingVerificationBadge, uploadStatusBadge } from "../../components/shared/requiredDocumentBadges";
 import { getRowUploadStatusKey, hasUploadedFile, resolveDocVerification } from "../../utils/onboardingDocumentRules";
-import AdminSidebar from "../components/AdminSidebar";
-
 const INTERVIEW_TYPES = ["Technical", "Client", "Culture Fit", "HR", "Final"];
 
 function formatTimeFromInput(time24) {
@@ -40,12 +38,13 @@ function interviewStatusBadge(status) {
 export default function ApplicationProfile() {
   const { id } = useParams();
   const numericId = Number(id);
-  const { applications } = useApplicationsSync();
+  const { applications: appsRaw } = useApplicationsSync();
+  const applications = Array.isArray(appsRaw) ? appsRaw : [];
   const [activeTab, setActiveTab] = useState("details");
-  const applicationData = useMemo(
-    () => applications.find((profile) => Number(profile.id) === numericId) ?? applications[0],
-    [applications, numericId],
-  );
+  const applicationData = useMemo(() => {
+    if (!applications.length) return null;
+    return applications.find((profile) => Number(profile.id) === numericId) ?? null;
+  }, [applications, numericId]);
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
   const [messageDraft, setMessageDraft] = useState("");
   const [isMessageSentPopupOpen, setIsMessageSentPopupOpen] = useState(false);
@@ -114,20 +113,14 @@ export default function ApplicationProfile() {
 
   if (!applicationData) {
     return (
-      <>
-        <AdminSidebar />
-        <main className="ml-64 pt-24 px-12">
-          <p className="text-on-surface-variant">Application not found.</p>
-        </main>
-      </>
+      <main className="ml-64 pt-24 px-12">
+        <p className="text-on-surface-variant">Application not found.</p>
+      </main>
     );
   }
 
   return (
     <>
-
-      <AdminSidebar />
-
       <header className="fixed top-0 right-0 w-[calc(100%-16rem)] z-40 bg-white/60 backdrop-blur-xl border-b border-slate-200/15 flex items-center justify-between px-8 h-16 shadow-[0_40px_40px_rgba(0,6,21,0.04)]">
       <div className="flex items-center bg-surface-container rounded-full px-4 py-1.5 w-96 group transition-all focus-within:ring-2 focus-within:ring-tertiary-fixed-dim/20">
       <span className="material-symbols-outlined text-outline text-sm" data-icon="search">search</span>

@@ -1,18 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getEmployees } from "../../data";
-import AdminSidebar from "../components/AdminSidebar";
 
 export default function Employees() {
   const navigate = useNavigate();
-  const employees = useMemo(() => getEmployees(), []);
+  const employees = useMemo(() => {
+    try {
+      const list = getEmployees();
+      return Array.isArray(list) ? list : [];
+    } catch {
+      return [];
+    }
+  }, []);
   const getStatusPresentation = (status) => {
     if (status === "On Leave") {
       return { dotClass: "bg-outline", textClass: "text-on-surface-variant" };
     }
     return { dotClass: "bg-[#0094ac]", textClass: "text-on-tertiary-container" };
   };
-  const [selectedEmployee, setSelectedEmployee] = useState(employees[0]);
+  const [selectedEmployee, setSelectedEmployee] = useState(employees[0] ?? null);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("Active");
@@ -48,10 +54,16 @@ export default function Employees() {
     }
   }, [filteredEmployees, selectedEmployee]);
 
+  if (!employees.length) {
+    return (
+      <main className="ml-64 min-h-screen p-8 font-body text-on-surface-variant">
+        No employee data available.
+      </main>
+    );
+  }
+
   return (
     <>
-      <AdminSidebar />
-
       <header className="sticky top-0 z-40 w-full bg-white/60 backdrop-blur-xl border-b border-slate-200/50 flex items-center justify-between h-16 px-8 ml-64 max-w-[calc(100%-16rem)]">
       <div className="flex items-center flex-1 max-w-xl">
       <div className="relative w-full group">

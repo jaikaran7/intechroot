@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { getEmployees } from "@/data";
-import AdminSidebar from "../components/AdminSidebar";
 
 const ensureTimesheets = (employees) => {
   return employees.map((emp) => {
@@ -68,7 +67,14 @@ export default function Timesheets() {
   const [activeNote, setActiveNote] = useState("");
   const [feedbackModal, setFeedbackModal] = useState({ open: false, message: "" });
 
-  const employees = getEmployees();
+  const employees = useMemo(() => {
+    try {
+      const list = getEmployees();
+      return Array.isArray(list) ? list : [];
+    } catch {
+      return [];
+    }
+  }, []);
   const enrichedEmployees = useMemo(() => ensureTimesheets(employees), [employees]);
 
   const timesheetData = useMemo(() => {
@@ -224,8 +230,6 @@ export default function Timesheets() {
   };
   return (
     <>
-      <AdminSidebar />
-
       <main className="ml-64 min-h-screen">
 
       <header className="sticky top-0 z-40 w-full bg-white/60 backdrop-blur-xl border-b border-slate-200/50 h-16 flex items-center justify-between px-8 shadow-sm shadow-slate-200/20">
