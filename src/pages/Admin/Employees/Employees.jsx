@@ -233,30 +233,15 @@ export default function Employees() {
       </div>
       <h3 className="text-2xl font-bold font-headline text-primary">{selectedEmployee.name}</h3>
       <p className="text-on-surface-variant font-medium mb-4">{selectedEmployee.role}</p>
-      <div className="flex gap-2">
-      <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1 bg-primary-container text-white rounded-full">Admin Access</span>
-      <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1 bg-tertiary-fixed text-on-tertiary-fixed rounded-full">Core Team</span>
+      <div className="flex justify-center">
+      <span className="text-[10px] font-bold tracking-widest px-3 py-1 bg-tertiary-fixed text-on-tertiary-fixed rounded-full">employee</span>
       </div>
       </div>
       <div className="space-y-6">
-      <div className="p-4 bg-surface-container-low rounded-lg">
-      <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter mb-1">Performance Index</p>
-      <div className="flex items-end gap-2">
-      <span className="text-2xl font-bold text-primary">{selectedEmployee.performance.index}</span>
-      <span className="text-xs font-bold text-[#0094ac] mb-1 flex items-center"><span className="material-symbols-outlined text-xs" data-icon="trending_up">trending_up</span> {selectedEmployee.performance.delta}</span>
-      </div>
-      <div className="mt-2 w-full h-1 bg-surface-variant rounded-full overflow-hidden">
-      <div className="w-[98.4%] h-full bg-secondary" style={{ width: selectedEmployee.performance.width }}></div>
-      </div>
-      </div>
       <div className="space-y-4">
       <div className="flex justify-between items-center text-sm">
       <span className="text-on-surface-variant font-medium">Department</span>
       <span className="text-primary font-bold">{selectedEmployee.department}</span>
-      </div>
-      <div className="flex justify-between items-center text-sm">
-      <span className="text-on-surface-variant font-medium">Direct Reports</span>
-      <span className="text-primary font-bold">{selectedEmployee.performance.directReports}</span>
       </div>
       <div className="flex justify-between items-center text-sm">
       <span className="text-on-surface-variant font-medium">Tenure</span>
