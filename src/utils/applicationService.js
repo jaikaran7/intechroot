@@ -1,5 +1,5 @@
-import jobApplicationsSeed from "../data/jobApplications.json";
-import { getJobs } from "../data";
+import jobApplicationsSeed from "../fixtures/jobApplications.json";
+import { getJobs } from "../fixtures/catalog";
 import { safeJsonParse } from "./safeJsonParse";
 
 const STORAGE_KEY = "intechroot_job_applications_v1";

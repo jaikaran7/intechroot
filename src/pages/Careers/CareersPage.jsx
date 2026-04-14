@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getJobs } from "../../data";
+import { getJobs } from "@/fixtures/catalog";
 import HeroSection from "./components/HeroSection";
 import FiltersSection from "./components/FiltersSection";
 import JobListSection, { FeaturedRolesSection } from "./components/JobListSection";

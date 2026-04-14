@@ -1,5 +1,5 @@
 import Button from "../../../components/Form/Button";
-import { getFeaturedRoles } from "../../../data";
+import { getFeaturedRoles } from "@/fixtures/catalog";
 import { useNavigate } from "react-router-dom";
 
 export function FeaturedRolesSection() {

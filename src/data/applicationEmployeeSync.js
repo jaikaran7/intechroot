@@ -6,7 +6,7 @@ import {
   getEmployeeFromStore,
   loadEmployeesStore,
   persistEmployeesStore,
-} from "../employee/employeeEmployeesStore";
+} from "../pages/Employee/employeeEmployeesStore";
 
 /** Maps employee timesheet rows → application `timesheets` shape (persisted). */
 export function employeeTimesheetsToApplicationShape(empTimesheets) {

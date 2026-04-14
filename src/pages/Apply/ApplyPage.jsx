@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
-import { appendNewApplicationFromForm } from "../../data/applicationsStore";
+import { appendNewApplicationFromForm } from "@/data/applicationsStore";
 import {
   appendJobApplication,
   getJobApplications,

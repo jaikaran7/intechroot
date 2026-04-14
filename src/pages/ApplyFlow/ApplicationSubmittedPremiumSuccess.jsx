@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { setApplicantSession } from "../../applicant/applicantSession";
+import { setApplicantSession } from "@/pages/Applicant/applicantSession";
 import "./premiumApplyScreens.css";
 
 export default function ApplicationSubmittedPremiumSuccess() {

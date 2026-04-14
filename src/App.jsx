@@ -6,36 +6,36 @@ import CareersPage from "./pages/Careers/CareersPage";
 import ServicesPage from "./pages/Services/ServicesPage";
 import ApplyPage from "./pages/Apply/ApplyPage";
 
-const ProtectedEmployee = lazy(() => import("./employee/components/ProtectedEmployee"));
-const EmployeeDocumentsPage = lazy(() => import("./employee/pages/EmployeeDocumentsPage"));
-const EmployeeDashboard = lazy(() => import("./employee/pages/EmployeeDashboard"));
-const EmployeeLogin = lazy(() => import("./employee/pages/EmployeeLogin"));
-const EmployeeProfilePage = lazy(() => import("./employee/pages/EmployeeProfilePage"));
-const EmployeeTimesheetsPage = lazy(() => import("./employee/pages/EmployeeTimesheetsPage"));
+const ProtectedEmployee = lazy(() => import("./pages/Employee/components/ProtectedEmployee"));
+const EmployeeDocumentsPage = lazy(() => import("./pages/Employee/EmployeeDocumentsPage"));
+const EmployeeDashboard = lazy(() => import("./pages/Employee/EmployeeDashboard"));
+const EmployeeLogin = lazy(() => import("./pages/Employee/EmployeeLogin"));
+const EmployeeProfilePage = lazy(() => import("./pages/Employee/EmployeeProfilePage"));
+const EmployeeTimesheetsPage = lazy(() => import("./pages/Employee/EmployeeTimesheetsPage"));
 const ApplicationSubmittedPremiumSuccess = lazy(() =>
   import("./pages/ApplyFlow/ApplicationSubmittedPremiumSuccess"),
 );
 const AlreadyAppliedPremiumPage = lazy(() => import("./pages/ApplyFlow/AlreadyAppliedPremiumPage"));
-const SuccessPage = lazy(() => import("./pages/Success/SuccessPage"));
-const ApplicantLogin = lazy(() => import("./applicant/pages/ApplicantLogin"));
-const ApplicantOnboardingPage = lazy(() => import("./applicant/pages/ApplicantOnboardingPage"));
-const ProtectedApplicant = lazy(() => import("./applicant/components/ProtectedApplicant"));
+const SuccessPage = lazy(() => import("./pages/Applicant/SuccessPage"));
+const ApplicantLogin = lazy(() => import("./pages/Applicant/ApplicantLogin"));
+const ApplicantOnboardingPage = lazy(() => import("./pages/Applicant/ApplicantOnboardingPage"));
+const ProtectedApplicant = lazy(() => import("./pages/Applicant/components/ProtectedApplicant"));
 
-const AdminLayout = lazy(() => import("./admin/components/AdminLayout"));
-const Dashboard = lazy(() => import("./admin/pages/Dashboard"));
-const Employees = lazy(() => import("./admin/pages/Employees"));
-const EmployeeDetails = lazy(() => import("./admin/pages/EmployeeDetails"));
-const EmployeeOnboarding = lazy(() => import("./admin/pages/EmployeeOnboarding"));
-const Applications = lazy(() => import("./admin/pages/Applications"));
-const ApplicationProfile = lazy(() => import("./admin/pages/ApplicationProfile"));
-const Timesheets = lazy(() => import("./admin/pages/Timesheets"));
-const Payroll = lazy(() => import("./admin/pages/Payroll"));
-const JobPostings = lazy(() => import("./admin/pages/JobPostings"));
-const JobDetails = lazy(() => import("./admin/pages/JobDetails"));
-const Reports = lazy(() => import("./admin/pages/Reports"));
-const Settings = lazy(() => import("./admin/pages/Settings"));
-const CompanyWorkspace = lazy(() => import("./admin/pages/CompanyWorkspace"));
-const OnboardingReview = lazy(() => import("./admin/pages/OnboardingReview"));
+const AdminLayout = lazy(() => import("./pages/Admin/components/AdminLayout"));
+const Dashboard = lazy(() => import("./pages/Admin/Dashboard/Dashboard"));
+const Employees = lazy(() => import("./pages/Admin/Employees/Employees"));
+const EmployeeDetails = lazy(() => import("./pages/Admin/Employees/EmployeeDetails"));
+const EmployeeOnboarding = lazy(() => import("./pages/Admin/Employees/EmployeeOnboarding"));
+const Applications = lazy(() => import("./pages/Admin/Applications/Applications"));
+const ApplicationProfile = lazy(() => import("./pages/Admin/Applications/ApplicationProfile"));
+const Timesheets = lazy(() => import("./pages/Admin/Timesheets/Timesheets"));
+const Payroll = lazy(() => import("./pages/Admin/Settings/Payroll"));
+const JobPostings = lazy(() => import("./pages/Admin/JobPostings/JobPostings"));
+const JobDetails = lazy(() => import("./pages/Admin/JobPostings/JobDetails"));
+const Reports = lazy(() => import("./pages/Admin/Settings/Reports"));
+const Settings = lazy(() => import("./pages/Admin/Settings/Settings"));
+const CompanyWorkspace = lazy(() => import("./pages/Admin/Settings/CompanyWorkspace"));
+const OnboardingReview = lazy(() => import("./pages/Admin/Employees/OnboardingReview"));
 
 function RouteFallback() {
   return (

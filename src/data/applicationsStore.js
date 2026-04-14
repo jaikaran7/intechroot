@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import applicationsSeed from "./applications.json";
-import { REQUIRED_DOCUMENT_ROWS } from "./requiredDocumentTemplates";
+import applicationsSeed from "../fixtures/applications.json";
+import { REQUIRED_DOCUMENT_ROWS } from "../constants/requiredDocumentTemplates";
 import { getExpiryBucket, hasUploadedFile, resolveDocVerification } from "../utils/onboardingDocumentRules";
 import { safeJsonParse } from "../utils/safeJsonParse";
 
@@ -44,15 +44,30 @@ export function getOnboardingAdminStep(onboarding) {
   return 3;
 }
 
+/** Highest onboarding step URL the applicant may open (1–5), based on completed gates. */
+export function getMaxAllowedApplicantOnboardingStep(onboarding) {
+  const ob = onboarding || {};
+  if (!ob.profileCompleted) return 1;
+  if (ONBOARDING_REQUIRE_COMPLETE_DOCUMENTS && !ob.documentsCompleted) return 2;
+  /** Step 4+ requires admin BGV clearance OR applicant "Proceed to Review" from step 3. */
+  if (!ob.bgvCompleted && !ob.bgvApplicantAcknowledged) return 3;
+  if (!ob.finalSubmitted) return 4;
+  return 5;
+}
+
 export function defaultOnboardingState() {
   return {
     enabled: false,
     step: 1,
     completed: false,
     bgvLink: "",
+    /** Shown in applicant step 3 "Required Action" when set by admin. */
+    bgvNote: "",
     profileCompleted: false,
     documentsCompleted: false,
     bgvCompleted: false,
+    /** Set when applicant leaves BGV iframe step 3 (does not replace admin bgvCompleted for hire). */
+    bgvApplicantAcknowledged: false,
     finalSubmitted: false,
     hireCompleted: false,
   };
@@ -70,8 +85,22 @@ export function deriveLifecycleStage(app) {
 
 export function validateRequiredDocumentsForOnboarding(app) {
   if (!ONBOARDING_REQUIRE_COMPLETE_DOCUMENTS) return { ok: true };
-  const docs = mergeOnboardingDocumentList(app.onboardingDocuments || []);
-  for (const row of REQUIRED_DOCUMENT_ROWS) {
+  const docs = mergeOnboardingDocumentList(
+    app.onboardingDocuments || [],
+    app.adminRequestedDocuments || [],
+  );
+  const rowsToCheck = [
+    ...REQUIRED_DOCUMENT_ROWS,
+    ...(app.adminRequestedDocuments || []).map((r) => ({
+      key: `adminreq_${r.id}`,
+      label: r.name,
+      required: true,
+      status: "not_uploaded",
+      expiry: "",
+      action: "upload",
+    })),
+  ];
+  for (const row of rowsToCheck) {
     if (!row.required) continue;
     const stored = docs.find((d) => d.templateKey === row.key);
     if (!hasUploadedFile(stored)) {
@@ -129,15 +158,35 @@ function defaultOnboardingDoc(row) {
   };
 }
 
-function mergeOnboardingDocumentList(existing) {
+function adminRequestToTemplateRow(r) {
+  return {
+    key: `adminreq_${r.id}`,
+    label: r.name,
+    required: true,
+    status: "not_uploaded",
+    expiry: "",
+    action: "upload",
+  };
+}
+
+function mergeOnboardingDocumentList(existing, adminRequestedDocuments = []) {
   const prevByKey = new Map((existing || []).map((d) => [d.templateKey || d.id, d]));
-  return REQUIRED_DOCUMENT_ROWS.map((row) => {
+  const baseMerged = REQUIRED_DOCUMENT_ROWS.map((row) => {
     const prev = prevByKey.get(row.key);
     const merged = prev
       ? { ...defaultOnboardingDoc(row), ...prev, templateKey: row.key, name: row.label, id: prev.id || row.key }
       : defaultOnboardingDoc(row);
     return syncOnboardingDocumentRow(merged);
   });
+  const adminRows = (adminRequestedDocuments || []).map(adminRequestToTemplateRow);
+  const adminMerged = adminRows.map((row) => {
+    const prev = prevByKey.get(row.key);
+    const merged = prev
+      ? { ...defaultOnboardingDoc(row), ...prev, templateKey: row.key, name: row.label, id: prev.id || row.key }
+      : defaultOnboardingDoc(row);
+    return syncOnboardingDocumentRow(merged);
+  });
+  return [...baseMerged, ...adminMerged];
 }
 
 function syncOnboardingDocumentRow(doc) {
@@ -156,10 +205,14 @@ export function normalizeApplication(app) {
   if (!app) return app;
   const onboarding = { ...defaultOnboardingState(), ...(app.onboarding || {}) };
   const timesheets = Array.isArray(app.timesheets) ? app.timesheets : [];
+  const adminRequestedDocuments = Array.isArray(app.adminRequestedDocuments) ? app.adminRequestedDocuments : [];
+  const adminBgvRequests = Array.isArray(app.adminBgvRequests) ? app.adminBgvRequests : [];
   const merged = {
     ...app,
     messages: Array.isArray(app.messages) ? app.messages : [],
-    onboardingDocuments: mergeOnboardingDocumentList(app.onboardingDocuments),
+    adminRequestedDocuments,
+    adminBgvRequests,
+    onboardingDocuments: mergeOnboardingDocumentList(app.onboardingDocuments, adminRequestedDocuments),
     interview: app.interview ?? null,
     verificationDocuments: Array.isArray(app.verificationDocuments) ? app.verificationDocuments : [],
     interviews: Array.isArray(app.interviews) ? app.interviews : [],
@@ -302,6 +355,22 @@ export function adminApproveOnboardingProfile(applicantId) {
   }));
 }
 
+/** Candidate finished step 1 (profile) in the onboarding iframe — unlocks later steps like admin approval would. */
+export function applicantMarkOnboardingProfileComplete(applicantId) {
+  return updateApplication(applicantId, (prev) => ({
+    ...prev,
+    onboarding: { ...defaultOnboardingState(), ...prev.onboarding, profileCompleted: true },
+  }));
+}
+
+/** Applicant clicked through BGV step 3 — unlocks review (step 4). Admin hire still uses bgvCompleted. */
+export function applicantAcknowledgeBgvStep(applicantId) {
+  return updateApplication(applicantId, (prev) => ({
+    ...prev,
+    onboarding: { ...defaultOnboardingState(), ...prev.onboarding, bgvApplicantAcknowledged: true },
+  }));
+}
+
 export function adminApproveOnboardingDocumentsBundle(applicantId) {
   return updateApplication(applicantId, (prev) => {
     const list = [...(prev.onboardingDocuments || [])];
@@ -318,17 +387,46 @@ export function adminApproveOnboardingDocumentsBundle(applicantId) {
     }
     return {
       ...prev,
-      onboardingDocuments: mergeOnboardingDocumentList(list),
+      onboardingDocuments: mergeOnboardingDocumentList(list, prev.adminRequestedDocuments || []),
       onboarding: { ...defaultOnboardingState(), ...prev.onboarding, documentsCompleted: true },
     };
   });
 }
 
+/** Set BGV portal URL and optional instructions note for the applicant onboarding step 3. */
+export function adminSetBgvInstructions(applicantId, { link, note } = {}) {
+  return updateApplication(applicantId, (prev) => {
+    const ob = { ...defaultOnboardingState(), ...prev.onboarding };
+    const nextLink = link !== undefined ? String(link || "").trim() : ob.bgvLink;
+    const nextNote = note !== undefined ? String(note || "").trim() : ob.bgvNote;
+    return {
+      ...prev,
+      onboarding: { ...ob, bgvLink: nextLink, bgvNote: nextNote },
+    };
+  });
+}
+
 export function adminSetBgvLink(applicantId, url) {
-  const trimmed = String(url || "").trim();
+  return adminSetBgvInstructions(applicantId, { link: url });
+}
+
+export function adminAddDocumentRequest(applicantId, name) {
+  const trimmed = String(name || "").trim();
+  if (!trimmed) return null;
+  const id = `r_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
   return updateApplication(applicantId, (prev) => ({
     ...prev,
-    onboarding: { ...defaultOnboardingState(), ...prev.onboarding, bgvLink: trimmed },
+    adminRequestedDocuments: [...(prev.adminRequestedDocuments || []), { id, name: trimmed }],
+  }));
+}
+
+export function adminAddBgvRequest(applicantId, name) {
+  const trimmed = String(name || "").trim();
+  if (!trimmed) return null;
+  const id = `b_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  return updateApplication(applicantId, (prev) => ({
+    ...prev,
+    adminBgvRequests: [...(prev.adminBgvRequests || []), { id, name: trimmed }],
   }));
 }
 
@@ -407,6 +505,8 @@ export function appendNewApplicationFromForm(formData) {
     stages,
     currentStageIndex: 0,
     messages: [],
+    adminRequestedDocuments: [],
+    adminBgvRequests: [],
     onboardingDocuments: [],
     onboarding: defaultOnboardingState(),
     timesheets: [],
@@ -450,11 +550,13 @@ export function setOnboardingVerification(applicantId, templateKey, verification
     const list = [...(app.onboardingDocuments || [])];
     const ix = list.findIndex((d) => d.templateKey === templateKey);
     const template = REQUIRED_DOCUMENT_ROWS.find((r) => r.key === templateKey);
+    const adminReq = (app.adminRequestedDocuments || []).find((r) => `adminreq_${r.id}` === templateKey);
+    const displayName = template?.label || adminReq?.name || templateKey;
     if (ix < 0) {
       list.push({
         id: templateKey,
         templateKey,
-        name: template?.label || templateKey,
+        name: displayName,
         fileName: "",
         fileData: "",
         fileUrl: null,

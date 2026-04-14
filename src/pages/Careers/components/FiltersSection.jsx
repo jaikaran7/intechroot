@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { getJobs } from "../../../data";
+import { getJobs } from "@/fixtures/catalog";
 
 export default function FiltersSection({ filters, setFilters, setSearchTerm }) {
   const jobs = getJobs();
