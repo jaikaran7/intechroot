@@ -32,6 +32,43 @@ function formatTimeFromInput(time24) {
   return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 }
 
+/** Map stored display time (e.g. "2:36 AM") back to <input type="time" value. */
+function displayTimeToTimeInput(displayTime) {
+  if (!displayTime || typeof displayTime !== "string") return "";
+  const t = displayTime.trim();
+  if (/^\d{1,2}:\d{2}$/.test(t)) {
+    const [h, m] = t.split(":").map((x) => Number(x));
+    if (Number.isFinite(h) && Number.isFinite(m)) {
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+  }
+  const parsed = new Date(`January 1, 2000 ${t}`);
+  if (!Number.isNaN(parsed.getTime())) {
+    return `${String(parsed.getHours()).padStart(2, "0")}:${String(parsed.getMinutes()).padStart(2, "0")}`;
+  }
+  return "";
+}
+
+function formatMessageWhen(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function resolveInterviewTypeForForm(iv) {
+  if (!iv) return INTERVIEW_TYPES[0];
+  if (iv.type && INTERVIEW_TYPES.includes(iv.type)) return iv.type;
+  if (iv.title && INTERVIEW_TYPES.includes(iv.title)) return iv.title;
+  return INTERVIEW_TYPES[0];
+}
+
 function formatInterviewWhen(iv) {
   const d = iv?.date ? new Date(`${iv.date}T12:00:00`) : null;
   const dateStr =
@@ -62,6 +99,8 @@ export default function ApplicationProfile() {
   const [messageDraft, setMessageDraft] = useState("");
   const [isMessageSentPopupOpen, setIsMessageSentPopupOpen] = useState(false);
   const [isInterviewModalOpen, setIsInterviewModalOpen] = useState(false);
+  /** When set, interview modal updates this row instead of creating a new one. */
+  const [rescheduleTarget, setRescheduleTarget] = useState(null);
   const [stageMoveError, setStageMoveError] = useState("");
   const [hireMessage, setHireMessage] = useState("");
   const [interviewForm, setInterviewForm] = useState({
@@ -84,8 +123,8 @@ export default function ApplicationProfile() {
   const progressPercent =
     stages.length > 1 ? (stageIndex / (stages.length - 1)) * 100 : 0;
   const moveToNextDisabled =
-    applicationData.lifecycleStage === "employee" ||
-    (Boolean(applicationData.onboarding?.enabled) && stageIndex >= OFFER_STAGE_INDEX);
+    applicationData?.lifecycleStage === "employee" ||
+    (Boolean(applicationData?.onboarding?.enabled) && stageIndex >= OFFER_STAGE_INDEX);
   const handleMoveToNextStage = () => {
     if (!Number.isFinite(numericId)) return;
     setStageMoveError("");
@@ -104,11 +143,34 @@ export default function ApplicationProfile() {
     setIsMessageModalOpen(false);
     setIsMessageSentPopupOpen(true);
   };
+  const openNewInterviewModal = () => {
+    setRescheduleTarget(null);
+    setInterviewForm({ type: INTERVIEW_TYPES[0], date: "", time: "", link: "", notes: "" });
+    setIsInterviewModalOpen(true);
+  };
+
+  const openRescheduleInterviewModal = (iv, index) => {
+    setRescheduleTarget({ id: iv?.id ?? null, index });
+    setInterviewForm({
+      type: resolveInterviewTypeForForm(iv),
+      date: iv?.date || "",
+      time: displayTimeToTimeInput(iv?.time) || "",
+      link: iv?.link || "",
+      notes: iv?.notes || "",
+    });
+    setIsInterviewModalOpen(true);
+  };
+
+  const closeInterviewModal = () => {
+    setRescheduleTarget(null);
+    setIsInterviewModalOpen(false);
+    setInterviewForm({ type: INTERVIEW_TYPES[0], date: "", time: "", link: "", notes: "" });
+  };
+
   const handleScheduleInterviewSubmit = () => {
     if (!Number.isFinite(numericId) || !applicationData) return;
     const displayTime = formatTimeFromInput(interviewForm.time);
-    const newInterview = {
-      id: `int_${Date.now()}`,
+    const patch = {
       title: interviewForm.type,
       type: interviewForm.type,
       date: interviewForm.date,
@@ -117,21 +179,60 @@ export default function ApplicationProfile() {
       link: interviewForm.link?.trim() || "",
       notes: interviewForm.notes?.trim() || "",
     };
-    updateApplication(numericId, (prev) => ({
-      ...prev,
-      interview: {
-        type: interviewForm.type,
-        date: interviewForm.date,
-        time: interviewForm.time,
-        link: interviewForm.link,
-        notes: interviewForm.notes,
-        status: "scheduled",
-      },
-      interviews: [...(prev.interviews || []), newInterview],
-    }));
-    setIsInterviewModalOpen(false);
-    setInterviewForm({ type: INTERVIEW_TYPES[0], date: "", time: "", link: "", notes: "" });
+
+    if (rescheduleTarget) {
+      updateApplication(numericId, (prev) => {
+        const list = [...(prev.interviews || [])];
+        let ix = -1;
+        if (rescheduleTarget.id) {
+          ix = list.findIndex((x) => x.id === rescheduleTarget.id);
+        }
+        if (ix < 0 && rescheduleTarget.index != null && rescheduleTarget.index < list.length) {
+          ix = rescheduleTarget.index;
+        }
+        if (ix >= 0) {
+          const prevRow = list[ix];
+          list[ix] = { ...prevRow, ...patch, id: prevRow.id || `int_${Date.now()}` };
+        }
+        return {
+          ...prev,
+          interview: {
+            type: interviewForm.type,
+            date: interviewForm.date,
+            time: interviewForm.time,
+            link: interviewForm.link,
+            notes: interviewForm.notes,
+            status: "scheduled",
+          },
+          interviews: list,
+        };
+      });
+    } else {
+      const newInterview = {
+        id: `int_${Date.now()}`,
+        ...patch,
+      };
+      updateApplication(numericId, (prev) => ({
+        ...prev,
+        interview: {
+          type: interviewForm.type,
+          date: interviewForm.date,
+          time: interviewForm.time,
+          link: interviewForm.link,
+          notes: interviewForm.notes,
+          status: "scheduled",
+        },
+        interviews: [...(prev.interviews || []), newInterview],
+      }));
+    }
+    closeInterviewModal();
   };
+
+  const recentMessagesSorted = useMemo(() => {
+    const list = [...(applicationData?.messages || [])];
+    list.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+    return list.slice(0, 12);
+  }, [applicationData?.messages]);
 
   if (!applicationData) {
     return (
@@ -314,7 +415,7 @@ export default function ApplicationProfile() {
       <button className="w-full px-6 py-3 border border-primary-container text-primary-container font-bold text-sm rounded-lg hover:bg-primary-container/5 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed" disabled={moveToNextDisabled} onClick={handleMoveToNextStage} type="button">
                           Move to Next Stage
                       </button>
-      <button className="w-full px-6 py-3 border border-primary-container text-primary-container font-bold text-sm rounded-lg hover:bg-primary-container/5 transition-all active:scale-95 flex items-center justify-center gap-2" onClick={() => setIsInterviewModalOpen(true)} type="button">
+      <button className="w-full px-6 py-3 border border-primary-container text-primary-container font-bold text-sm rounded-lg hover:bg-primary-container/5 transition-all active:scale-95 flex items-center justify-center gap-2" onClick={openNewInterviewModal} type="button">
       <span className="material-symbols-outlined text-sm" data-icon="calendar_today">calendar_today</span>
                           Schedule Interview
                       </button>
@@ -556,7 +657,6 @@ export default function ApplicationProfile() {
         { label: "Location", value: getDisplayValue(applicationData.location) },
         { label: "Application Date", value: getDisplayValue(applicationData.appliedDate) },
         { label: "Current Stage", value: getDisplayValue(stages[stageIndex]?.name) },
-        { label: "Pipeline", value: getDisplayValue(applicationData.lifecycleStage) },
         { label: "Status", value: getDisplayValue(applicationData.status) },
       ].map((row) => (
       <div key={row.label}>
@@ -622,29 +722,6 @@ export default function ApplicationProfile() {
         </span>
       ))}
       </div>
-      <div className="mt-8 pt-6 border-t border-outline-variant/20">
-      <p className="text-[10px] text-outline uppercase tracking-[0.2em] mb-4">Competency Radar</p>
-      <div className="space-y-4">
-      <div className="space-y-1.5">
-      <div className="flex justify-between text-xs font-bold">
-      <span>Leadership</span>
-      <span>92%</span>
-      </div>
-      <div className="w-full h-1 bg-surface-container rounded-full overflow-hidden">
-      <div className="h-full bg-secondary w-[92%]"></div>
-      </div>
-      </div>
-      <div className="space-y-1.5">
-      <div className="flex justify-between text-xs font-bold">
-      <span>Technical Depth</span>
-      <span>98%</span>
-      </div>
-      <div className="w-full h-1 bg-surface-container rounded-full overflow-hidden">
-      <div className="h-full bg-secondary w-[98%]"></div>
-      </div>
-      </div>
-      </div>
-      </div>
       </div>
 
       <div className="glass-card rounded-xl p-8 monolith-shadow">
@@ -656,7 +733,17 @@ export default function ApplicationProfile() {
       {(applicationData.interviews || []).map((iv, idx) => (
       <div
       key={iv.id || idx}
-      className="flex items-center gap-4 p-4 rounded-xl bg-secondary/5 border border-secondary/10"
+      role="button"
+      tabIndex={0}
+      title="Click to reschedule"
+      onClick={() => openRescheduleInterviewModal(iv, idx)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openRescheduleInterviewModal(iv, idx);
+        }
+      }}
+      className="flex items-center gap-4 p-4 rounded-xl bg-secondary/5 border border-secondary/10 cursor-pointer transition-colors hover:bg-secondary/10 hover:border-secondary/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary/40"
       >
       <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary shrink-0">
       <span className="material-symbols-outlined">
@@ -664,10 +751,37 @@ export default function ApplicationProfile() {
       </span>
       </div>
       <div className="flex-1 min-w-0">
-      <p className="font-bold text-sm text-primary">{iv.title || iv.type}</p>
-      <p className="text-xs text-on-surface-variant mt-0.5">{formatInterviewWhen(iv)}</p>
+      <p className="font-bold text-sm text-primary break-words">{iv.title || iv.type}</p>
+      <p className="text-xs text-on-surface-variant mt-0.5 break-words">{formatInterviewWhen(iv)}</p>
       </div>
       <div className="shrink-0">{interviewStatusBadge(iv.status)}</div>
+      </div>
+      ))}
+      </div>
+      )}
+      </div>
+
+      <div className="glass-card rounded-xl p-8 monolith-shadow">
+      <h3 className="font-headline font-bold text-xl mb-6">Recent Messages</h3>
+      {recentMessagesSorted.length === 0 ? (
+      <p className="text-sm text-on-surface-variant">No messages yet. Use Send Message to notify the candidate.</p>
+      ) : (
+      <div className="space-y-4">
+      {recentMessagesSorted.map((msg, midx) => (
+      <div
+      key={`${msg.date || midx}-${midx}`}
+      className="flex items-start gap-4 p-4 rounded-xl bg-secondary/5 border border-secondary/10"
+      >
+      <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary shrink-0">
+      <span className="material-symbols-outlined">chat</span>
+      </div>
+      <div className="flex-1 min-w-0">
+      <p className="text-xs font-bold uppercase tracking-wide text-secondary mb-1">From hiring team</p>
+      <p className="text-sm text-primary leading-relaxed break-words whitespace-pre-wrap">{msg.text}</p>
+      {msg.date ? (
+      <p className="text-[10px] text-on-surface-variant mt-2 font-medium uppercase tracking-wider">{formatMessageWhen(msg.date)}</p>
+      ) : null}
+      </div>
       </div>
       ))}
       </div>
@@ -681,7 +795,7 @@ export default function ApplicationProfile() {
       {isInterviewModalOpen && (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/30 backdrop-blur-md">
       <div className="glass-card rounded-xl p-6 w-[min(92vw,32rem)] shadow-2xl border border-white/20">
-      <h4 className="text-lg font-bold text-primary mb-3">Schedule Interview</h4>
+      <h4 className="text-lg font-bold text-primary mb-3">{rescheduleTarget ? "Reschedule Interview" : "Schedule Interview"}</h4>
       <div className="space-y-3 text-sm">
       <div>
       <label className="block text-[10px] font-bold uppercase tracking-widest text-outline mb-1">Interview Type</label>
@@ -734,8 +848,8 @@ export default function ApplicationProfile() {
       </div>
       </div>
       <div className="mt-4 flex justify-end gap-2">
-      <button className="px-4 py-2 text-xs font-bold border border-slate-200 rounded-lg" onClick={() => setIsInterviewModalOpen(false)} type="button">Cancel</button>
-      <button className="px-4 py-2 text-xs font-bold bg-primary-container text-white rounded-lg" onClick={handleScheduleInterviewSubmit} type="button">Schedule Interview</button>
+      <button className="px-4 py-2 text-xs font-bold border border-slate-200 rounded-lg" onClick={closeInterviewModal} type="button">Cancel</button>
+      <button className="px-4 py-2 text-xs font-bold bg-primary-container text-white rounded-lg" onClick={handleScheduleInterviewSubmit} type="button">{rescheduleTarget ? "Save schedule" : "Schedule Interview"}</button>
       </div>
       </div>
       </div>

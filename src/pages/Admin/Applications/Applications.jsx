@@ -6,7 +6,9 @@ export default function Applications() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const jobIdFilter = searchParams.get("jobId");
-  const [selectedApplicationId, setSelectedApplicationId] = useState(1);
+  const [selectedApplicationId, setSelectedApplicationId] = useState(null);
+  const [applicationsPage, setApplicationsPage] = useState(1);
+  const PAGE_SIZE = 6;
   const [searchFilter, setSearchFilter] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
   const [experienceFilter, setExperienceFilter] = useState("Any");
@@ -77,7 +79,16 @@ export default function Applications() {
   });
 
   const selectedApplication =
-    filteredApplications.find((application) => application.id === selectedApplicationId) || filteredApplications[0];
+    selectedApplicationId != null
+      ? filteredApplications.find((application) => application.id === selectedApplicationId)
+      : undefined;
+
+  const totalApplicationPages = Math.max(1, Math.ceil(filteredApplications.length / PAGE_SIZE));
+  const safeApplicationsPage = Math.min(Math.max(1, applicationsPage), totalApplicationPages);
+  const paginatedApplications = filteredApplications.slice(
+    (safeApplicationsPage - 1) * PAGE_SIZE,
+    safeApplicationsPage * PAGE_SIZE,
+  );
 
   useEffect(() => {
     return () => {
@@ -88,13 +99,21 @@ export default function Applications() {
   }, []);
 
   useEffect(() => {
-    if (!selectedApplication) {
-      return;
+    setApplicationsPage(1);
+  }, [searchFilter, roleFilter, experienceFilter, jobIdFilter]);
+
+  useEffect(() => {
+    if (applicationsPage > totalApplicationPages) {
+      setApplicationsPage(totalApplicationPages);
     }
+  }, [applicationsPage, totalApplicationPages]);
+
+  useEffect(() => {
+    if (selectedApplicationId == null) return;
     if (!filteredApplications.some((application) => application.id === selectedApplicationId)) {
-      setSelectedApplicationId(filteredApplications[0].id);
+      setSelectedApplicationId(null);
     }
-  }, [filteredApplications, selectedApplication, selectedApplicationId]);
+  }, [filteredApplications, selectedApplicationId]);
   return (
     <>
       <main className="ml-64 min-h-screen">
@@ -201,10 +220,10 @@ export default function Applications() {
       </div>
       </section>
 
-      <div className="grid grid-cols-12 gap-8 items-start">
+      <div className="grid grid-cols-12 gap-6 lg:gap-8 items-start">
 
-      <div className="col-span-8 bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/10 overflow-hidden">
-      <div className="p-6 flex items-center justify-between border-b border-surface-container">
+      <div className="col-span-12 lg:col-span-9 bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/10 overflow-hidden flex flex-col">
+      <div className="p-6 flex items-center justify-between border-b border-surface-container shrink-0">
       <h4 className="font-bold text-primary font-headline">Recent Applications</h4>
       <div className="flex items-center gap-3">
       <input className="text-xs font-medium border-none bg-surface-container-low rounded-lg focus:ring-0 py-1.5 w-44" placeholder="Search" type="text" value={searchFilter} onChange={(event) => setSearchFilter(event.target.value)} />
@@ -229,76 +248,78 @@ export default function Applications() {
       </button>
       </div>
       </div>
-      <div className="overflow-x-auto">
-      <table className="w-full text-left">
-      <thead className="bg-surface-container-low">
+      <div className="overflow-x-hidden">
+      <table className="w-full max-w-full table-auto text-left">
+      <thead className="bg-surface-container-low border-b border-surface-container">
       <tr>
-      <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-outline">Candidate</th>
-      <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-outline">Role</th>
-      <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-outline">Experience</th>
-      <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-outline">Stage</th>
-      <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-outline">Status</th>
-      <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-outline text-right">Action</th>
+      <th className="px-4 lg:px-6 py-4 text-[10px] font-bold uppercase tracking-wide text-outline align-top">Candidate</th>
+      <th className="px-4 lg:px-6 py-4 text-[10px] font-bold uppercase tracking-wide text-outline align-top whitespace-normal min-w-[6rem]">Role</th>
+      <th className="px-3 lg:px-5 py-4 text-[10px] font-bold uppercase tracking-wide text-outline align-top whitespace-nowrap">Experience</th>
+      <th className="px-3 lg:px-5 py-4 text-[10px] font-bold uppercase tracking-wide text-outline align-top whitespace-normal min-w-[6rem]">Stage</th>
+      <th className="px-3 lg:px-5 py-4 text-[10px] font-bold uppercase tracking-wide text-outline align-top whitespace-normal min-w-[6rem]">Status</th>
+      <th className="px-3 py-4 pr-4 lg:pr-6 text-[10px] font-bold uppercase tracking-wide text-outline text-right whitespace-nowrap w-24">Action</th>
       </tr>
       </thead>
       <tbody className="divide-y divide-surface-container">
-      {filteredApplications.map((application, index) => (
+      {paginatedApplications.map((application, index) => (
         <tr
           className={selectedApplicationId === application.id ? "bg-secondary/5 border-l-4 border-l-secondary cursor-pointer transition-colors" : index % 2 === 0 ? "hover:bg-surface-container-low transition-colors cursor-pointer" : "bg-surface-container-low/30 hover:bg-surface-container-low transition-colors cursor-pointer"}
           key={application.id}
           onClick={() => setSelectedApplicationId(application.id)}
         >
-          <td className="px-6 py-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full border border-outline-variant bg-surface-container-low flex items-center justify-center">
+          <td className="px-4 lg:px-6 py-4 min-w-0 align-top">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="mt-0.5 w-10 h-10 shrink-0 rounded-full border border-outline-variant bg-surface-container-low flex items-center justify-center">
                 <span className="text-xs font-bold text-primary">
                   {application.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
                 </span>
               </div>
-              <div>
-                <p className="font-semibold text-primary text-sm">{application.name}</p>
-                <p className="text-[11px] text-outline">{application.location}</p>
+              <div className="min-w-0 break-words">
+                <p className="font-semibold text-primary text-sm leading-snug">{application.name}</p>
+                <p className="text-[11px] text-outline leading-snug">{application.location}</p>
               </div>
             </div>
           </td>
-          <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{application.role}</td>
-          <td className="px-6 py-4 text-sm text-outline">{application.experience}</td>
-              <td className="px-6 py-4">
+          <td className="px-4 lg:px-6 py-4 text-sm font-medium text-on-surface-variant align-top break-words leading-snug">{application.role}</td>
+          <td className="px-3 lg:px-5 py-4 text-sm text-outline align-top whitespace-nowrap">{application.experience}</td>
+          <td className="px-3 lg:px-5 py-4 align-top">
             <span
               className={
                 application.stage === "Technical Evaluation"
-                  ? "px-2 py-1 bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold rounded uppercase tracking-tighter"
+                  ? "inline-block max-w-full px-2 py-1 bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold rounded uppercase tracking-tight leading-snug break-words"
                   : application.stage === "Offer & Onboarding"
-                    ? "px-2 py-1 bg-on-tertiary-container/10 text-on-tertiary-container text-[10px] font-bold rounded uppercase tracking-tighter"
-                    : "px-2 py-1 bg-surface-container-high text-on-surface-variant text-[10px] font-bold rounded uppercase tracking-tighter"
+                    ? "inline-block max-w-full px-2 py-1 bg-on-tertiary-container/10 text-on-tertiary-container text-[10px] font-bold rounded uppercase tracking-tight leading-snug break-words"
+                    : "inline-block max-w-full px-2 py-1 bg-surface-container-high text-on-surface-variant text-[10px] font-bold rounded uppercase tracking-tight leading-snug break-words"
               }
             >
               {application.stage}
             </span>
           </td>
-          <td className="px-6 py-4">
-            <div className="flex items-center gap-2">
+          <td className="px-3 lg:px-5 py-4 align-top">
+            <div className="flex items-start gap-2">
               <div
                 className={
                   application.status === "In Progress"
-                    ? "w-2 h-2 rounded-full bg-secondary"
+                    ? "mt-1.5 w-2 h-2 shrink-0 rounded-full bg-secondary"
                     : application.status === "Offer Sent"
-                      ? "w-2 h-2 rounded-full bg-on-tertiary-container"
-                      : "w-2 h-2 rounded-full bg-outline-variant"
+                      ? "mt-1.5 w-2 h-2 shrink-0 rounded-full bg-on-tertiary-container"
+                      : "mt-1.5 w-2 h-2 shrink-0 rounded-full bg-outline-variant"
                 }
               ></div>
-              <span className="text-xs font-medium">{application.status}</span>
+              <span className="text-xs font-medium text-primary leading-snug break-words">{application.status}</span>
             </div>
           </td>
-          <td className="px-6 py-4 text-right">
+          <td className="px-3 py-4 pr-4 lg:pr-6 text-right whitespace-nowrap align-top w-24">
             <button
-              className="text-outline hover:text-primary"
+              type="button"
+              className="inline-flex items-center justify-center p-1.5 rounded-lg text-outline hover:text-primary hover:bg-surface-container-low"
               onClick={(event) => {
                 event.stopPropagation();
                 handleView(application.id);
               }}
+              aria-label={`View ${application.name}`}
             >
-              <span className="material-symbols-outlined" data-icon="visibility">visibility</span>
+              <span className="material-symbols-outlined text-xl leading-none" data-icon="visibility">visibility</span>
             </button>
           </td>
         </tr>
@@ -313,31 +334,58 @@ export default function Applications() {
       </tbody>
       </table>
       </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-t border-surface-container bg-surface-container-low/40 shrink-0">
+        <p className="text-xs text-outline">
+          {filteredApplications.length === 0
+            ? "0 applicants"
+            : `Showing ${(safeApplicationsPage - 1) * PAGE_SIZE + 1}–${Math.min(safeApplicationsPage * PAGE_SIZE, filteredApplications.length)} of ${filteredApplications.length}`}
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={safeApplicationsPage <= 1}
+            onClick={() => setApplicationsPage((page) => Math.max(1, page - 1))}
+            className="px-3 py-1.5 text-xs font-bold rounded-lg bg-surface-container-low text-primary border border-outline-variant/20 hover:bg-surface-container-high disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Previous
+          </button>
+          <span className="text-xs font-semibold text-on-surface-variant tabular-nums px-1">
+            {safeApplicationsPage} / {totalApplicationPages}
+          </span>
+          <button
+            type="button"
+            disabled={safeApplicationsPage >= totalApplicationPages}
+            onClick={() => setApplicationsPage((page) => Math.min(totalApplicationPages, page + 1))}
+            className="px-3 py-1.5 text-xs font-bold rounded-lg bg-surface-container-low text-primary border border-outline-variant/20 hover:bg-surface-container-high disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Next
+          </button>
+        </div>
+      </div>
       </div>
 
-      {selectedApplication && (
-      <div className="col-span-4 flex flex-col gap-6">
-
-      <div className="bg-white/70 backdrop-blur-md rounded-xl shadow-[0_40px_40px_0px_rgba(0,6,21,0.04)] border border-white/40 p-8">
-      <div className="text-center mb-6">
+      <div className="col-span-12 lg:col-span-3 flex flex-col gap-6 min-w-0">
+      {selectedApplication ? (
+      <div className="min-w-0 w-full bg-white/70 backdrop-blur-md rounded-xl shadow-[0_40px_40px_0px_rgba(0,6,21,0.04)] border border-white/40 p-8">
+      <div className="mb-6 text-center">
       <div className="w-24 h-24 rounded-2xl mx-auto mb-4 overflow-hidden border-2 border-white shadow-lg">
       <img alt="Elena Novikova Large" data-alt="high-quality studio portrait of Elena Novikova looking confident, soft warm directional lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCkZ3NUNWOOiw8viMwO2HXFDdKwQHuRcHdh4KbJ6rYIKFxnp9tQJySeabAlnmvT_lyytHdoVMyixExB7qa6ViVZvgbySdc1KwGilQISCkf4NpVSXzHygp15KTXyAsau0dzMMPlukiuxy7TkXSpmoRL_IFpXG4iJ3ASQxbTqjsK6Ri1qnBFFu_odf7svaKg1-yIg_u_VcACF7k2YJWC8OfMBFB8Pe3CmaRInvHLhX0EL8QTkKIXW0of328zZ1vS5L5L5-v3xMe1lVQMP"/>
       </div>
-      <h5 className="text-xl font-bold text-primary font-headline">{selectedApplication.name}</h5>
-      <p className="text-secondary font-semibold text-sm">{selectedApplication.role}</p>
+      <h5 className="text-xl font-bold text-primary font-headline break-words leading-snug px-0.5">{selectedApplication.name}</h5>
+      <p className="text-secondary font-semibold text-sm break-words leading-snug mt-1 px-0.5">{selectedApplication.role}</p>
       </div>
-      <div className="space-y-4 mb-8">
-      <div className="flex items-center gap-3 text-sm">
-      <span className="material-symbols-outlined text-outline" data-icon="location_on">location_on</span>
-      <span className="text-on-surface-variant">{selectedApplication.location}</span>
+      <div className="space-y-4 mb-8 min-w-0">
+      <div className="flex items-start gap-3 text-sm min-w-0">
+      <span className="material-symbols-outlined text-outline shrink-0 mt-0.5" data-icon="location_on">location_on</span>
+      <span className="min-w-0 flex-1 text-on-surface-variant break-words leading-snug">{selectedApplication.location}</span>
       </div>
-      <div className="flex items-center gap-3 text-sm">
-      <span className="material-symbols-outlined text-outline" data-icon="mail">mail</span>
-      <Link className="text-on-surface-variant" to={`mailto:${selectedApplication.email}`}>{selectedApplication.email}</Link>
+      <div className="flex items-start gap-3 text-sm min-w-0">
+      <span className="material-symbols-outlined text-outline shrink-0 mt-0.5" data-icon="mail">mail</span>
+      <Link className="min-w-0 flex-1 break-all text-left text-on-surface-variant leading-snug" to={`mailto:${selectedApplication.email}`}>{selectedApplication.email}</Link>
       </div>
-      <div className="flex items-center gap-3 text-sm">
-      <span className="material-symbols-outlined text-outline" data-icon="attach_file">attach_file</span>
-      <Link className="text-secondary underline font-medium" to="#">{`Resume_${selectedApplication.name.replace(/\s+/g, "_")}.pdf`}</Link>
+      <div className="flex items-start gap-3 text-sm min-w-0">
+      <span className="material-symbols-outlined text-outline shrink-0 mt-0.5" data-icon="attach_file">attach_file</span>
+      <Link className="min-w-0 flex-1 break-words text-left text-secondary underline font-medium leading-snug" to="#">{`Resume_${selectedApplication.name.replace(/\s+/g, "_")}.pdf`}</Link>
       </div>
       </div>
       <div className="mb-8">
@@ -360,29 +408,13 @@ export default function Applications() {
       </div>
       </div>
       </div>
-
-      <div className="bg-surface-container-low rounded-xl p-6 border border-outline-variant/10">
-      <div className="flex items-center justify-between mb-4">
-      <h6 className="text-xs font-bold text-primary uppercase">Quick Preview</h6>
-      <span className="material-symbols-outlined text-outline text-lg" data-icon="fullscreen">fullscreen</span>
-      </div>
-      <div className="bg-white p-4 rounded border border-outline-variant/20 h-40 relative overflow-hidden">
-      <div className="space-y-3 opacity-40">
-      <div className="h-4 w-3/4 bg-surface-container-high rounded"></div>
-      <div className="h-2 w-full bg-surface-container-high rounded"></div>
-      <div className="h-2 w-full bg-surface-container-high rounded"></div>
-      <div className="h-2 w-5/6 bg-surface-container-high rounded"></div>
-      <div className="h-2 w-1/2 bg-surface-container-high rounded mt-4"></div>
-      <div className="h-2 w-full bg-surface-container-high rounded"></div>
-      <div className="h-2 w-full bg-surface-container-high rounded"></div>
-      </div>
-      <div className="absolute inset-0 bg-gradient-to-t from-surface-container-low to-transparent flex items-end justify-center pb-4">
-      <p className="text-[10px] font-semibold text-secondary">Click to expand document</p>
-      </div>
-      </div>
-      </div>
-      </div>
+      ) : (
+      <div
+        className="bg-surface-container-lowest/40 rounded-xl border border-outline-variant/15 border-dashed min-h-[28rem] shadow-sm"
+        aria-hidden="true"
+      />
       )}
+      </div>
       </div>
       </div>
       {selectionPopup.open && (

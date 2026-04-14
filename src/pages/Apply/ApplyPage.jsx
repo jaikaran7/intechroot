@@ -17,12 +17,17 @@ export default function ApplyPage() {
   const location = useLocation();
   const incoming = location.state || {};
   const [form, setForm] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
     email: "",
     phone: "",
+    location: "",
+    linkedIn: "",
+    portfolio: "",
+    skills: [],
     resume: null,
     discipline: incoming.discipline || "Cloud Infrastructure Architecture",
-    experience: incoming.experience || "5-8 Years",
+    experience: "",
   });
   const [errors, setErrors] = useState({});
 
@@ -41,11 +46,32 @@ export default function ApplyPage() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleSkillAdd = (skill) => {
+    const t = skill.trim();
+    if (!t) return;
+    setForm((prev) => ({
+      ...prev,
+      skills: prev.skills.includes(t) ? prev.skills : [...prev.skills, t],
+    }));
+  };
+
+  const handleSkillRemove = (idx) => {
+    setForm((prev) => ({
+      ...prev,
+      skills: prev.skills.filter((_, i) => i !== idx),
+    }));
+  };
+
   const validationErrors = useMemo(() => {
     const next = {};
-    if (!form.name.trim()) next.name = "Name is required.";
+    if (!form.firstName.trim()) next.firstName = "First name is required.";
+    if (!form.lastName.trim()) next.lastName = "Last name is required.";
     if (!form.email.trim()) next.email = "Email is required.";
     if (!form.phone.trim()) next.phone = "Phone is required.";
+    const rawExp = Number(form.experience);
+    const yearsRounded = Number.isFinite(rawExp) ? Math.round(rawExp) : NaN;
+    if (form.experience === "" || form.experience == null) next.experience = "Years of experience is required.";
+    else if (!Number.isFinite(rawExp) || yearsRounded < 0 || yearsRounded > 80) next.experience = "Enter a valid number (0–80).";
     if (!form.resume) next.resume = "Resume upload is required.";
     return next;
   }, [form]);
@@ -76,12 +102,15 @@ export default function ApplyPage() {
         return;
       }
 
+      const fullName = [form.firstName, form.lastName].filter(Boolean).join(" ").trim();
+      const expNum = Number(form.experience);
+      const experienceForStore = Number.isFinite(expNum) ? `${Math.round(expNum)} Yrs` : String(form.experience).trim();
       const formData = {
-        name: form.name,
+        name: fullName,
         email: form.email,
         phone: form.phone,
         discipline: form.discipline,
-        experience: form.experience,
+        experience: experienceForStore,
         resumeName: form.resume?.name || "",
         jobId,
       };
@@ -134,7 +163,16 @@ export default function ApplyPage() {
             </Typography>
           </header>
 
-          <FormSection form={form} errors={errors} onChange={handleChange} onFileChange={handleFileChange} onSelectChange={handleSelectChange} onSubmit={handleSubmit} />
+          <FormSection
+            form={form}
+            errors={errors}
+            onChange={handleChange}
+            onFileChange={handleFileChange}
+            onSelectChange={handleSelectChange}
+            onSubmit={handleSubmit}
+            onSkillAdd={handleSkillAdd}
+            onSkillRemove={handleSkillRemove}
+          />
 
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="glass-panel p-6 rounded-xl flex gap-4 items-start">

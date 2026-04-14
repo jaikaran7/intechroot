@@ -100,6 +100,14 @@ export default function SuccessPage() {
   const applicationId = stableApplicationId(formData.email, application?.id);
   const fullName = formData.name || application?.name || "Candidate";
   const displayRole = application?.role || formData.discipline || "Principal Architect";
+  const displayPhone = (application?.phone || "").trim() || "—";
+  const displayEmail = (application?.email || formData.email || "").trim();
+  const resumeHref =
+    application?.documents?.resume && application.documents.resume !== "#"
+      ? application.documents.resume
+      : DUMMY_FILE_URL;
+  const hasResume = Boolean(application?.documents?.resume);
+  const resumeLabel = `Resume_${fullName.replace(/\s+/g, "_")}.pdf`;
 
   const handleLogout = () => {
     clearApplicantSession();
@@ -152,22 +160,13 @@ export default function SuccessPage() {
 
     const uploadPrimaryClass =
       "rounded bg-primary px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-white transition-colors hover:bg-secondary";
-    const uploadOutlineClass =
-      "rounded border border-outline-variant/30 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant transition-all hover:border-primary hover:text-primary";
-    const replaceClass =
-      "rounded border border-primary px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-primary transition-all hover:bg-primary hover:text-white";
-    const reuploadClass = "rounded bg-primary px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-white";
     const viewLinkClass = "text-xs font-bold text-secondary hover:underline";
     const downloadOutlineClass =
       "rounded border border-primary px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-primary transition-all hover:bg-primary hover:text-white";
 
     if (!hasFile) {
       return (
-        <button
-          type="button"
-          onClick={() => handleUploadClick(row.key)}
-          className={row.status === "not_uploaded_neutral" ? uploadOutlineClass : uploadPrimaryClass}
-        >
+        <button type="button" onClick={() => handleUploadClick(row.key)} className={uploadPrimaryClass}>
           Upload
         </button>
       );
@@ -196,7 +195,7 @@ export default function SuccessPage() {
 
     if (exp === "expired" || exp === "expiring_soon") {
       return (
-        <button type="button" onClick={() => handleUploadClick(row.key)} className={replaceClass}>
+        <button type="button" onClick={() => handleUploadClick(row.key)} className={uploadPrimaryClass}>
           Replace
         </button>
       );
@@ -204,7 +203,7 @@ export default function SuccessPage() {
 
     if (v === "rejected") {
       return (
-        <button type="button" onClick={() => handleUploadClick(row.key)} className={reuploadClass}>
+        <button type="button" onClick={() => handleUploadClick(row.key)} className={uploadPrimaryClass}>
           Re-upload
         </button>
       );
@@ -212,7 +211,7 @@ export default function SuccessPage() {
 
     if (v === "waiting") {
       return (
-        <button type="button" onClick={() => handleUploadClick(row.key)} className={replaceClass}>
+        <button type="button" onClick={() => handleUploadClick(row.key)} className={uploadPrimaryClass}>
           Replace
         </button>
       );
@@ -528,30 +527,52 @@ export default function SuccessPage() {
         <section className="grid grid-cols-1 items-stretch gap-8 md:grid-cols-12">
           <div className="relative overflow-hidden rounded-xl p-10 glass-card md:col-span-4">
             <div className="relative z-10">
-              <h4 className="mb-8 font-headline text-2xl font-bold">Talent Insight</h4>
+              <h4 className="mb-8 font-headline text-2xl font-bold">Your profile</h4>
               <div className="mb-8 flex items-center gap-4">
                 <div className="h-16 w-16 overflow-hidden rounded-lg bg-primary-container p-1">
                   <img alt="" className="h-full w-full rounded-md object-cover" src={TALENT_AVATAR} />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="font-headline text-lg font-bold">{fullName}</p>
                   <p className="text-sm font-medium text-secondary">{displayRole}</p>
                 </div>
               </div>
-              <ul className="space-y-4">
-                <li className="flex items-center justify-between border-b border-outline-variant/10 py-2 text-sm">
-                  <span className="text-on-surface-variant">Vetting Score</span>
-                  <span className="font-bold text-primary">
-                    {application ? `${98 - (application.id % 5)}.${(application.id * 7) % 10}/100` : "98.4/100"}
-                  </span>
+              <ul className="space-y-0">
+                <li className="flex items-start justify-between gap-4 border-b border-outline-variant/10 py-3 text-sm">
+                  <span className="shrink-0 text-on-surface-variant">Phone</span>
+                  <span className="min-w-0 text-right font-semibold text-primary">{displayPhone}</span>
                 </li>
-                <li className="flex items-center justify-between border-b border-outline-variant/10 py-2 text-sm">
-                  <span className="text-on-surface-variant">Cognitive Bias Match</span>
-                  <span className="font-bold text-primary">Top 1%</span>
+                <li className="flex items-start justify-between gap-4 border-b border-outline-variant/10 py-3 text-sm">
+                  <span className="shrink-0 text-on-surface-variant">Email</span>
+                  {displayEmail ? (
+                    <a className="min-w-0 break-all text-right font-semibold text-secondary underline decoration-secondary/30 underline-offset-2 hover:opacity-90" href={`mailto:${displayEmail}`}>
+                      {displayEmail}
+                    </a>
+                  ) : (
+                    <span className="font-semibold text-primary">—</span>
+                  )}
                 </li>
-                <li className="flex items-center justify-between py-2 text-sm">
-                  <span className="text-on-surface-variant">Industry Seniority</span>
-                  <span className="font-bold text-primary">{application?.experience || formData.experience || "14+ Years"}</span>
+                <li className="flex items-center justify-between gap-4 py-3 text-sm">
+                  <span className="text-on-surface-variant">Resume</span>
+                  {hasResume ? (
+                    <a
+                      className="inline-flex items-center gap-2 font-semibold text-secondary hover:opacity-90"
+                      href={resumeHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download={resumeLabel}
+                    >
+                      <span className="material-symbols-outlined text-[22px]" data-icon="description">description</span>
+                      <span className="max-w-[10rem] truncate sm:max-w-[12rem]" title={resumeLabel}>
+                        {resumeLabel}
+                      </span>
+                    </a>
+                  ) : (
+                    <span className="inline-flex items-center gap-2 text-on-surface-variant">
+                      <span className="material-symbols-outlined text-[22px] opacity-60" data-icon="description">description</span>
+                      <span>Not uploaded</span>
+                    </span>
+                  )}
                 </li>
               </ul>
             </div>

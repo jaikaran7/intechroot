@@ -13,5 +13,5 @@
 .floating-label-group:focus-within label,
 .floating-label-group input:not(:placeholder-shown) + label {
   transform: translateY(-1.5rem) scale(0.85);
-  color: #4059aa;
+  color: #4cd7f6;
 }
