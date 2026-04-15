@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getEmployeeFromStore, subscribeEmployeesStore } from "./employeeEmployeesStore";
 import { getEmployeeSessionId } from "./employeeSession";
-import { addDaysISO, calculateTotal, getWeekStartISO, parseYMD } from "./timesheetUtils";
+import { addDaysISO, calculateTotal, formatTimesheetRangeLabel, getWeekStartISO, parseYMD } from "./timesheetUtils";
 
 function documentStatusLabel(expiryDateStr) {
   const now = new Date();
@@ -37,6 +37,8 @@ export default function EmployeeDashboard() {
       wed: Number(wd.wed ?? 9),
       thu: Number(wd.thu ?? 7.5),
       fri: Number(wd.fri ?? 7.5),
+      sat: Number(wd.sat ?? 0),
+      sun: Number(wd.sun ?? 0),
     };
   }, [weekTs]);
 
@@ -69,8 +71,9 @@ export default function EmployeeDashboard() {
   }, [employee]);
 
   const chartPeriodLabel = useMemo(() => {
-    const start = parseYMD(weekTs?.weekStart ?? currentWeekStart);
-    const end = parseYMD(addDaysISO(weekTs?.weekStart ?? currentWeekStart, 4));
+    if (weekTs) return formatTimesheetRangeLabel(weekTs);
+    const start = parseYMD(currentWeekStart);
+    const end = parseYMD(addDaysISO(currentWeekStart, 4));
     const opts = { month: "short", day: "numeric" };
     return `${start.toLocaleDateString("en-US", opts)} - ${end.toLocaleDateString("en-US", opts)}`;
   }, [weekTs, currentWeekStart]);
@@ -170,6 +173,8 @@ export default function EmployeeDashboard() {
                 { key: "wed", label: "WED", h: hours.wed },
                 { key: "thu", label: "THU", h: hours.thu },
                 { key: "fri", label: "FRI", h: hours.fri },
+                { key: "sat", label: "ST", h: hours.sat },
+                { key: "sun", label: "S", h: hours.sun },
               ].map((day) => (
                 <div className="flex-1 flex flex-col items-center gap-4" key={day.key}>
                   <div className="w-full bg-surface-container-low rounded-t-lg relative group h-[100%] transition-all">

@@ -153,9 +153,10 @@ export default function EmployeeTimesheetHistoryPanel({ id }) {
           </thead>
           <tbody className="divide-y divide-outline-variant/5">
             {visibleTimesheets.map((timesheet, index) => {
-              const endISO = addDaysISO(timesheet.weekStart, 4);
+              const rangeStartISO = timesheet.periodStart ?? timesheet.weekStart;
+              const endISO = timesheet.periodEnd ?? addDaysISO(timesheet.weekStart, 4);
               const endYear = new Date(endISO).getFullYear();
-              const dateRangeText = `${formatMonthDay(timesheet.weekStart)} - ${formatMonthDay(endISO)}, ${endYear}`;
+              const dateRangeText = `${formatMonthDay(rangeStartISO)} - ${formatMonthDay(endISO)}, ${endYear}`;
               const submissionISO = addDaysISO(timesheet.weekStart, 5);
               const submissionText = timesheet.createdAt
                 ? new Date(timesheet.createdAt).toLocaleDateString("en-US", {

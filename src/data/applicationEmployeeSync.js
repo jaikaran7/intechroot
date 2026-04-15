@@ -14,7 +14,9 @@ export function employeeTimesheetsToApplicationShape(empTimesheets) {
     id: t.id,
     dateRange: t.weekStart ? String(t.weekStart) : "",
     weekStart: t.weekStart,
-    days: t.weekData || { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0 },
+    periodStart: t.periodStart,
+    periodEnd: t.periodEnd,
+    days: t.weekData || { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0, sun: 0 },
     total: Number(t.total ?? 0),
     status: String(t.status || "Pending").toLowerCase(),
     notes: t.rejectionNote || "",
@@ -95,7 +97,8 @@ function mapApplicationTimesheetsToEmployeeShape(appTs, existingEmpTs) {
   if (!appTs?.length) return existing;
   return appTs.map((t, i) => {
     const prev = existing.find((e) => e.id === t.id) || existing[i];
-    const weekData = t.days || t.weekData || prev?.weekData || { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0 };
+    const weekData =
+      t.days || t.weekData || prev?.weekData || { mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0, sun: 0 };
     const statusRaw = t.status || "pending";
     const status =
       statusRaw === "approved"
@@ -108,6 +111,8 @@ function mapApplicationTimesheetsToEmployeeShape(appTs, existingEmpTs) {
     return {
       id: t.id || `ts-${i}`,
       weekStart: t.weekStart || t.dateRange || prev?.weekStart,
+      periodStart: t.periodStart ?? prev?.periodStart,
+      periodEnd: t.periodEnd ?? prev?.periodEnd,
       weekData,
       total: Number(t.total ?? 0),
       status: status === "Pending" && prev?.status === "Draft" ? prev.status : status,
