@@ -7,6 +7,8 @@ export default function ApplicationProcessStep({
   onChange,
   onSelectChange,
   onFileChange,
+  isPending,
+  submitError,
   onSkillAdd,
   onSkillRemove,
 }) {
@@ -239,13 +241,19 @@ export default function ApplicationProcessStep({
         <p className="text-[10px] text-on-surface-variant max-w-xl text-center md:text-left leading-relaxed">
           By proceeding, you agree to our recruitment data processing terms and global privacy policy.
         </p>
-        <Button
-          className="w-full md:w-auto bg-primary-container text-on-primary px-10 py-4 rounded-lg font-bold text-sm tracking-wide hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary-container/20 flex items-center justify-center gap-3"
-          type="submit"
-        >
-          Submit
-          <span className="material-symbols-outlined text-xl">arrow_forward</span>
-        </Button>
+        <div className="flex flex-col items-end gap-2 w-full md:w-auto">
+          {submitError && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{submitError}</p>
+          )}
+          <Button
+            className="w-full md:w-auto bg-primary-container text-on-primary px-10 py-4 rounded-lg font-bold text-sm tracking-wide hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary-container/20 flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100"
+            type="submit"
+            disabled={isPending}
+          >
+            {isPending ? "Submitting…" : "Submit"}
+            {!isPending && <span className="material-symbols-outlined text-xl">arrow_forward</span>}
+          </Button>
+        </div>
       </div>
     </section>
   );

@@ -1,16 +1,33 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { getApplicationsSnapshot, getPostLoginPathForApplicant } from "@/data/applicationsStore";
-import { setEmployeeSessionId } from "@/pages/Employee/employeeSession";
-import { setApplicantSession } from "./applicantSession";
+import { useMutation } from "@tanstack/react-query";
+import { authService } from "../../services/auth.service";
+import { useAuthStore } from "../../store/authStore";
 
 export default function ApplicantLogin() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { setAuth } = useAuthStore();
   const fromApply = Boolean(location.state?.fromApply);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+
+  const loginMutation = useMutation({
+    mutationFn: (emailVal) => authService.applicantVerify(emailVal),
+    onSuccess: (data) => {
+      setAuth({
+        user: { email: data.application?.email },
+        role: 'applicant',
+        accessToken: data.accessToken,
+        applicationId: data.application?.id,
+      });
+      navigate('/applicant/dashboard', { replace: true });
+    },
+    onError: () => {
+      setError("No application found for this email.");
+    },
+  });
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -20,18 +37,7 @@ export default function ApplicantLogin() {
       setError("Enter the email you used on your application.");
       return;
     }
-    const apps = getApplicationsSnapshot();
-    const match = apps.find((a) => String(a.email || "").toLowerCase() === normalized);
-    if (!match) {
-      setError("No application found for this email.");
-      return;
-    }
-    setApplicantSession(match.id);
-    const dest = getPostLoginPathForApplicant(match.id);
-    if (dest.employeeId) {
-      setEmployeeSessionId(dest.employeeId);
-    }
-    navigate(dest.path, { replace: true });
+    loginMutation.mutate(normalized);
   };
 
   return (
@@ -49,9 +55,7 @@ export default function ApplicantLogin() {
             Application submitted. Please wait for verification — or sign in below when your profile is active.
           </p>
         ) : null}
-        <p className="mb-6 text-xs text-on-surface-variant">
-          Demo: use any password. We match your account by email (e.g. elena@sap-pro.tech).
-        </p>
+
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
             <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-400">Email</label>
@@ -76,9 +80,10 @@ export default function ApplicantLogin() {
           {error ? <p className="text-sm text-error">{error}</p> : null}
           <button
             type="submit"
-            className="w-full rounded-lg bg-primary-container py-3 text-sm font-bold text-white shadow-lg transition-transform active:scale-[0.99]"
+            disabled={loginMutation.isPending}
+            className="w-full rounded-lg bg-primary-container py-3 text-sm font-bold text-white shadow-lg transition-transform active:scale-[0.99] disabled:opacity-60"
           >
-            Sign in
+            {loginMutation.isPending ? "Signing in…" : "Sign in"}
           </button>
         </form>
         <p className="mt-8 text-center text-xs text-on-surface-variant">

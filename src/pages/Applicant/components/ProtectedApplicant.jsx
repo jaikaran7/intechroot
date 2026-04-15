@@ -1,9 +1,9 @@
 import { Navigate } from "react-router-dom";
-import { getApplicantSessionId } from "../applicantSession";
+import { useAuthStore } from "../../../store/authStore";
 
 export default function ProtectedApplicant({ children }) {
-  const id = getApplicantSessionId();
-  if (id == null) {
+  const { accessToken, role, applicationId } = useAuthStore();
+  if (!accessToken || role !== "applicant" || !applicationId) {
     return <Navigate to="/applicant/login" replace />;
   }
   return children;

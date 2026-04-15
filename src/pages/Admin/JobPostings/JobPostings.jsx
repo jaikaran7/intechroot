@@ -1,16 +1,39 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getJobs } from "@/fixtures/catalog";
-import { loadJobPostingsFromSession, persistJobPostingsToSession } from "./jobPostingsSession";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { jobsService } from "../../../services/jobs.service";
+import PageSkeleton from "../../../components/PageSkeleton";
+import ErrorState from "../../../components/ErrorState";
 import CreateJobModal from "../components/CreateJobModal";
 
 export default function JobPostings() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const [jobsData, setJobsData] = useState(() => {
-    const fromSession = loadJobPostingsFromSession();
-    if (Array.isArray(fromSession) && fromSession.length > 0) return fromSession;
-    return [...getJobs()];
+  const { data: apiData, isLoading, isError, refetch } = useQuery({
+    queryKey: ['jobs'],
+    queryFn: () => jobsService.getAll({ limit: 200 }),
+    staleTime: 300_000,
+  });
+
+  const jobsData = useMemo(() => {
+    const list = apiData?.data;
+    return Array.isArray(list) ? list : [];
+  }, [apiData]);
+
+  const createMutation = useMutation({
+    mutationFn: (data) => jobsService.create(data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['jobs'] }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => jobsService.update(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['jobs'] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => jobsService.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['jobs'] }),
   });
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -25,10 +48,6 @@ export default function JobPostings() {
   });
 
   const isArchivedStatus = (status) => status === "ARCHIVED" || status === "Archived";
-
-  useEffect(() => {
-    persistJobPostingsToSession(jobsData);
-  }, [jobsData]);
 
   const categoryOptions = useMemo(() => {
     const set = new Set(jobsData.map((j) => j.category).filter(Boolean));
@@ -88,7 +107,7 @@ export default function JobPostings() {
   };
 
   const handleDelete = (jobId) => {
-    setJobsData((prev) => prev.filter((job) => job.id !== jobId));
+    deleteMutation.mutate(jobId);
   };
 
   const handleCloseModal = () => {
@@ -98,17 +117,14 @@ export default function JobPostings() {
 
   const handleSaveJob = (jobData) => {
     if (editingJob) {
-      setJobsData((prev) => prev.map((j) => (j.id === editingJob.id ? { ...j, ...jobData } : j)));
+      updateMutation.mutate({ id: editingJob.id, data: jobData });
     } else {
-      const jobWithId = {
+      createMutation.mutate({
         ...jobData,
-        id: Date.now().toString(),
         status: "Active",
-        applicants: 0,
         postedDate: jobData.postedDate || new Date().toISOString().slice(0, 10),
         requirements: jobData.requirements?.length ? jobData.requirements : [],
-      };
-      setJobsData((prev) => [jobWithId, ...prev]);
+      });
     }
     setEditingJob(null);
     setIsCreateOpen(false);
@@ -118,6 +134,9 @@ export default function JobPostings() {
     setFilters({ category: "All", seniority: "All", type: "All" });
     setSearch("");
   };
+
+  if (isLoading) return <PageSkeleton />;
+  if (isError) return <ErrorState message="Failed to load job postings." onRetry={refetch} />;
 
   return (
     <>

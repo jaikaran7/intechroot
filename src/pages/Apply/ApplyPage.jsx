@@ -1,13 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
-import { appendNewApplicationFromForm } from "@/data/applicationsStore";
-import {
-  appendJobApplication,
-  getJobApplications,
-  hasUserApplied,
-  normalizeApplicantUserId,
-  resolveJobIdFromApplyState,
-} from "../../utils/applicationService";
+import { useMutation } from "@tanstack/react-query";
+import { applicationsService } from "../../services/applications.service";
 import Typography from "../../components/Typography";
 import FormSection from "./components/FormSection";
 import "./apply.css";
@@ -30,6 +24,7 @@ export default function ApplyPage() {
     experience: "",
   });
   const [errors, setErrors] = useState({});
+  const [submitError, setSubmitError] = useState("");
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -76,57 +71,9 @@ export default function ApplyPage() {
     return next;
   }, [form]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setErrors(validationErrors);
-    if (Object.keys(validationErrors).length === 0) {
-      const userId = normalizeApplicantUserId(form.email);
-      const jobId = resolveJobIdFromApplyState(incoming, form.discipline);
-      const ledger = getJobApplications();
-      if (hasUserApplied(userId, jobId, ledger)) {
-        const existingRow = ledger.find((a) => a.userId === userId && a.jobId === jobId);
-        navigate("/already-applied", {
-          state: {
-            jobTitle: form.discipline,
-            company: incoming.company || "InTechRoot",
-            referenceId: existingRow?.id || undefined,
-            lastUpdatedLabel: existingRow?.appliedAt
-              ? new Date(existingRow.appliedAt).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })
-              : undefined,
-          },
-        });
-        return;
-      }
-
-      const fullName = [form.firstName, form.lastName].filter(Boolean).join(" ").trim();
-      const expNum = Number(form.experience);
-      const experienceForStore = Number.isFinite(expNum) ? `${Math.round(expNum)} Yrs` : String(form.experience).trim();
-      const formData = {
-        name: fullName,
-        email: form.email,
-        phone: form.phone,
-        discipline: form.discipline,
-        experience: experienceForStore,
-        resumeName: form.resume?.name || "",
-        jobId,
-      };
-      appendJobApplication({
-        userId,
-        jobId,
-        status: "submitted",
-        appliedAt: new Date().toISOString().slice(0, 10),
-      });
-      const applicationRecord = appendNewApplicationFromForm(formData);
-      localStorage.setItem("applyFormData", JSON.stringify(formData));
-      localStorage.setItem(
-        "applySuccessContext",
-        JSON.stringify({ formData, application: applicationRecord }),
-      );
-      const referenceId = `ITR-${String(applicationRecord.id).padStart(5, "0")}`;
+  const submitMutation = useMutation({
+    mutationFn: (payload) => applicationsService.create(payload),
+    onSuccess: (application) => {
       const submittedAtLabel = new Date().toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
@@ -134,14 +81,53 @@ export default function ApplyPage() {
       });
       navigate("/application-success", {
         state: {
-          referenceId,
+          referenceId: application.referenceId,
           submittedAtLabel,
           jobTitle: form.discipline,
           company: incoming.company || "InTechRoot",
-          applicantId: applicationRecord.id,
+          applicantId: application.id,
         },
       });
-    }
+    },
+    onError: (err) => {
+      if (err.response?.status === 409) {
+        navigate("/already-applied", {
+          state: {
+            jobTitle: form.discipline,
+            company: incoming.company || "InTechRoot",
+          },
+        });
+      } else {
+        setSubmitError(
+          err.response?.data?.error?.message || "Submission failed. Please try again."
+        );
+      }
+    },
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setSubmitError("");
+    setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
+
+    const fullName = [form.firstName, form.lastName].filter(Boolean).join(" ").trim();
+    const expNum = Number(form.experience);
+    const experience = Number.isFinite(expNum) ? `${Math.round(expNum)} Yrs` : String(form.experience).trim();
+
+    submitMutation.mutate({
+      name: fullName,
+      email: form.email,
+      phone: form.phone,
+      discipline: form.discipline,
+      experience,
+      location: form.location || "",
+      linkedIn: form.linkedIn || "",
+      portfolio: form.portfolio || "",
+      skills: form.skills || [],
+      jobId: incoming.jobId || undefined,
+      resumeFileName: form.resume?.name || "",
+    });
   };
 
   return (
@@ -172,6 +158,8 @@ export default function ApplyPage() {
             onSubmit={handleSubmit}
             onSkillAdd={handleSkillAdd}
             onSkillRemove={handleSkillRemove}
+            isPending={submitMutation.isPending}
+            submitError={submitError}
           />
 
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">

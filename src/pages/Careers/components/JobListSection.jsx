@@ -1,10 +1,9 @@
 import Button from "../../../components/Form/Button";
-import { getFeaturedRoles } from "@/fixtures/catalog";
 import { useNavigate } from "react-router-dom";
 
 export function FeaturedRolesSection() {
   const navigate = useNavigate();
-  const featuredRoles = getFeaturedRoles();
+  const featuredRoles = [];
 
   return (
     <section className="py-32 relative overflow-hidden bg-white">

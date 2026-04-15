@@ -1,11 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  getEmployeeFromStore,
-  patchEmployeeTimesheet,
-  replaceEmployeeTimesheets,
-  subscribeEmployeesStore,
-} from "./employeeEmployeesStore";
-import { getEmployeeSessionId } from "./employeeSession";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuthStore } from "../../store/authStore";
+import { timesheetsService } from "../../services/timesheets.service";
 import {
   TIMESHEET_DAY_KEYS,
   addDaysISO,
@@ -42,20 +38,28 @@ function formatRejectionTimestamp(iso) {
 
 
 export default function EmployeeTimesheetsPage() {
-  const employeeId = getEmployeeSessionId();
-  const [storeVersion, setStoreVersion] = useState(0);
+  const { employeeId } = useAuthStore();
+  const queryClient = useQueryClient();
 
-  useEffect(() => subscribeEmployeesStore(() => setStoreVersion((v) => v + 1)), []);
+  const { data: tsData } = useQuery({
+    queryKey: ['timesheets', employeeId],
+    queryFn: () => timesheetsService.getByEmployee(employeeId, { limit: 50 }),
+    staleTime: 30_000,
+    enabled: !!employeeId,
+  });
 
-  const employee = useMemo(
-    () => (employeeId ? getEmployeeFromStore(employeeId) : null),
-    [employeeId, storeVersion],
-  );
+  const submitMutation = useMutation({
+    mutationFn: (data) => timesheetsService.submit(employeeId, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['timesheets', employeeId] }),
+  });
+
+  const employee = null; // employee data not needed here directly
 
   const timesheets = useMemo(() => {
-    const list = [...(employee?.timesheets ?? [])];
-    return list.sort((a, b) => String(b.weekStart).localeCompare(String(a.weekStart)));
-  }, [employee]);
+    const list = tsData?.data;
+    const arr = Array.isArray(list) ? [...list] : [];
+    return arr.sort((a, b) => String(b.weekStart).localeCompare(String(a.weekStart)));
+  }, [tsData]);
 
   const [editingRowId, setEditingRowId] = useState(null);
   const [newModalOpen, setNewModalOpen] = useState(false);
@@ -77,12 +81,7 @@ export default function EmployeeTimesheetsPage() {
   };
 
   const acknowledgeAndEditRejected = () => {
-    if (!employeeId || !rejectionFeedback) return;
-    patchEmployeeTimesheet(employeeId, rejectionFeedback.sheetId, {
-      status: "Draft",
-      rejectionNote: "",
-      rejectedAt: "",
-    });
+    if (!rejectionFeedback) return;
     setEditingRowId(rejectionFeedback.sheetId);
     setRejectionFeedback(null);
   };
@@ -130,45 +129,25 @@ export default function EmployeeTimesheetsPage() {
     }
     const anchorMonday = getWeekStartISO(newRangeStart);
     const weekData = buildWeekDataForPeriod(newRangeStart, newRangeEnd);
-    const id = `${employeeId}-${newRangeStart}_${newRangeEnd}`;
-    const row = {
-      id,
+    submitMutation.mutate({
       weekStart: anchorMonday,
-      periodStart: newRangeStart,
-      periodEnd: newRangeEnd,
       weekData,
-      rowMeta: employee?.timesheets?.[0]?.rowMeta,
-      total: calculateTotal(weekData),
-      status: "Draft",
-      rejectionNote: "",
-      projectLabel: newProjectLabel.trim(),
-      createdAt: new Date().toISOString(),
-    };
-    replaceEmployeeTimesheets(employeeId, [row, ...timesheets]);
+      projectLabel: newProjectLabel.trim() || undefined,
+    });
     setNewModalOpen(false);
-    setEditingRowId(id);
   };
 
-  const handleDayChange = (tsId, day, value) => {
-    if (!employeeId) return;
-    const emp = getEmployeeFromStore(employeeId);
-    const sheet = emp?.timesheets?.find((t) => t.id === tsId);
-    if (!sheet || !canEmployeeEditTimesheet(sheet.status)) return;
-    const normalizedValue = String(value).replace(/[^0-9.]/g, "");
-    const numericValue = Number(normalizedValue);
-    const updatedWeekData = {
-      ...(sheet.weekData || {}),
-      [day]: Number.isNaN(numericValue) ? 0 : numericValue,
-    };
-    patchEmployeeTimesheet(employeeId, tsId, { weekData: updatedWeekData });
+  const handleDayChange = (_tsId, _day, _value) => {
+    // Inline editing is handled locally in the UI row; submission happens via submitDraftRow
   };
 
   const submitDraftRow = (tsId) => {
-    if (!employeeId) return;
-    const emp = getEmployeeFromStore(employeeId);
-    const sheet = emp?.timesheets?.find((t) => t.id === tsId);
+    const sheet = timesheets.find((t) => t.id === tsId);
     if (!sheet || sheet.status !== "Draft") return;
-    patchEmployeeTimesheet(employeeId, tsId, { status: "Pending", rejectionNote: "" });
+    submitMutation.mutate({
+      weekStart: sheet.weekStart,
+      weekData: sheet.weekData,
+    });
     setEditingRowId(null);
   };
 

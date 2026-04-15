@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -57,11 +57,10 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         localStorage.removeItem('access_token');
-        // Redirect to appropriate login
+        // All roles share the unified login page
         const path = window.location.pathname;
-        if (path.startsWith('/admin')) window.location.href = '/admin/login';
-        else if (path.startsWith('/employee')) window.location.href = '/employee/login';
-        else if (path.startsWith('/applicant')) window.location.href = '/applicant/login';
+        if (path.startsWith('/applicant')) window.location.href = '/applicant/login';
+        else window.location.href = '/login';
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

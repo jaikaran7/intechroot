@@ -1,13 +1,16 @@
 import { Navigate, useLocation } from "react-router-dom";
-import { getEmployeeSessionId } from "../employeeSession";
+import { useAuthStore } from "../../../store/authStore";
 import EmployeeHeader from "./EmployeeHeader";
 import EmployeeProfileChromeHeader from "./EmployeeProfileChromeHeader";
 import EmployeeSidebar from "./EmployeeSidebar";
 
 export default function ProtectedEmployee({ children }) {
-  const id = getEmployeeSessionId();
+  const { role, accessToken } = useAuthStore();
   const { pathname } = useLocation();
-  if (!id) {
+
+  const isAuthed = Boolean(accessToken) && role === "employee";
+
+  if (!isAuthed) {
     return <Navigate to="/employee/login" replace />;
   }
   const profileChrome = pathname === "/employee/profile";

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { getJobs } from "@/fixtures/catalog";
+import { useQuery } from "@tanstack/react-query";
+import { jobsService } from "../../services/jobs.service";
 import HeroSection from "./components/HeroSection";
 import FiltersSection from "./components/FiltersSection";
 import JobListSection, { FeaturedRolesSection } from "./components/JobListSection";
@@ -8,7 +9,15 @@ import FooterSection from "./components/FooterSection";
 import "./careers.css";
 
 export default function CareersPage() {
-  const jobs = getJobs();
+  const { data: apiData } = useQuery({
+    queryKey: ['jobs', { status: 'Active' }],
+    queryFn: () => jobsService.getAll({ status: 'Active', limit: 100 }),
+    staleTime: 300_000,
+  });
+  const jobs = useMemo(() => {
+    const list = apiData?.data;
+    return Array.isArray(list) ? list : [];
+  }, [apiData]);
 
   const uniqueInOrder = (values) => {
     const out = [];
@@ -57,7 +66,7 @@ export default function CareersPage() {
         <HeroSection />
         <FeaturedRolesSection />
         <section className="max-w-7xl mx-auto px-8 py-32 flex flex-col lg:flex-row gap-16">
-          <FiltersSection filters={filters} setFilters={setFilters} setSearchTerm={setSearchTerm} />
+          <FiltersSection jobs={jobs} filters={filters} setFilters={setFilters} setSearchTerm={setSearchTerm} />
           <JobListSection jobs={filteredJobs} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
         </section>
         <CTASection />

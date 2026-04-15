@@ -1,82 +1,44 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getEmployees } from "@/fixtures/catalog";
-import { useApplicationsSync } from "@/data/applicationsStore";
+import { useQuery } from "@tanstack/react-query";
+import { adminService } from "../../../services/admin.service";
+import PageSkeleton from "../../../components/PageSkeleton";
+import ErrorState from "../../../components/ErrorState";
 export default function Dashboard() {
   const navigate = useNavigate();
   const [selectedDepartment, setSelectedDepartment] = useState("All");
-  const { applications: appsFromSync } = useApplicationsSync();
-  const applications = Array.isArray(appsFromSync) ? appsFromSync : [];
-  const employees = useMemo(() => {
-    try {
-      const list = getEmployees();
-      return Array.isArray(list) ? list : [];
-    } catch {
-      return [];
-    }
-  }, []);
+
+  const { data: stats, isLoading, isError, refetch } = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: adminService.getDashboardStats,
+    staleTime: 60_000,
+  });
+
+  const pipeline = stats?.pipeline ?? {};
+  const deptMap = stats?.employees?.byDepartment ?? {};
 
   const pipelineData = useMemo(() => {
-    const sourcedTotal = applications.length;
+    const sourcedTotal = pipeline.total ?? 0;
+    const screeningTotal = (pipeline.screening ?? 0) + (pipeline.technical ?? 0) + (pipeline.client ?? 0) + (pipeline.offer ?? 0) + (pipeline.hired ?? 0);
+    const evaluationTotal = (pipeline.technical ?? 0) + (pipeline.client ?? 0) + (pipeline.offer ?? 0) + (pipeline.hired ?? 0);
+    const offerTotal = (pipeline.offer ?? 0) + (pipeline.hired ?? 0);
+    const hiredTotal = pipeline.hired ?? 0;
 
-    const currentStageIndex = (app) => {
-      const idx = Number(app?.currentStageIndex);
-      return Number.isFinite(idx) ? idx : 0;
-    };
+    const itEngineeringDepts = ["Engineering", "Infrastructure", "Development", "Security", "Quality", "Analytics"];
+    const itCount = Object.entries(deptMap).filter(([d]) => itEngineeringDepts.includes(d)).reduce((s, [, c]) => s + c, 0);
+    const stratCount = deptMap["Strategy"] ?? 0;
+    const totalEmp = Object.values(deptMap).reduce((s, c) => s + c, 0);
+    const corpCount = Math.max(0, totalEmp - itCount - stratCount);
 
-    // Pipeline buckets derived from applications' currentStageIndex.
-    // stages: 0=Application Submitted, 1=Profile Screening, 2=Technical Evaluation, 3=Client Interview, 4=Offer & Onboarding
-    const screeningTotal = applications.filter((app) => currentStageIndex(app) >= 1).length;
-    const evaluationTotal = applications.filter((app) => currentStageIndex(app) >= 2).length;
-    const offerTotal = applications.filter((app) => currentStageIndex(app) >= 4).length;
-
-    // No explicit hired stage exists in the current dummy dataset, but keep the bucket for future API parity.
-    const hiredTotal = applications.filter((app) => app?.status === "Hired" || app?.stage === "Hired").length;
-
-    // Allocate stage totals across the existing dashboard department buckets using employee department distribution.
-    const itEngineeringDepartments = ["Engineering", "Infrastructure", "Development", "Security", "Quality", "Analytics"];
-    const isITEngineering = (dept) => itEngineeringDepartments.includes(dept);
-    const isStrategicConsulting = (dept) => dept === "Strategy";
-
-    const itEngineeringCount = employees.filter((e) => isITEngineering(e.department)).length;
-    const strategicCount = employees.filter((e) => isStrategicConsulting(e.department)).length;
-    const corporateCount = Math.max(0, employees.length - itEngineeringCount - strategicCount);
-
-    const totalEmployees = employees.length;
-    const weights =
-      totalEmployees === 0
-        ? [1 / 3, 1 / 3, 1 / 3]
-        : [itEngineeringCount / totalEmployees, strategicCount / totalEmployees, corporateCount / totalEmployees];
-
-    const alloc = (total, weight) => Math.round(total * weight);
+    const weights = totalEmp === 0 ? [1 / 3, 1 / 3, 1 / 3] : [itCount / totalEmp, stratCount / totalEmp, corpCount / totalEmp];
+    const alloc = (total, w) => Math.round(total * w);
 
     return [
-      {
-        department: "IT & Engineering",
-        sourced: alloc(sourcedTotal, weights[0]),
-        screening: alloc(screeningTotal, weights[0]),
-        evaluation: alloc(evaluationTotal, weights[0]),
-        offer: alloc(offerTotal, weights[0]),
-        hired: alloc(hiredTotal, weights[0]),
-      },
-      {
-        department: "Strategic Consulting",
-        sourced: alloc(sourcedTotal, weights[1]),
-        screening: alloc(screeningTotal, weights[1]),
-        evaluation: alloc(evaluationTotal, weights[1]),
-        offer: alloc(offerTotal, weights[1]),
-        hired: alloc(hiredTotal, weights[1]),
-      },
-      {
-        department: "Corporate Operations",
-        sourced: alloc(sourcedTotal, weights[2]),
-        screening: alloc(screeningTotal, weights[2]),
-        evaluation: alloc(evaluationTotal, weights[2]),
-        offer: alloc(offerTotal, weights[2]),
-        hired: alloc(hiredTotal, weights[2]),
-      },
+      { department: "IT & Engineering", sourced: alloc(sourcedTotal, weights[0]), screening: alloc(screeningTotal, weights[0]), evaluation: alloc(evaluationTotal, weights[0]), offer: alloc(offerTotal, weights[0]), hired: alloc(hiredTotal, weights[0]) },
+      { department: "Strategic Consulting", sourced: alloc(sourcedTotal, weights[1]), screening: alloc(screeningTotal, weights[1]), evaluation: alloc(evaluationTotal, weights[1]), offer: alloc(offerTotal, weights[1]), hired: alloc(hiredTotal, weights[1]) },
+      { department: "Corporate Operations", sourced: alloc(sourcedTotal, weights[2]), screening: alloc(screeningTotal, weights[2]), evaluation: alloc(evaluationTotal, weights[2]), offer: alloc(offerTotal, weights[2]), hired: alloc(hiredTotal, weights[2]) },
     ];
-  }, [applications, employees]);
+  }, [pipeline, deptMap]);
 
   const pipelineDepartments = useMemo(
     () => ["All", ...pipelineData.map((item) => item.department)],
@@ -113,6 +75,10 @@ export default function Dashboard() {
       },
     };
   }, [pipelineData, selectedDepartment]);
+
+  if (isLoading) return <PageSkeleton />;
+  if (isError) return <ErrorState message="Failed to load dashboard." onRetry={refetch} />;
+
   return (
     <>
       <header className="sticky top-0 z-40 w-full flex items-center justify-between h-16 px-8 ml-64 bg-white/60 backdrop-blur-xl border-b border-slate-200/50 shadow-sm shadow-slate-200/20">

@@ -1,8 +1,6 @@
 import { useMemo } from "react";
-import { getJobs } from "@/fixtures/catalog";
 
-export default function FiltersSection({ filters, setFilters, setSearchTerm }) {
-  const jobs = getJobs();
+export default function FiltersSection({ jobs = [], filters, setFilters, setSearchTerm }) {
 
   const uniqueInOrder = (values) => {
     const out = [];

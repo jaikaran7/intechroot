@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getJobs } from "@/fixtures/catalog";
-import { useApplicationsSync } from "@/data/applicationsStore";
-import { loadJobPostingsFromSession, persistJobPostingsToSession } from "./jobPostingsSession";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { jobsService } from "../../../services/jobs.service";
+import { applicationsService } from "../../../services/applications.service";
+
 function splitTitle(title) {
   const words = title.trim().split(/\s+/);
   if (words.length <= 1) return { line1: title, line2: null };
@@ -25,35 +26,39 @@ function jobPostingBadgeCopy(status) {
   return `${status} Posting`;
 }
 
-function resolveMergedJobs() {
-  const fromSession = loadJobPostingsFromSession();
-  return Array.isArray(fromSession) && fromSession.length > 0 ? fromSession : [...getJobs()];
-}
-
 export default function JobDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { applications } = useApplicationsSync();
-  const [job, setJob] = useState(null);
+  const queryClient = useQueryClient();
+
+  const { data: job = null } = useQuery({
+    queryKey: ['job', id],
+    queryFn: () => jobsService.getById(id),
+    staleTime: 300_000,
+    enabled: !!id,
+  });
+
+  const { data: appsData } = useQuery({
+    queryKey: ['applications', { jobId: id }],
+    queryFn: () => applicationsService.getAll({ jobId: id, limit: 100 }),
+    staleTime: 30_000,
+    enabled: !!id,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data) => jobsService.update(id, data),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.setQueryData(['job', id], updated);
+    },
+  });
+
   const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState(null);
 
-  const reloadJob = useCallback(() => {
-    const merged = resolveMergedJobs();
-    const found = merged.find((j) => String(j.id) === String(id));
-    setJob(found ?? null);
-    return found ?? null;
-  }, [id]);
-
-  useEffect(() => {
-    reloadJob();
-    setIsEditing(false);
-    setEditDraft(null);
-  }, [reloadJob]);
-
   const jobApplicants = useMemo(
-    () => applications.filter((app) => String(app.jobId ?? "") === String(id)),
-    [applications, id],
+    () => appsData?.data ?? [],
+    [appsData],
   );
 
   const employmentLabel = job ? [job.type, job.contract].filter(Boolean).join(", ") : "";
@@ -94,36 +99,7 @@ export default function JobDetails() {
     const category = editDraft.category.trim() || job.category;
     const description = editDraft.description.trim();
 
-    const merged = resolveMergedJobs();
-    const next = merged.map((j) =>
-      String(j.id) === String(id)
-        ? {
-            ...j,
-            title,
-            description,
-            location,
-            salary,
-            category,
-            sector: category,
-            meta: [location, j.type, salary],
-          }
-        : j,
-    );
-    persistJobPostingsToSession(next);
-    setJob((prev) =>
-      prev
-        ? {
-            ...prev,
-            title,
-            description,
-            location,
-            salary,
-            category,
-            sector: category,
-            meta: [location, prev.type, salary],
-          }
-        : prev,
-    );
+    updateMutation.mutate({ title, description, location, salary, category });
     setIsEditing(false);
     setEditDraft(null);
   };

@@ -1,13 +1,10 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "./success.css";
-import { clearApplicantSession, getApplicantSessionId } from "./applicantSession";
+import { useQuery } from "@tanstack/react-query";
+import { useAuthStore } from "../../store/authStore";
+import { applicationsService } from "../../services/applications.service";
 import UpcomingInterviews from "./components/UpcomingInterviews";
-import {
-  submitOnboardingDocumentForVerification,
-  upsertOnboardingDocument,
-  useApplicationsSync,
-} from "@/data/applicationsStore";
 import { onboardingVerificationBadge, uploadStatusBadge } from "@/components/shared/requiredDocumentBadges";
 import {
   documentIconWrapClass,
@@ -58,18 +55,18 @@ function stableApplicationId(email, numericId) {
 
 export default function SuccessPage() {
   const navigate = useNavigate();
-  const applicantId = getApplicantSessionId();
-  const { applications } = useApplicationsSync();
+  const { applicationId, clearAuth } = useAuthStore();
   const [expiryDraft, setExpiryDraft] = useState({});
   const [docErrors, setDocErrors] = useState({});
   const [pendingUploadKey, setPendingUploadKey] = useState(null);
   const fileInputRef = useRef(null);
 
-  const application = useMemo(
-    () =>
-      applicantId != null ? applications.find((a) => Number(a.id) === Number(applicantId)) ?? null : null,
-    [applications, applicantId],
-  );
+  const { data: application = null } = useQuery({
+    queryKey: ['application', applicationId],
+    queryFn: () => applicationsService.getById(applicationId),
+    staleTime: 30_000,
+    enabled: !!applicationId,
+  });
 
   const allDocumentRows = useMemo(() => getAllDocumentTemplateRows(application), [application]);
 
@@ -97,7 +94,7 @@ export default function SuccessPage() {
       : stages.findIndex((s) => s.status === "current");
   const currentStageIndex = rawIdx >= 0 ? rawIdx : 0;
 
-  const applicationId = stableApplicationId(formData.email, application?.id);
+  const stableId = stableApplicationId(formData.email, application?.id);
   const fullName = formData.name || application?.name || "Candidate";
   const displayRole = application?.role || formData.discipline || "Principal Architect";
   const displayPhone = (application?.phone || "").trim() || "—";
@@ -110,7 +107,7 @@ export default function SuccessPage() {
   const resumeLabel = `Resume_${fullName.replace(/\s+/g, "_")}.pdf`;
 
   const handleLogout = () => {
-    clearApplicantSession();
+    clearAuth();
     navigate("/applicant/login", { replace: true });
   };
 
@@ -143,11 +140,8 @@ export default function SuccessPage() {
       setDocErrors((er) => ({ ...er, [key]: "Please set an expiry date before uploading." }));
       return;
     }
-    upsertOnboardingDocument(application.id, key, {
-      name: row?.label || key,
-      fileName: file.name,
-      expiryDate: expiry,
-    });
+    // Document upload is handled via the onboarding flow; stub here
+    console.info("Document upload pending API integration:", key, file.name, expiry);
   };
 
   const messages = application?.messages?.length ? application.messages : [];
@@ -221,7 +215,7 @@ export default function SuccessPage() {
       return (
         <button
           type="button"
-          onClick={() => submitOnboardingDocumentForVerification(application.id, row.key)}
+          onClick={() => console.info("Submit for verification:", row.key)}
           className={uploadPrimaryClass}
         >
           Submit for Verification

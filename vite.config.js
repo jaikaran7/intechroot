@@ -15,4 +15,15 @@ export default defineConfig({
       "@": srcRoot,
     },
   },
+  server: {
+    host: true, // bind to 0.0.0.0 — accessible on LAN
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5001',
+        changeOrigin: true,
+        // Requests from any device hitting Vite get proxied to localhost:5001 on this machine
+      },
+    },
+  },
 });

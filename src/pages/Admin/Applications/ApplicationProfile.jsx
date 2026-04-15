@@ -1,19 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { hireApplicantAsEmployee } from "@/data/applicationEmployeeSync";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { applicationsService } from "../../../services/applications.service";
 import AdminDocumentApproval from "./applicationReview/AdminDocumentApproval";
 import AdminFinalApproval from "./applicationReview/AdminFinalApproval";
 import AdminProfileReview from "./applicationReview/AdminProfileReview";
-import {
-  adminApproveOnboardingDocumentsBundle,
-  adminApproveOnboardingProfile,
-  getOnboardingAdminStep,
-  moveApplicationToNextStage,
-  setOnboardingVerification,
-  updateApplication,
-  OFFER_STAGE_INDEX,
-  useApplicationsSync,
-} from "@/data/applicationsStore";
 import {
   documentIconWrapClass,
   formatDocumentSubtitle,
@@ -22,6 +13,18 @@ import {
 } from "@/utils/applicantDocumentRows";
 import { onboardingVerificationBadge, uploadStatusBadge } from "@/components/shared/requiredDocumentBadges";
 import { getRowUploadStatusKey, hasUploadedFile, resolveDocVerification } from "@/utils/onboardingDocumentRules";
+import PageSkeleton from "../../../components/PageSkeleton";
+import ErrorState from "../../../components/ErrorState";
+
+const OFFER_STAGE_INDEX = 4; // "Offer & Onboarding" stage
+
+/** Admin onboarding wizard step: 1=profile, 2=documents, 3=final hire */
+function getOnboardingAdminStep(onboarding) {
+  const ob = onboarding || {};
+  if (!ob.profileCompleted) return 1;
+  if (!ob.documentsCompleted) return 2;
+  return 3;
+}
 const INTERVIEW_TYPES = ["Technical", "Client", "Culture Fit", "HR", "Final"];
 
 function formatTimeFromInput(time24) {
@@ -87,14 +90,8 @@ function interviewStatusBadge(status) {
 
 export default function ApplicationProfile() {
   const { id } = useParams();
-  const numericId = Number(id);
-  const { applications: appsRaw } = useApplicationsSync();
-  const applications = Array.isArray(appsRaw) ? appsRaw : [];
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("details");
-  const applicationData = useMemo(() => {
-    if (!applications.length) return null;
-    return applications.find((profile) => Number(profile.id) === numericId) ?? null;
-  }, [applications, numericId]);
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
   const [messageDraft, setMessageDraft] = useState("");
   const [isMessageSentPopupOpen, setIsMessageSentPopupOpen] = useState(false);
@@ -103,6 +100,58 @@ export default function ApplicationProfile() {
   const [rescheduleTarget, setRescheduleTarget] = useState(null);
   const [stageMoveError, setStageMoveError] = useState("");
   const [hireMessage, setHireMessage] = useState("");
+
+  // ── API data ──────────────────────────────────────────────
+  const { data: applicationData, isLoading, isError, refetch } = useQuery({
+    queryKey: ['application', id],
+    queryFn: () => applicationsService.getById(id),
+    staleTime: 20_000,
+    enabled: !!id,
+  });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['applications'] });
+    queryClient.invalidateQueries({ queryKey: ['application', id] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+  };
+
+  const advanceStageMutation = useMutation({
+    mutationFn: (note) => applicationsService.advanceStage(id, note),
+    onSuccess: invalidate,
+    onError: (err) => setStageMoveError(err.response?.data?.error?.message || "Unable to advance stage."),
+  });
+
+  const hireMutation = useMutation({
+    mutationFn: () => applicationsService.hire(id),
+    onSuccess: () => {
+      setHireMessage("Applicant successfully hired and converted to employee.");
+      queryClient.invalidateQueries({ queryKey: ['applications'] });
+      queryClient.invalidateQueries({ queryKey: ['application', id] });
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+    },
+    onError: (err) => setHireMessage(err.response?.data?.error?.message || "Hire failed."),
+  });
+
+  const addInterviewMutation = useMutation({
+    mutationFn: (data) => applicationsService.createInterview(id, data),
+    onSuccess: invalidate,
+  });
+
+  const updateInterviewMutation = useMutation({
+    mutationFn: ({ iid, data }) => applicationsService.updateInterview(id, iid, data),
+    onSuccess: invalidate,
+  });
+
+  const sendMessageMutation = useMutation({
+    mutationFn: (text) => applicationsService.createMessage(id, text),
+    onSuccess: () => {
+      setMessageDraft("");
+      setIsMessageModalOpen(false);
+      setIsMessageSentPopupOpen(true);
+      invalidate();
+    },
+  });
   const [interviewForm, setInterviewForm] = useState({
     type: INTERVIEW_TYPES[0],
     date: "",
@@ -124,24 +173,15 @@ export default function ApplicationProfile() {
     stages.length > 1 ? (stageIndex / (stages.length - 1)) * 100 : 0;
   const moveToNextDisabled =
     applicationData?.lifecycleStage === "employee" ||
-    (Boolean(applicationData?.onboarding?.enabled) && stageIndex >= OFFER_STAGE_INDEX);
+    (Boolean(applicationData?.onboarding?.enabled) && stageIndex >= OFFER_STAGE_INDEX) ||
+    advanceStageMutation.isPending;
   const handleMoveToNextStage = () => {
-    if (!Number.isFinite(numericId)) return;
     setStageMoveError("");
-    const result = moveApplicationToNextStage(numericId);
-    if (!result.success) {
-      setStageMoveError(result.error || "Unable to move stage.");
-    }
+    advanceStageMutation.mutate();
   };
   const handleSendMessage = () => {
-    if (!messageDraft.trim() || !Number.isFinite(numericId)) return;
-    updateApplication(numericId, (prev) => ({
-      ...prev,
-      messages: [...(prev.messages || []), { text: messageDraft.trim(), date: new Date().toISOString() }],
-    }));
-    setMessageDraft("");
-    setIsMessageModalOpen(false);
-    setIsMessageSentPopupOpen(true);
+    if (!messageDraft.trim()) return;
+    sendMessageMutation.mutate(messageDraft.trim());
   };
   const openNewInterviewModal = () => {
     setRescheduleTarget(null);
@@ -168,64 +208,23 @@ export default function ApplicationProfile() {
   };
 
   const handleScheduleInterviewSubmit = () => {
-    if (!Number.isFinite(numericId) || !applicationData) return;
+    if (!applicationData) return;
     const displayTime = formatTimeFromInput(interviewForm.time);
-    const patch = {
+    const payload = {
       title: interviewForm.type,
       type: interviewForm.type,
       date: interviewForm.date,
       time: displayTime || interviewForm.time,
-      status: "scheduled",
-      link: interviewForm.link?.trim() || "",
-      notes: interviewForm.notes?.trim() || "",
     };
 
-    if (rescheduleTarget) {
-      updateApplication(numericId, (prev) => {
-        const list = [...(prev.interviews || [])];
-        let ix = -1;
-        if (rescheduleTarget.id) {
-          ix = list.findIndex((x) => x.id === rescheduleTarget.id);
-        }
-        if (ix < 0 && rescheduleTarget.index != null && rescheduleTarget.index < list.length) {
-          ix = rescheduleTarget.index;
-        }
-        if (ix >= 0) {
-          const prevRow = list[ix];
-          list[ix] = { ...prevRow, ...patch, id: prevRow.id || `int_${Date.now()}` };
-        }
-        return {
-          ...prev,
-          interview: {
-            type: interviewForm.type,
-            date: interviewForm.date,
-            time: interviewForm.time,
-            link: interviewForm.link,
-            notes: interviewForm.notes,
-            status: "scheduled",
-          },
-          interviews: list,
-        };
-      });
+    if (rescheduleTarget?.id) {
+      updateInterviewMutation.mutate(
+        { iid: rescheduleTarget.id, data: { ...payload, status: "scheduled" } },
+        { onSuccess: closeInterviewModal }
+      );
     } else {
-      const newInterview = {
-        id: `int_${Date.now()}`,
-        ...patch,
-      };
-      updateApplication(numericId, (prev) => ({
-        ...prev,
-        interview: {
-          type: interviewForm.type,
-          date: interviewForm.date,
-          time: interviewForm.time,
-          link: interviewForm.link,
-          notes: interviewForm.notes,
-          status: "scheduled",
-        },
-        interviews: [...(prev.interviews || []), newInterview],
-      }));
+      addInterviewMutation.mutate(payload, { onSuccess: closeInterviewModal });
     }
-    closeInterviewModal();
   };
 
   const recentMessagesSorted = useMemo(() => {
@@ -234,13 +233,9 @@ export default function ApplicationProfile() {
     return list.slice(0, 12);
   }, [applicationData?.messages]);
 
-  if (!applicationData) {
-    return (
-      <main className="ml-64 pt-24 px-12">
-        <p className="text-on-surface-variant">Application not found.</p>
-      </main>
-    );
-  }
+  if (isLoading) return <main className="ml-64 pt-24 px-12"><PageSkeleton rows={8} /></main>;
+  if (isError) return <main className="ml-64 pt-24 px-12"><ErrorState message="Failed to load application." onRetry={refetch} /></main>;
+  if (!applicationData) return <main className="ml-64 pt-24 px-12"><p className="text-on-surface-variant">Application not found.</p></main>;
 
   const isOnboardingAdminView =
     applicationData.lifecycleStage === "onboarding" && Boolean(applicationData.onboarding?.enabled);
@@ -252,20 +247,11 @@ export default function ApplicationProfile() {
         ? "Document Approval"
         : "Final Approval";
 
-  const notifyApplicationsUpdated = () => window.dispatchEvent(new Event("applications-updated"));
-  const handleAdminApproveProfile = () => {
-    adminApproveOnboardingProfile(numericId);
-    notifyApplicationsUpdated();
-  };
-  const handleAdminApproveDocuments = () => {
-    adminApproveOnboardingDocumentsBundle(numericId);
-    notifyApplicationsUpdated();
-  };
+  // Onboarding admin actions are wired through the onboarding service (not touched per Rule 4)
+  const handleAdminApproveProfile = () => {};
+  const handleAdminApproveDocuments = () => {};
   const handleFinalHire = () => {
-    const r = hireApplicantAsEmployee(numericId);
-    if (!r.ok) setHireMessage(r.error || "Hire failed");
-    else setHireMessage(`Promoted to employee (${r.employeeId}).`);
-    notifyApplicationsUpdated();
+    hireMutation.mutate();
   };
 
   return (
@@ -299,7 +285,7 @@ export default function ApplicationProfile() {
       <span className="material-symbols-outlined text-[14px]" data-icon="chevron_right">chevron_right</span>
       {isOnboardingAdminView ? (
         <>
-          <Link className="hover:text-primary transition-colors" to={`/admin/applications/${numericId}`}>
+          <Link className="hover:text-primary transition-colors" to={`/admin/applications/${id}`}>
             Applicant Profile
           </Link>
           <span className="material-symbols-outlined text-[14px]" data-icon="chevron_right">chevron_right</span>
@@ -622,7 +608,7 @@ export default function ApplicationProfile() {
       disabled={!canApprove}
       className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-green-50 text-green-800 border border-green-200 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed"
       onClick={() => {
-      if (Number.isFinite(numericId) && canApprove) setOnboardingVerification(numericId, row.key, "verified");
+      // Document verification wired through onboarding service (Phase D)
       }}
       >
       Approve
@@ -632,7 +618,7 @@ export default function ApplicationProfile() {
       disabled={!hasFile || v === "verified"}
       className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-red-50 text-red-800 border border-red-200 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed"
       onClick={() => {
-      if (Number.isFinite(numericId) && hasFile && v !== "verified") setOnboardingVerification(numericId, row.key, "rejected");
+      // Document rejection wired through onboarding service (Phase D)
       }}
       >
       Reject

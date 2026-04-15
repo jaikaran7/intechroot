@@ -1,34 +1,79 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getEmployees } from "@/fixtures/catalog";
+import { useQuery } from "@tanstack/react-query";
+import { employeesService } from "../../../services/employees.service";
+import PageSkeleton from "../../../components/PageSkeleton";
+import ErrorState from "../../../components/ErrorState";
 
 export default function Employees() {
   const navigate = useNavigate();
+
+  const { data: apiData, isLoading, isError, refetch } = useQuery({
+    queryKey: ['employees'],
+    queryFn: () => employeesService.getAll({ limit: 100 }),
+    staleTime: 120_000,
+  });
+
   const employees = useMemo(() => {
-    try {
-      const list = getEmployees();
-      return Array.isArray(list) ? list : [];
-    } catch {
-      return [];
-    }
-  }, []);
+    const list = apiData?.data;
+    return Array.isArray(list) ? list : [];
+  }, [apiData]);
+  const normalizedEmployees = useMemo(
+    () =>
+      employees
+        .filter(Boolean)
+        .map((employee) => {
+          const fallbackInitials = String(employee?.name || "?")
+            .split(" ")
+            .map((part) => part[0])
+            .filter(Boolean)
+            .slice(0, 2)
+            .join("")
+            .toUpperCase();
+          return {
+            ...employee,
+            avatar: employee?.avatar ?? {
+              type: "initials",
+              initials: fallbackInitials || "?",
+              className:
+                "h-10 w-10 rounded-full bg-surface-container text-on-surface text-xs font-bold flex items-center justify-center",
+            },
+            name: employee?.name ?? "Unknown Employee",
+            email: employee?.email ?? "—",
+            role: employee?.role ?? "Unknown",
+            department: employee?.department ?? "Unassigned",
+            status: employee?.status ?? "Unknown",
+            performance: employee?.performance ?? {},
+          };
+        }),
+    [employees],
+  );
   const getStatusPresentation = (status) => {
     if (status === "On Leave") {
       return { dotClass: "bg-outline", textClass: "text-on-surface-variant" };
     }
     return { dotClass: "bg-[#0094ac]", textClass: "text-on-tertiary-container" };
   };
-  const [selectedEmployee, setSelectedEmployee] = useState(employees[0] ?? null);
+  const [selectedEmployee, setSelectedEmployee] = useState(normalizedEmployees[0] ?? null);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("Active");
   const [departmentFilter, setDepartmentFilter] = useState("All");
-  const roleOptions = useMemo(() => ["All", ...new Set(employees.map((employee) => employee.role))], [employees]);
-  const statusOptions = useMemo(() => ["All", ...new Set(employees.map((employee) => employee.status))], [employees]);
-  const departmentOptions = useMemo(() => ["All", ...new Set(employees.map((employee) => employee.department))], [employees]);
+  const roleOptions = useMemo(
+    () => ["All", ...new Set(normalizedEmployees.map((employee) => employee.role))],
+    [normalizedEmployees],
+  );
+  const statusOptions = useMemo(
+    () => ["All", ...new Set(normalizedEmployees.map((employee) => employee.status))],
+    [normalizedEmployees],
+  );
+  const departmentOptions = useMemo(
+    () => ["All", ...new Set(normalizedEmployees.map((employee) => employee.department))],
+    [normalizedEmployees],
+  );
   const filteredEmployees = useMemo(
     () =>
-      employees.filter((employee) => {
+      normalizedEmployees.filter((employee) => {
         const query = searchQuery.trim().toLowerCase();
         const matchesSearch =
           query.length === 0 ||
@@ -41,11 +86,12 @@ export default function Employees() {
         const matchesDepartment = departmentFilter === "All" || employee.department === departmentFilter;
         return matchesSearch && matchesRole && matchesStatus && matchesDepartment;
       }),
-    [departmentFilter, employees, roleFilter, searchQuery, statusFilter],
+    [departmentFilter, normalizedEmployees, roleFilter, searchQuery, statusFilter],
   );
 
   useEffect(() => {
     if (filteredEmployees.length === 0) {
+      setSelectedEmployee(null);
       return;
     }
     const selectedStillVisible = filteredEmployees.some((employee) => employee.id === selectedEmployee?.id);
@@ -53,14 +99,10 @@ export default function Employees() {
       setSelectedEmployee(filteredEmployees[0]);
     }
   }, [filteredEmployees, selectedEmployee]);
+  const profileEmployee = selectedEmployee ?? filteredEmployees[0] ?? null;
 
-  if (!employees.length) {
-    return (
-      <main className="ml-64 min-h-screen p-8 font-body text-on-surface-variant">
-        No employee data available.
-      </main>
-    );
-  }
+  if (isLoading) return <PageSkeleton />;
+  if (isError) return <ErrorState message="Failed to load employees." onRetry={refetch} />;
 
   return (
     <>
@@ -98,7 +140,7 @@ export default function Employees() {
       <div className="flex items-center gap-3">
       <div className="px-4 py-2 bg-surface-container rounded-lg flex items-center gap-2">
       <span className="text-xs font-bold uppercase tracking-wider text-secondary">Total Headcount</span>
-      <span className="text-lg font-bold text-primary">{employees.length.toLocaleString()}</span>
+      <span className="text-lg font-bold text-primary">{normalizedEmployees.length.toLocaleString()}</span>
       </div>
       </div>
       </div>
@@ -210,7 +252,7 @@ export default function Employees() {
       </tbody>
       </table>
       <div className="px-6 py-4 bg-white flex items-center justify-between">
-      <p className="text-xs text-on-surface-variant font-medium">Showing {filteredEmployees.length} of {employees.length.toLocaleString()} global employees</p>
+      <p className="text-xs text-on-surface-variant font-medium">Showing {filteredEmployees.length} of {normalizedEmployees.length.toLocaleString()} global employees</p>
       <div className="flex gap-2">
       <button className="p-1.5 rounded border border-outline-variant/30 hover:bg-surface-container transition-colors">
       <span className="material-symbols-outlined text-sm" data-icon="chevron_left">chevron_left</span>
@@ -228,11 +270,17 @@ export default function Employees() {
       <div className="flex flex-col items-center text-center mb-8">
       <div className="relative mb-6">
       <div className="absolute -inset-4 bg-gradient-to-tr from-secondary/20 to-tertiary-fixed-dim/20 rounded-full blur-xl"></div>
-      <img className="relative w-32 h-32 rounded-full object-cover border-4 border-white shadow-xl" data-alt="close up of a professional male executive in a studio setting with soft lighting" src={selectedEmployee.performance.panelImage}/>
+      {profileEmployee?.performance?.panelImage ? (
+      <img className="relative w-32 h-32 rounded-full object-cover border-4 border-white shadow-xl" data-alt="close up of a professional male executive in a studio setting with soft lighting" src={profileEmployee.performance.panelImage}/>
+      ) : (
+      <div className="relative w-32 h-32 rounded-full border-4 border-white shadow-xl bg-surface-container text-on-surface text-3xl font-bold flex items-center justify-center">
+      {profileEmployee?.avatar?.initials ?? "?"}
+      </div>
+      )}
       <div className="absolute bottom-1 right-1 bg-[#0094ac] w-6 h-6 rounded-full border-4 border-white"></div>
       </div>
-      <h3 className="text-2xl font-bold font-headline text-primary">{selectedEmployee.name}</h3>
-      <p className="text-on-surface-variant font-medium mb-4">{selectedEmployee.role}</p>
+      <h3 className="text-2xl font-bold font-headline text-primary">{profileEmployee?.name ?? "No employee selected"}</h3>
+      <p className="text-on-surface-variant font-medium mb-4">{profileEmployee?.role ?? "—"}</p>
       <div className="flex justify-center">
       <span className="text-[10px] font-bold tracking-widest px-3 py-1 bg-tertiary-fixed text-on-tertiary-fixed rounded-full">employee</span>
       </div>
@@ -241,11 +289,11 @@ export default function Employees() {
       <div className="space-y-4">
       <div className="flex justify-between items-center text-sm">
       <span className="text-on-surface-variant font-medium">Department</span>
-      <span className="text-primary font-bold">{selectedEmployee.department}</span>
+      <span className="text-primary font-bold">{profileEmployee?.department ?? "—"}</span>
       </div>
       <div className="flex justify-between items-center text-sm">
       <span className="text-on-surface-variant font-medium">Tenure</span>
-      <span className="text-primary font-bold">{selectedEmployee.performance.tenure}</span>
+      <span className="text-primary font-bold">{profileEmployee?.performance?.tenure ?? "—"}</span>
       </div>
       </div>
       <div className="pt-4 grid grid-cols-2 gap-3">
@@ -253,7 +301,7 @@ export default function Employees() {
       <span className="material-symbols-outlined text-lg" data-icon="mail">mail</span>
                                           Message
                                       </button>
-      <button className="flex items-center justify-center gap-2 py-3 border border-outline-variant text-primary font-bold text-sm rounded-lg hover:bg-white transition-all" onClick={() => selectedEmployee && navigate(`/admin/employees/${selectedEmployee.id}`)}>
+      <button className="flex items-center justify-center gap-2 py-3 border border-outline-variant text-primary font-bold text-sm rounded-lg hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed" onClick={() => profileEmployee && navigate(`/admin/employees/${profileEmployee.id}`)} disabled={!profileEmployee}>
       <span className="material-symbols-outlined text-lg" data-icon="edit">edit</span>
                                           Edit Profile
                                       </button>

@@ -1,12 +1,12 @@
 /** Converted from application_process/admin_document_approval/code.html — content area only. */
 
 import { useEffect, useState } from "react";
-import {
-  adminAddBgvRequest,
-  adminAddDocumentRequest,
-  adminSetBgvInstructions,
-  setOnboardingVerification,
-} from "@/data/applicationsStore";
+
+// Onboarding document actions — stubbed pending dedicated API endpoints
+const adminSetBgvInstructions = () => {};
+const adminAddDocumentRequest = () => {};
+const adminAddBgvRequest = () => {};
+const setOnboardingVerification = () => {};
 import { onboardingVerificationBadge, uploadStatusBadge } from "@/components/shared/requiredDocumentBadges";
 import {
   documentIconWrapClass,

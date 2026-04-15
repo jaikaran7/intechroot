@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { useApplicationsSync } from "@/data/applicationsStore";
+import { usePaginatedQuery } from "../../../hooks/usePaginatedQuery";
+import { applicationsService } from "../../../services/applications.service";
+import PageSkeleton from "../../../components/PageSkeleton";
+import ErrorState from "../../../components/ErrorState";
 
 export default function Applications() {
   const navigate = useNavigate();
@@ -15,19 +18,22 @@ export default function Applications() {
   const [selectionPopup, setSelectionPopup] = useState({ open: false, name: "" });
   const selectionTimeoutRef = useRef(null);
 
-  const { applications: storeApplications, version } = useApplicationsSync();
-  const [applications, setApplications] = useState([]);
+  const {
+    data: apiData,
+    isLoading,
+    isError,
+    refetch,
+    page,
+    setPage,
+    totalPages,
+    total,
+  } = usePaginatedQuery(
+    ['applications', { search: searchFilter, role: roleFilter !== "All" ? roleFilter : undefined }],
+    applicationsService.getAll,
+    { staleTime: 30_000, limit: PAGE_SIZE }
+  );
 
-  useEffect(() => {
-    const list = Array.isArray(storeApplications) ? storeApplications : [];
-    setApplications((previous) => {
-      const selectedMap = new Map(previous.map((application) => [application.id, application.isSelected]));
-      return list.map((application) => ({
-        ...application,
-        isSelected: selectedMap.get(application.id) ?? false,
-      }));
-    });
-  }, [storeApplications, version]);
+  const applications = Array.isArray(apiData?.data) ? apiData.data : [];
 
   const handleView = (id) => {
     navigate(`/admin/applications/${id}`);
@@ -51,62 +57,30 @@ export default function Applications() {
 
   const roleOptions = ["All", ...Array.from(new Set(applications.map((application) => application.role)))];
 
+  // Server handles search/role filtering — experience filter is client-side for now
   const getExperienceValue = (experience) => parseInt(experience, 10);
-
-  const filteredApplications = applications.filter((application) => {
-    if (!application) return false;
-    const query = searchFilter.trim().toLowerCase();
-    const isSearchMatch =
-      query.length === 0 ||
-      String(application.name ?? "").toLowerCase().includes(query) ||
-      String(application.role ?? "").toLowerCase().includes(query) ||
-      String(application.location ?? "").toLowerCase().includes(query) ||
-      String(application.email ?? "").toLowerCase().includes(query) ||
-      String(application.stage ?? "").toLowerCase().includes(query) ||
-      String(application.status ?? "").toLowerCase().includes(query);
-
-    const isRoleMatch = roleFilter === "All" || application.role === roleFilter;
-    const years = getExperienceValue(application.experience);
-    const isExperienceMatch =
-      experienceFilter === "Any" ||
-      (experienceFilter === "5+ Years" && years >= 5) ||
-      (experienceFilter === "10+ Years" && years >= 10);
-
-    const isJobMatch =
-      !jobIdFilter || String(application.jobId ?? "") === String(jobIdFilter);
-
-    return isSearchMatch && isRoleMatch && isExperienceMatch && isJobMatch;
-  });
+  const filteredApplications = experienceFilter === "Any"
+    ? applications
+    : applications.filter((app) => {
+        const years = getExperienceValue(app.experience);
+        if (experienceFilter === "5+ Years") return years >= 5;
+        if (experienceFilter === "10+ Years") return years >= 10;
+        return true;
+      });
 
   const selectedApplication =
     selectedApplicationId != null
       ? filteredApplications.find((application) => application.id === selectedApplicationId)
       : undefined;
 
-  const totalApplicationPages = Math.max(1, Math.ceil(filteredApplications.length / PAGE_SIZE));
-  const safeApplicationsPage = Math.min(Math.max(1, applicationsPage), totalApplicationPages);
-  const paginatedApplications = filteredApplications.slice(
-    (safeApplicationsPage - 1) * PAGE_SIZE,
-    safeApplicationsPage * PAGE_SIZE,
-  );
-
   useEffect(() => {
     return () => {
-      if (selectionTimeoutRef.current) {
-        clearTimeout(selectionTimeoutRef.current);
-      }
+      if (selectionTimeoutRef.current) clearTimeout(selectionTimeoutRef.current);
     };
   }, []);
 
-  useEffect(() => {
-    setApplicationsPage(1);
-  }, [searchFilter, roleFilter, experienceFilter, jobIdFilter]);
-
-  useEffect(() => {
-    if (applicationsPage > totalApplicationPages) {
-      setApplicationsPage(totalApplicationPages);
-    }
-  }, [applicationsPage, totalApplicationPages]);
+  // Reset to page 1 when filters change
+  useEffect(() => { setPage(1); }, [searchFilter, roleFilter, experienceFilter, jobIdFilter]);
 
   useEffect(() => {
     if (selectedApplicationId == null) return;
@@ -261,7 +235,9 @@ export default function Applications() {
       </tr>
       </thead>
       <tbody className="divide-y divide-surface-container">
-      {paginatedApplications.map((application, index) => (
+      {isLoading && <tr><td colSpan={6}><PageSkeleton rows={PAGE_SIZE} /></td></tr>}
+      {isError && <tr><td colSpan={6}><ErrorState message="Failed to load applications." onRetry={refetch} /></td></tr>}
+      {!isLoading && !isError && filteredApplications.map((application, index) => (
         <tr
           className={selectedApplicationId === application.id ? "bg-secondary/5 border-l-4 border-l-secondary cursor-pointer transition-colors" : index % 2 === 0 ? "hover:bg-surface-container-low transition-colors cursor-pointer" : "bg-surface-container-low/30 hover:bg-surface-container-low transition-colors cursor-pointer"}
           key={application.id}
@@ -324,7 +300,7 @@ export default function Applications() {
           </td>
         </tr>
       ))}
-      {filteredApplications.length === 0 && (
+      {!isLoading && !isError && filteredApplications.length === 0 && (
         <tr>
           <td className="px-6 py-8 text-sm text-outline text-center" colSpan={6}>
             No applications found.
@@ -336,26 +312,24 @@ export default function Applications() {
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-t border-surface-container bg-surface-container-low/40 shrink-0">
         <p className="text-xs text-outline">
-          {filteredApplications.length === 0
-            ? "0 applicants"
-            : `Showing ${(safeApplicationsPage - 1) * PAGE_SIZE + 1}–${Math.min(safeApplicationsPage * PAGE_SIZE, filteredApplications.length)} of ${filteredApplications.length}`}
+          {total === 0 ? "0 applicants" : `${total} applicants — page ${page} of ${totalPages}`}
         </p>
         <div className="flex items-center gap-2">
           <button
             type="button"
-            disabled={safeApplicationsPage <= 1}
-            onClick={() => setApplicationsPage((page) => Math.max(1, page - 1))}
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
             className="px-3 py-1.5 text-xs font-bold rounded-lg bg-surface-container-low text-primary border border-outline-variant/20 hover:bg-surface-container-high disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Previous
           </button>
           <span className="text-xs font-semibold text-on-surface-variant tabular-nums px-1">
-            {safeApplicationsPage} / {totalApplicationPages}
+            {page} / {totalPages}
           </span>
           <button
             type="button"
-            disabled={safeApplicationsPage >= totalApplicationPages}
-            onClick={() => setApplicationsPage((page) => Math.min(totalApplicationPages, page + 1))}
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             className="px-3 py-1.5 text-xs font-bold rounded-lg bg-surface-container-low text-primary border border-outline-variant/20 hover:bg-surface-container-high disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Next

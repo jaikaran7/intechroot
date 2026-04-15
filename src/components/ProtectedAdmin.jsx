@@ -6,7 +6,7 @@ export default function ProtectedAdmin({ children }) {
   const location = useLocation();
 
   if (!accessToken || !["admin", "super_admin"].includes(role)) {
-    return <Navigate to="/admin/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return children;

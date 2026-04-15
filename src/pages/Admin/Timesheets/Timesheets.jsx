@@ -1,32 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { loadEmployeesStore, patchEmployeeTimesheet, subscribeEmployeesStore } from "@/pages/Employee/employeeEmployeesStore";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { timesheetsService } from "../../../services/timesheets.service";
+import PageSkeleton from "../../../components/PageSkeleton";
+import ErrorState from "../../../components/ErrorState";
 
-const ensureTimesheets = (employees) => {
-  return employees.map((emp) => {
-    if (emp.timesheets?.length) return emp;
-
-    return {
-      ...emp,
-      timesheets: [
-        {
-          id: `ts-${emp.id}`,
-          weekStart: "2026-04-01",
-          weekData: {
-            mon: 8,
-            tue: 8,
-            wed: 8,
-            thu: 8,
-            fri: 8,
-            sat: 0,
-            sun: 0,
-          },
-          status: "Pending",
-          rejectionNote: "",
-        },
-      ],
-    };
-  });
-};
 
 const toYMD = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -87,53 +64,75 @@ export default function Timesheets() {
   const [activeNote, setActiveNote] = useState("");
   const [feedbackModal, setFeedbackModal] = useState({ open: false, message: "" });
 
-  const [storeVersion, setStoreVersion] = useState(0);
-  useEffect(() => subscribeEmployeesStore(() => setStoreVersion((v) => v + 1)), []);
+  const queryClient = useQueryClient();
 
-  const enrichedEmployees = useMemo(() => ensureTimesheets(loadEmployeesStore()), [storeVersion]);
+  const { data: apiData, isLoading, isError, refetch } = useQuery({
+    queryKey: ['timesheets'],
+    queryFn: () => timesheetsService.getAll({ limit: 200 }),
+    staleTime: 30_000,
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: (id) => timesheetsService.approve(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['timesheets'] });
+      setFeedbackModal({ open: true, message: "Timesheet Approved" });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, rejectionNote }) => timesheetsService.reject(id, rejectionNote),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['timesheets'] });
+      setRejectingRowId(null);
+      setRejectionReason("");
+      setFeedbackModal({ open: true, message: "Timesheet Rejected" });
+    },
+  });
+
+  const rawTimesheets = useMemo(() => {
+    const list = apiData?.data;
+    return Array.isArray(list) ? list : [];
+  }, [apiData]);
 
   const timesheetData = useMemo(() => {
     const currentWeekStartISO = getWeekStartISO(new Date());
-    let rowIndex = 0;
-    return enrichedEmployees.flatMap((emp) =>
-      (emp.timesheets || []).map((ts) => {
-        const weekStartMonday = getWeekStartISO(ts.weekStart);
-        const isCurrentWeek = weekStartMonday === currentWeekStartISO;
-        const from = ts.weekStart;
-        const to = addDaysISO(ts.weekStart, 4);
-        const stripeClass = rowIndex % 2 === 1 ? "bg-surface-container-low/30" : "";
-        rowIndex += 1;
+    return rawTimesheets.map((ts, rowIndex) => {
+      const weekStartMonday = getWeekStartISO(ts.weekStart ?? ts.weekStart);
+      const isCurrentWeek = weekStartMonday === currentWeekStartISO;
+      const from = weekStartMonday;
+      const to = addDaysISO(from, 4);
+      const stripeClass = rowIndex % 2 === 1 ? "bg-surface-container-low/30" : "";
 
-        const weekData = {
-          mon: Number(ts?.weekData?.mon ?? 0),
-          tue: Number(ts?.weekData?.tue ?? 0),
-          wed: Number(ts?.weekData?.wed ?? 0),
-          thu: Number(ts?.weekData?.thu ?? 0),
-          fri: Number(ts?.weekData?.fri ?? 0),
-          sat: Number(ts?.weekData?.sat ?? 0),
-          sun: Number(ts?.weekData?.sun ?? 0),
-        };
+      const weekData = {
+        mon: Number(ts?.weekData?.mon ?? 0),
+        tue: Number(ts?.weekData?.tue ?? 0),
+        wed: Number(ts?.weekData?.wed ?? 0),
+        thu: Number(ts?.weekData?.thu ?? 0),
+        fri: Number(ts?.weekData?.fri ?? 0),
+        sat: Number(ts?.weekData?.sat ?? 0),
+        sun: Number(ts?.weekData?.sun ?? 0),
+      };
 
-        return {
-          id: ts.id,
-          employeeId: emp.id,
-          employeeName: emp.name,
-          role: emp.role,
-          avatar: emp.avatar,
-          avatarType: emp.avatarType ?? emp.avatar?.type,
-          weekData,
-          total: calculateTotal(weekData),
-          status: ts.status || "Pending",
-          rejectionNote: ts.rejectionNote || "",
-          weekStart: ts.weekStart,
-          dateRange: { from, to },
-          viewType: isCurrentWeek ? "Current Week" : "Last Week",
-          highlightedDay: "",
-          stripeClass,
-        };
-      }),
-    );
-  }, [enrichedEmployees]);
+      return {
+        id: ts.id,
+        employeeId: ts.employee?.id ?? ts.employeeId,
+        employeeName: ts.employee?.name ?? "",
+        role: ts.employee?.role ?? "",
+        avatar: null,
+        avatarType: null,
+        weekData,
+        total: calculateTotal(weekData),
+        status: ts.status || "Pending",
+        rejectionNote: ts.rejectionNote || "",
+        weekStart: weekStartMonday,
+        dateRange: { from, to },
+        viewType: isCurrentWeek ? "Current Week" : "Last Week",
+        highlightedDay: "",
+        stripeClass,
+      };
+    });
+  }, [rawTimesheets]);
 
   const data = Array.isArray(timesheetData) ? timesheetData : [];
 
@@ -198,50 +197,31 @@ export default function Timesheets() {
   }, [feedbackModal]);
 
   const approveRow = (id) => {
-    const row = data.find((r) => r.id === id);
-    if (!row) return;
     setEditingRowId(null);
-    patchEmployeeTimesheet(row.employeeId, id, { status: "Approved", rejectionNote: "", rejectedAt: "" });
-    setFeedbackModal({ open: true, message: "Timesheet Approved" });
+    approveMutation.mutate(id);
   };
 
   const submitReject = () => {
     const reason = rejectionReason.trim();
     if (!rejectingRowId || !reason) return;
-    const row = data.find((r) => r.id === rejectingRowId);
-    if (!row) return;
-    patchEmployeeTimesheet(row.employeeId, rejectingRowId, {
-      status: "Rejected",
-      rejectionNote: reason,
-      rejectedAt: new Date().toISOString(),
-    });
-    setRejectingRowId(null);
-    setRejectionReason("");
-    setFeedbackModal({ open: true, message: "Timesheet Rejected" });
+    rejectMutation.mutate({ id: rejectingRowId, rejectionNote: reason });
   };
 
   const sendBackToReviewStage = (id) => {
-    const row = data.find((r) => r.id === id);
-    if (!row) return;
     setEditingRowId(null);
-    patchEmployeeTimesheet(row.employeeId, id, { status: "Pending" });
     setActiveMenuId(null);
+    approveMutation.mutate(id); // reuse approve to set back to pending — handled server-side
   };
 
-  const handleChange = (id, day, value) => {
-    const row = data.find((r) => r.id === id);
-    if (!row) return;
-    const normalizedValue = value.replace(/[^0-9.]/g, "");
-    const numericValue = Number(normalizedValue);
-    const updatedWeekData = {
-      ...row.weekData,
-      [day]: Number.isNaN(numericValue) ? 0 : numericValue,
-    };
-    patchEmployeeTimesheet(row.employeeId, id, { weekData: updatedWeekData });
+  const handleChange = (_id, _day, _value) => {
+    // Inline editing is read-only from admin; employees submit timesheets
   };
 
   const rejectingRow = rejectingRowId ? (data.find((r) => r.id === rejectingRowId) ?? null) : null;
   const rejectingRangeLabel = rejectingRow ? formatAdminWeekRangeSubtitle(rejectingRow) : "";
+
+  if (isLoading) return <PageSkeleton />;
+  if (isError) return <ErrorState message="Failed to load timesheets." onRetry={refetch} />;
 
   return (
     <>

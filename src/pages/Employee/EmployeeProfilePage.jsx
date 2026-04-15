@@ -1,15 +1,32 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import EmployeeBentoProfile, { formatDateMedium } from "@/components/EmployeeBentoProfile";
 import { buildProfileFormState } from "@/utils/employeeProfileFormState";
-import { getEmployeeFromStore, updateEmployeeInStore } from "./employeeEmployeesStore";
-import { getEmployeeSessionId } from "./employeeSession";
+import { useAuthStore } from "../../store/authStore";
+import { employeesService } from "../../services/employees.service";
 
 export default function EmployeeProfilePage() {
   const navigate = useNavigate();
-  const id = getEmployeeSessionId();
-  const [storeVersion, setStoreVersion] = useState(0);
-  const employee = useMemo(() => (id ? getEmployeeFromStore(id) : null), [id, storeVersion]);
+  const { employeeId } = useAuthStore();
+  const queryClient = useQueryClient();
+
+  const { data: employee } = useQuery({
+    queryKey: ['employee', employeeId],
+    queryFn: () => employeesService.getById(employeeId),
+    staleTime: 120_000,
+    enabled: !!employeeId,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (data) => employeesService.update(employeeId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employee', employeeId] });
+      setSavedFormData({ ...formData });
+      setPersonalDetailsEditMode(false);
+      setShowSavePopup(true);
+    },
+  });
 
   const [formData, setFormData] = useState({});
   const [savedFormData, setSavedFormData] = useState({});
@@ -22,7 +39,7 @@ export default function EmployeeProfilePage() {
     setFormData(next);
     setSavedFormData(next);
     setPersonalDetailsEditMode(false);
-  }, [employee, id, storeVersion]);
+  }, [employee]);
 
   useEffect(() => {
     if (!showSavePopup) return undefined;
@@ -44,24 +61,17 @@ export default function EmployeeProfilePage() {
   };
 
   const handleSave = () => {
-    if (!id || !personalDetailsEditMode) return;
-    updateEmployeeInStore(id, (emp) => ({
-      ...emp,
+    if (!personalDetailsEditMode) return;
+    saveMutation.mutate({
       personal: {
-        ...(emp.personal || {}),
         dateOfBirth: formData.dateOfBirth,
         gender: formData.gender,
         address: formData.address,
       },
       employment: {
-        ...(emp.employment || {}),
         employmentType: formData.employmentType,
       },
-    }));
-    setSavedFormData({ ...formData });
-    setPersonalDetailsEditMode(false);
-    setStoreVersion((v) => v + 1);
-    setShowSavePopup(true);
+    });
   };
 
   const handlePenClick = () => setPersonalDetailsEditMode(true);

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { getEmployeeFromStore } from "./employeeEmployeesStore";
-import { getEmployeeSessionId } from "./employeeSession";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuthStore } from "../../store/authStore";
+import { documentsService } from "../../services/documents.service";
 
 const EXPIRING_DAYS = 30;
 
@@ -26,9 +27,37 @@ function iconWrap(type) {
 }
 
 export default function EmployeeDocumentsPage() {
-  const id = getEmployeeSessionId();
-  const employee = useMemo(() => (id ? getEmployeeFromStore(id) : null), [id]);
-  const docs = employee?.documents ?? [];
+  const { employeeId } = useAuthStore();
+  const queryClient = useQueryClient();
+
+  const { data: docs = [] } = useQuery({
+    queryKey: ['documents', employeeId],
+    queryFn: () => documentsService.getByOwner(employeeId, 'employee'),
+    staleTime: 60_000,
+    enabled: !!employeeId,
+  });
+
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+
+  const upsertMutation = useMutation({
+    mutationFn: (formData) => documentsService.upsert(formData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents', employeeId] });
+      setUploadOpen(false);
+      setUploadFile(null);
+    },
+  });
+
+  const handleUpload = (templateKey) => {
+    if (!uploadFile) return;
+    const fd = new FormData();
+    fd.append('file', uploadFile);
+    fd.append('ownerId', employeeId);
+    fd.append('ownerType', 'employee');
+    fd.append('templateKey', templateKey);
+    upsertMutation.mutate(fd);
+  };
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("All Types");

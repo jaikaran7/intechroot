@@ -1,14 +1,8 @@
-import { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { setApplicantSession } from "@/pages/Applicant/applicantSession";
 import "./premiumApplyScreens.css";
 
 export default function ApplicationSubmittedPremiumSuccess() {
   const location = useLocation();
-  useEffect(() => {
-    const applicantId = location.state?.applicantId;
-    if (applicantId != null) setApplicantSession(applicantId);
-  }, [location.state?.applicantId]);
   const reference = location.state?.referenceId || location.state?.reference || "MONO-7729-QX";
   const submittedAt =
     location.state?.submittedAtLabel ||

@@ -5,7 +5,7 @@ import HomePage from "./pages/Home/HomePage";
 import CareersPage from "./pages/Careers/CareersPage";
 import ServicesPage from "./pages/Services/ServicesPage";
 import ApplyPage from "./pages/Apply/ApplyPage";
-const AdminLogin = lazy(() => import("./pages/Admin/AdminLogin"));
+const LoginPage = lazy(() => import("./pages/Auth/LoginPage"));
 const ProtectedAdmin = lazy(() => import("./components/ProtectedAdmin"));
 
 const ProtectedEmployee = lazy(() => import("./pages/Employee/components/ProtectedEmployee"));
@@ -94,7 +94,8 @@ export default function App() {
           />
           <Route path="/about" element={<HomePage />} />
 
-          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/admin/login" element={<Navigate to="/login" replace />} />
           <Route
             path="/admin/*"
             element={
