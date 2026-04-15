@@ -17,6 +17,8 @@ const ensureTimesheets = (employees) => {
             wed: 8,
             thu: 8,
             fri: 8,
+            sat: 0,
+            sun: 0,
           },
           status: "Pending",
           rejectionNote: "",
@@ -108,6 +110,8 @@ export default function Timesheets() {
           wed: Number(ts?.weekData?.wed ?? 0),
           thu: Number(ts?.weekData?.thu ?? 0),
           fri: Number(ts?.weekData?.fri ?? 0),
+          sat: Number(ts?.weekData?.sat ?? 0),
+          sun: Number(ts?.weekData?.sun ?? 0),
         };
 
         return {
@@ -362,6 +366,8 @@ export default function Timesheets() {
       <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">W</th>
       <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">T</th>
       <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">F</th>
+      <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">ST</th>
+      <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">S</th>
       <th className="px-8 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-right">Total</th>
       <th className="px-8 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Status</th>
       <th className="px-8 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">
@@ -389,7 +395,7 @@ export default function Timesheets() {
       </div>
       </div>
       </td>
-      {["mon", "tue", "wed", "thu", "fri"].map((day) => (
+      {["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((day) => (
       <td className={`px-6 py-5 text-center text-sm font-medium ${row.highlightedDay === day ? "text-error font-bold" : ""}`} key={`${row.id}-${day}`}>
       {editingRowId === row.id ? (
       <input className="w-12 bg-transparent border border-slate-200 rounded text-center text-sm font-medium focus:ring-0" onChange={(event) => handleChange(row.id, day, event.target.value)} type="text" value={row.weekData[day]} />
@@ -461,7 +467,7 @@ export default function Timesheets() {
       ))}
       {paginatedData.length === 0 && (
       <tr>
-      <td className="px-8 py-8 text-sm text-slate-500" colSpan={10}>No timesheet records found.</td>
+      <td className="px-8 py-8 text-sm text-slate-500" colSpan={12}>No timesheet records found.</td>
       </tr>
       )}
       </tbody>
