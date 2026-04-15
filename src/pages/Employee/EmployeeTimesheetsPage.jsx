@@ -6,17 +6,17 @@ import {
   subscribeEmployeesStore,
 } from "./employeeEmployeesStore";
 import { getEmployeeSessionId } from "./employeeSession";
-import { addDaysISO, calculateTotal, getWeekStartISO, parseYMD } from "./timesheetUtils";
+import {
+  TIMESHEET_DAY_KEYS,
+  addDaysISO,
+  buildWeekDataForPeriod,
+  calculateTotal,
+  daysInclusiveISO,
+  formatTimesheetRangeLabel,
+  getWeekStartISO,
+} from "./timesheetUtils";
 
-const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri"];
-
-function formatWorkWeekRangeLabel(weekStartISO) {
-  const start = parseYMD(weekStartISO);
-  const end = parseYMD(addDaysISO(weekStartISO, 4));
-  const a = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const b = end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  return `${a} – ${b}`;
-}
+const DAY_HEADER_SHORT = { mon: "M", tue: "T", wed: "W", thu: "T", fri: "F", sat: "ST", sun: "S" };
 
 function projectSubtext(sheet, employee) {
   return (
@@ -40,7 +40,6 @@ function formatRejectionTimestamp(iso) {
   return d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
 }
 
-const defaultWeekData = () => ({ mon: 8, tue: 8, wed: 8, thu: 8, fri: 8 });
 
 export default function EmployeeTimesheetsPage() {
   const employeeId = getEmployeeSessionId();
@@ -60,7 +59,8 @@ export default function EmployeeTimesheetsPage() {
 
   const [editingRowId, setEditingRowId] = useState(null);
   const [newModalOpen, setNewModalOpen] = useState(false);
-  const [newWeekPick, setNewWeekPick] = useState("");
+  const [newRangeStart, setNewRangeStart] = useState("");
+  const [newRangeEnd, setNewRangeEnd] = useState("");
   const [newProjectLabel, setNewProjectLabel] = useState("");
   const [newModalError, setNewModalError] = useState("");
   /** @type {null | { sheetId: string; weekLabel: string; note: string; rejectedAt: string | null }} */
@@ -70,7 +70,7 @@ export default function EmployeeTimesheetsPage() {
   const openRejectionFeedbackModal = (sheet) => {
     setRejectionFeedback({
       sheetId: sheet.id,
-      weekLabel: formatWorkWeekRangeLabel(sheet.weekStart),
+      weekLabel: formatTimesheetRangeLabel(sheet),
       note: sheet.rejectionNote || "No details were provided.",
       rejectedAt: sheet.rejectedAt ?? null,
     });
@@ -98,29 +98,47 @@ export default function EmployeeTimesheetsPage() {
 
   const openNewModal = () => {
     const mon = getWeekStartISO(new Date());
-    setNewWeekPick(mon);
+    const fri = addDaysISO(mon, 4);
+    setNewRangeStart(mon);
+    setNewRangeEnd(fri);
     setNewProjectLabel("");
     setNewModalError("");
     setNewModalOpen(true);
   };
 
   const submitNewTimesheet = () => {
-    if (!employeeId || !newWeekPick) {
-      setNewModalError("Choose a week.");
+    if (!employeeId || !newRangeStart || !newRangeEnd) {
+      setNewModalError("Choose a start and end date.");
       return;
     }
-    const ws = getWeekStartISO(newWeekPick);
-    if (timesheets.some((t) => getWeekStartISO(t.weekStart) === ws)) {
-      setNewModalError("You already have a timesheet for this week.");
+    if (newRangeStart > newRangeEnd) {
+      setNewModalError("End date must be on or after the start date.");
       return;
     }
-    const id = `${employeeId}-${ws}`;
+    const span = daysInclusiveISO(newRangeStart, newRangeEnd);
+    if (span < 5 || span > 7) {
+      setNewModalError("Select between 5 and 7 days (inclusive).");
+      return;
+    }
+    if (getWeekStartISO(newRangeStart) !== getWeekStartISO(newRangeEnd)) {
+      setNewModalError("The range must stay within one calendar week (Monday–Sunday).");
+      return;
+    }
+    if (timesheets.some((t) => t.periodStart === newRangeStart && t.periodEnd === newRangeEnd)) {
+      setNewModalError("You already have a timesheet for this period.");
+      return;
+    }
+    const anchorMonday = getWeekStartISO(newRangeStart);
+    const weekData = buildWeekDataForPeriod(newRangeStart, newRangeEnd);
+    const id = `${employeeId}-${newRangeStart}_${newRangeEnd}`;
     const row = {
       id,
-      weekStart: ws,
-      weekData: defaultWeekData(),
+      weekStart: anchorMonday,
+      periodStart: newRangeStart,
+      periodEnd: newRangeEnd,
+      weekData,
       rowMeta: employee?.timesheets?.[0]?.rowMeta,
-      total: calculateTotal(defaultWeekData()),
+      total: calculateTotal(weekData),
       status: "Draft",
       rejectionNote: "",
       projectLabel: newProjectLabel.trim(),
@@ -206,6 +224,12 @@ export default function EmployeeTimesheetsPage() {
                     <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">
                       F
                     </th>
+                    <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">
+                      ST
+                    </th>
+                    <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">
+                      S
+                    </th>
                     <th className="px-8 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-right">
                       Total
                     </th>
@@ -230,6 +254,8 @@ export default function EmployeeTimesheetsPage() {
                       wed: Number(sheet?.weekData?.wed ?? 0),
                       thu: Number(sheet?.weekData?.thu ?? 0),
                       fri: Number(sheet?.weekData?.fri ?? 0),
+                      sat: Number(sheet?.weekData?.sat ?? 0),
+                      sun: Number(sheet?.weekData?.sun ?? 0),
                     };
                     const total = calculateTotal(weekData);
                     const canEdit = employee && canEmployeeEditTimesheet(sheet.status);
@@ -243,7 +269,7 @@ export default function EmployeeTimesheetsPage() {
                         }}
                       >
                         <td className={`px-8 py-5 ${sheet.status === "Rejected" ? "border-l-4 border-error" : ""}`}>
-                          <p className="text-sm font-bold text-primary">{formatWorkWeekRangeLabel(sheet.weekStart)}</p>
+                          <p className="text-sm font-bold text-primary">{formatTimesheetRangeLabel(sheet)}</p>
                           {editingRowId === sheet.id && canEdit ? (
                             <input
                               className="mt-1 w-full max-w-[16rem] text-[10px] text-slate-600 border border-slate-200 rounded px-2 py-1"
@@ -259,7 +285,7 @@ export default function EmployeeTimesheetsPage() {
                             <p className="text-[10px] text-slate-400">{projectSubtext(sheet, employee)}</p>
                           )}
                         </td>
-                        {DAY_KEYS.map((day) => (
+                        {TIMESHEET_DAY_KEYS.map((day) => (
                           <td className="px-6 py-5 text-center text-sm font-medium" key={`${sheet.id}-${day}`}>
                             {editingRowId === sheet.id && canEdit ? (
                               <input
@@ -363,7 +389,7 @@ export default function EmployeeTimesheetsPage() {
                   })}
                   {timesheets.length === 0 && (
                     <tr>
-                      <td className="px-8 py-8 text-sm text-slate-500" colSpan={10}>
+                      <td className="px-8 py-8 text-sm text-slate-500" colSpan={12}>
                         No timesheets yet. Add a new timesheet to get started.
                       </td>
                     </tr>
@@ -379,13 +405,23 @@ export default function EmployeeTimesheetsPage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/20 backdrop-blur-md font-body">
           <div className="glass-card rounded-xl p-6 w-[min(92vw,28rem)]">
             <h4 className="text-lg font-bold text-primary mb-3">New timesheet</h4>
-            <p className="text-xs text-slate-500 mb-4">Pick the week (Monday–Friday). A date in that week is fine—we align to the Monday start.</p>
-            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Week *</label>
+            <p className="text-xs text-slate-500 mb-4">
+              Select a consecutive period of 5–7 days within one calendar week (Monday–Sunday). Weekend days start at 0 hours;
+ you can adjust after creating.
+            </p>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Period start *</label>
+            <input
+              type="date"
+              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3"
+              value={newRangeStart}
+              onChange={(e) => setNewRangeStart(e.target.value)}
+            />
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Period end *</label>
             <input
               type="date"
               className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm mb-4"
-              value={newWeekPick}
-              onChange={(e) => setNewWeekPick(e.target.value)}
+              value={newRangeEnd}
+              onChange={(e) => setNewRangeEnd(e.target.value)}
             />
             <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">
               Project / Client
@@ -474,12 +510,12 @@ export default function EmployeeTimesheetsPage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/20 backdrop-blur-md font-body">
           <div className="glass-card rounded-xl p-6 w-[min(92vw,36rem)]">
             <h4 className="text-lg font-bold text-primary mb-1">Timesheet</h4>
-            <p className="text-sm text-slate-500 mb-4">{formatWorkWeekRangeLabel(viewRow.weekStart)}</p>
+            <p className="text-sm text-slate-500 mb-4">{formatTimesheetRangeLabel(viewRow)}</p>
             <p className="text-xs text-slate-400 mb-4">{projectSubtext(viewRow, employee)}</p>
-            <div className="grid grid-cols-5 gap-2 text-center text-sm mb-4">
-              {DAY_KEYS.map((d) => (
+            <div className="grid grid-cols-7 gap-2 text-center text-sm mb-4">
+              {TIMESHEET_DAY_KEYS.map((d) => (
                 <div key={d} className="bg-slate-50 rounded-lg py-2">
-                  <div className="text-[10px] font-bold uppercase text-slate-400">{d}</div>
+                  <div className="text-[10px] font-bold uppercase text-slate-400">{DAY_HEADER_SHORT[d]}</div>
                   <div className="font-extrabold text-primary">{Number(viewRow.weekData?.[d] ?? 0).toFixed(1)}</div>
                 </div>
               ))}
