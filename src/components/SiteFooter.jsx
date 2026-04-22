@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 
-export default function FooterSection() {
+export default function SiteFooter() {
   return (
     <footer className="bg-[#eceef1] dark:bg-[#000615] w-full border-t border-[#c4c6ce]/15">
       <div className="max-w-7xl mx-auto px-8 py-16 grid grid-cols-1 md:grid-cols-4 gap-12">

@@ -4,7 +4,7 @@ import Navbar from "./components/Navbar";
 import HomePage from "./pages/Home/HomePage";
 import CareersPage from "./pages/Careers/CareersPage";
 import ServicesPage from "./pages/Services/ServicesPage";
-import ApplyPage from "./pages/Apply/ApplyPage";
+import ApplyRedirect from "./pages/Apply/ApplyRedirect";
 const LoginPage = lazy(() => import("./pages/Auth/LoginPage"));
 const ProtectedAdmin = lazy(() => import("./components/ProtectedAdmin"));
 
@@ -69,7 +69,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/careers" element={<CareersPage />} />
           <Route path="/services" element={<ServicesPage />} />
-          <Route path="/apply" element={<ApplyPage />} />
+          <Route path="/apply" element={<ApplyRedirect />} />
           <Route path="/application-success" element={<ApplicationSubmittedPremiumSuccess />} />
           <Route path="/already-applied" element={<AlreadyAppliedPremiumPage />} />
           <Route path="/dashboard" element={<Navigate to="/applicant/dashboard" replace />} />

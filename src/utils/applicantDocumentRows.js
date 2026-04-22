@@ -45,7 +45,7 @@ export function formatExpiryForDisplay(iso, verification) {
 
 export function getApplicantDocumentRowState(application, row, expiryDraft = {}) {
   const stored = application?.onboardingDocuments?.find((d) => d.templateKey === row.key);
-  const expiryValue = (stored?.expiryDate || expiryDraft[row.key] || row.expiry || "").slice(0, 10);
+  const expiryValue = (stored?.expiryDate || expiryDraft[row.key] || "").slice(0, 10);
   const displayStatus = getRowUploadStatusKey(stored, row, expiryValue);
   const verification = resolveDocVerification(stored);
   const subtitle = formatDocumentSubtitle(stored, row);

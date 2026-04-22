@@ -1,20 +1,15 @@
 import { useMemo } from "react";
 
 export default function FiltersSection({ jobs = [], filters, setFilters, setSearchTerm }) {
-
   const uniqueInOrder = (values) => {
     const out = [];
-    for (const v of values) if (!out.includes(v)) out.push(v);
+    for (const v of values) if (v != null && v !== "" && !out.includes(v)) out.push(v);
     return out;
   };
 
-  const sectorOptions = useMemo(() => uniqueInOrder(jobs.map((job) => job.sector)), [jobs]);
+  const categoryOptions = useMemo(() => uniqueInOrder(jobs.map((job) => job.category || job.sector)), [jobs]);
   const seniorityOptions = useMemo(() => uniqueInOrder(jobs.map((job) => job.seniority)), [jobs]);
-  const contractOptions = useMemo(() => uniqueInOrder(jobs.map((job) => job.contract)), [jobs]);
-
-  const defaultSector = sectorOptions[0] || "";
-  const defaultSeniority = seniorityOptions[0] || "";
-  const defaultContract = contractOptions[0] || "";
+  const jobTypeOptions = useMemo(() => uniqueInOrder(jobs.map((job) => job.jobType || job.type)), [jobs]);
 
   const toggle = (group, value) => {
     setFilters((prev) => {
@@ -28,20 +23,20 @@ export default function FiltersSection({ jobs = [], filters, setFilters, setSear
 
   const resetAll = () => {
     setFilters({
-      sector: [defaultSector],
-      seniority: [defaultSeniority],
-      contract: [defaultContract],
+      category: [...categoryOptions],
+      seniority: [...seniorityOptions],
+      jobType: [...jobTypeOptions],
     });
     setSearchTerm("");
   };
 
   return (
-    <aside className="w-full lg:w-80 flex-shrink-0">
-      <div className="sticky top-28 glass-sidebar p-10 rounded-[2rem]">
-        <div className="flex items-center justify-between mb-10">
-          <h4 className="font-headline font-extrabold text-primary tracking-tight">Filters</h4>
+    <aside className="w-full flex-shrink-0 lg:w-80">
+      <div className="glass-sidebar sticky top-28 rounded-[2rem] p-10">
+        <div className="mb-10 flex items-center justify-between">
+          <h4 className="font-headline font-extrabold tracking-tight text-primary">Filters</h4>
           <button
-            className="text-[9px] font-black text-secondary uppercase tracking-widest hover:opacity-50 transition-opacity"
+            className="text-[9px] font-black uppercase tracking-widest text-secondary transition-opacity hover:opacity-50"
             onClick={resetAll}
             type="button"
           >
@@ -50,15 +45,15 @@ export default function FiltersSection({ jobs = [], filters, setFilters, setSear
         </div>
         <div className="space-y-12">
           <div>
-            <label className="block text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em] mb-6">Role Sector</label>
+            <label className="mb-6 block text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant">Role category</label>
             <div className="space-y-4">
-              {sectorOptions.map((item) => (
-                <label key={item} className="flex items-center gap-4 cursor-pointer group">
+              {categoryOptions.map((item) => (
+                <label key={item} className="group flex cursor-pointer items-center gap-4">
                   <input
-                    checked={filters.sector.includes(item)}
-                    className="w-4 h-4 rounded-md border-outline-variant text-secondary focus:ring-secondary/20 transition-all"
+                    checked={filters.category.includes(item)}
+                    className="h-4 w-4 rounded-md border-outline-variant text-secondary transition-all focus:ring-secondary/20"
                     type="checkbox"
-                    onChange={() => toggle("sector", item)}
+                    onChange={() => toggle("category", item)}
                   />
                   <span className="text-sm font-medium text-on-surface-variant group-hover:text-primary">{item}</span>
                 </label>
@@ -66,13 +61,13 @@ export default function FiltersSection({ jobs = [], filters, setFilters, setSear
             </div>
           </div>
           <div>
-            <label className="block text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em] mb-6">Seniority</label>
+            <label className="mb-6 block text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant">Seniority</label>
             <div className="space-y-4">
               {seniorityOptions.map((item) => (
-                <label key={item} className="flex items-center gap-4 cursor-pointer group">
+                <label key={item} className="group flex cursor-pointer items-center gap-4">
                   <input
                     checked={filters.seniority.includes(item)}
-                    className="w-4 h-4 rounded-md border-outline-variant text-secondary focus:ring-secondary/20 transition-all"
+                    className="h-4 w-4 rounded-md border-outline-variant text-secondary transition-all focus:ring-secondary/20"
                     type="checkbox"
                     onChange={() => toggle("seniority", item)}
                   />
@@ -82,15 +77,15 @@ export default function FiltersSection({ jobs = [], filters, setFilters, setSear
             </div>
           </div>
           <div>
-            <label className="block text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em] mb-6">Contract</label>
+            <label className="mb-6 block text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant">Employment type</label>
             <div className="space-y-4">
-              {contractOptions.map((item) => (
-                <label key={item} className="flex items-center gap-4 cursor-pointer group">
+              {jobTypeOptions.map((item) => (
+                <label key={item} className="group flex cursor-pointer items-center gap-4">
                   <input
-                    checked={filters.contract.includes(item)}
-                    className="w-4 h-4 rounded-md border-outline-variant text-secondary focus:ring-secondary/20 transition-all"
+                    checked={filters.jobType.includes(item)}
+                    className="h-4 w-4 rounded-md border-outline-variant text-secondary transition-all focus:ring-secondary/20"
                     type="checkbox"
-                    onChange={() => toggle("contract", item)}
+                    onChange={() => toggle("jobType", item)}
                   />
                   <span className="text-sm font-medium text-on-surface-variant group-hover:text-primary">{item}</span>
                 </label>

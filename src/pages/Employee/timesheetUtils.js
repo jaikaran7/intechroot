@@ -1,10 +1,30 @@
-const toYMD = (d) =>
+export const toYMD = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 export const parseYMD = (ymd) => {
   const [y, m, day] = String(ymd).split("-").map(Number);
   return new Date(y, m - 1, day, 0, 0, 0, 0);
 };
+
+/** Parse API / DB date: `YYYY-MM-DD`, ISO datetime, or Date. */
+export function parseDbDateToLocalDate(value) {
+  if (value == null || value === "") return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  const s = String(value);
+  const head = s.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(head) && !s.includes("T")) {
+    return parseYMD(head);
+  }
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Monday `YYYY-MM-DD` for the calendar week containing this timesheet's `weekStart`. */
+export function weekMondayISOFromDb(weekStart) {
+  const d = parseDbDateToLocalDate(weekStart);
+  if (!d) return "";
+  return getWeekStartISO(d);
+}
 
 export const addDaysISO = (isoDate, days) => {
   const d = parseYMD(isoDate);
@@ -13,7 +33,15 @@ export const addDaysISO = (isoDate, days) => {
 };
 
 export const getWeekStartISO = (date) => {
-  const d = date instanceof Date ? new Date(date) : parseYMD(date);
+  let d;
+  if (date instanceof Date) {
+    d = new Date(date.getTime());
+  } else if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date.slice(0, 10)) && !date.includes("T")) {
+    d = parseYMD(date.slice(0, 10));
+  } else {
+    d = parseDbDateToLocalDate(date);
+  }
+  if (!d || Number.isNaN(d.getTime())) return "";
   const day = d.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   d.setDate(d.getDate() + diff);
@@ -25,7 +53,20 @@ export const getWeekStartISO = (date) => {
 export const TIMESHEET_DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
 export const calculateTotal = (weekData) =>
-  TIMESHEET_DAY_KEYS.reduce((sum, key) => sum + Number(weekData[key] || 0), 0);
+  TIMESHEET_DAY_KEYS.reduce((sum, key) => {
+    const v = weekData?.[key];
+    if (v === null || v === undefined || v === "") return sum;
+    const n = Number(v);
+    return sum + (Number.isNaN(n) ? 0 : n);
+  }, 0);
+
+/** Display cell: null / empty → em dash. */
+export function formatHourCell(raw) {
+  if (raw === null || raw === undefined || raw === "") return "—";
+  const n = Number(raw);
+  if (Number.isNaN(n)) return "—";
+  return n.toFixed(1);
+}
 
 /** Inclusive number of calendar days from start ISO to end ISO. */
 export function daysInclusiveISO(startISO, endISO) {
@@ -34,14 +75,9 @@ export function daysInclusiveISO(startISO, endISO) {
   return Math.round((b.getTime() - a.getTime()) / (24 * 60 * 60 * 1000)) + 1;
 }
 
-function isWeekendDate(d) {
-  const day = d.getDay();
-  return day === 0 || day === 6;
-}
-
 /**
- * Build Mon–Sun hour map for a period within a single calendar week (anchor = Monday of week containing periodStart).
- * Days outside [periodStart, periodEnd] are 0; weekend days in range start at 0; weekdays in range default to 8.
+ * Build Mon–Sun map for days in [periodStart, periodEnd]; all hours default to null (employee fills in).
+ * Days outside the range are null.
  */
 export function buildWeekDataForPeriod(periodStartISO, periodEndISO) {
   const anchorMonday = parseYMD(getWeekStartISO(periodStartISO));
@@ -56,25 +92,43 @@ export function buildWeekDataForPeriod(periodStartISO, periodEndISO) {
     d.setHours(0, 0, 0, 0);
     const t = d.getTime();
     if (t < ps.getTime() || t > pe.getTime()) {
-      out[key] = 0;
-    } else if (isWeekendDate(d)) {
-      out[key] = 0;
+      out[key] = null;
     } else {
-      out[key] = 8;
+      out[key] = null;
     }
   });
   return out;
 }
 
-/** Range label for list/detail views; supports optional periodStart/periodEnd from the new-timesheet flow. */
+/** `YYYY-MM-DD` from API DateTime / ISO / Date. */
+export function toYmdFromAny(value) {
+  const d = parseDbDateToLocalDate(value);
+  if (!d) return "";
+  return toYMD(d);
+}
+
+/** Range label: uses stored `periodStart`/`periodEnd` when set, else full Mon–Sun week of `weekStart`. */
 export function formatTimesheetRangeLabel(sheet) {
-  const startISO = sheet.periodStart ?? sheet.weekStart;
-  const weekMon = getWeekStartISO(sheet.weekStart);
-  const endISO = sheet.periodEnd ?? addDaysISO(weekMon, 4);
-  const start = parseYMD(startISO);
-  const end = parseYMD(endISO);
-  const a = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const b = end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const ps = sheet.periodStart != null && sheet.periodStart !== "" ? toYmdFromAny(sheet.periodStart) : "";
+  const pe = sheet.periodEnd != null && sheet.periodEnd !== "" ? toYmdFromAny(sheet.periodEnd) : "";
+  if (ps && pe) {
+    const start = parseYMD(ps);
+    const end = parseYMD(pe);
+    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+      const optsShort = { month: "short", day: "numeric" };
+      const a = start.toLocaleDateString("en-US", optsShort);
+      const b = end.toLocaleDateString("en-US", { ...optsShort, year: "numeric" });
+      return `${a} – ${b}`;
+    }
+  }
+  const weekMon = weekMondayISOFromDb(sheet.weekStart);
+  if (!weekMon) return "—";
+  const start = parseYMD(weekMon);
+  const end = parseYMD(addDaysISO(weekMon, 6));
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "—";
+  const optsShort = { month: "short", day: "numeric" };
+  const a = start.toLocaleDateString("en-US", optsShort);
+  const b = end.toLocaleDateString("en-US", { ...optsShort, year: "numeric" });
   return `${a} – ${b}`;
 }
 

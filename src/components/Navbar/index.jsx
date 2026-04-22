@@ -1,4 +1,3 @@
-import Button from "../Form/Button";
 import { Link, useLocation } from "react-router-dom";
 
 export default function Navbar() {
@@ -55,9 +54,12 @@ export default function Navbar() {
           </Link>
         </div>
         <div className="flex items-center gap-6">
-          <Button className="bg-primary-container text-white px-8 py-3.5 rounded-full font-headline font-bold text-[10px] uppercase tracking-[0.3em] hover:scale-105 active:scale-95 transition-all shadow-[0_20px_40px_rgba(11,31,58,0.25)] glint-effect border border-white/10">
-            Contact Us
-          </Button>
+          <Link
+            className="bg-primary-container text-white px-8 py-3.5 rounded-full font-headline font-bold text-[10px] uppercase tracking-[0.3em] hover:scale-105 active:scale-95 transition-all shadow-[0_20px_40px_rgba(11,31,58,0.25)] glint-effect border border-white/10 inline-flex items-center justify-center"
+            to="/careers#apply"
+          >
+            Apply Now
+          </Link>
         </div>
       </div>
     </nav>

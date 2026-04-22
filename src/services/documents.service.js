@@ -1,16 +1,25 @@
 import api from './api.js';
 
+function multipartConfig(formData) {
+  return {
+    transformRequest: [
+      (body, headers) => {
+        if (typeof FormData !== 'undefined' && body instanceof FormData && headers) {
+          delete headers['Content-Type'];
+        }
+        return body;
+      },
+    ],
+  };
+}
+
 export const documentsService = {
   upload: (formData) =>
-    api.post('/documents/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }).then((r) => r.data.data),
+    api.post('/documents/upload', formData, multipartConfig(formData)).then((r) => r.data.data),
 
   // Replace existing doc of same templateKey (resets verification to pending)
   upsert: (formData) =>
-    api.post('/documents/upsert', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }).then((r) => r.data.data),
+    api.post('/documents/upsert', formData, multipartConfig(formData)).then((r) => r.data.data),
 
   // Fetch all documents for an owner (employee or applicant)
   getByOwner: (ownerId, ownerType) =>

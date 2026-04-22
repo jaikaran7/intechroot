@@ -1,7 +1,10 @@
 import { useNavigate } from "react-router-dom";
+import EntityAvatar from "@/components/shared/EntityAvatar";
+import { useAuthStore } from "@/store/authStore";
 
 export default function OnboardingReview() {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   return (
     <>
 <main className="ml-64 min-h-screen relative">
@@ -11,7 +14,7 @@ export default function OnboardingReview() {
 <span className="text-sm font-semibold text-primary">Onboarding Review</span>
 <span className="h-4 w-[1px] bg-outline-variant/30"></span>
 <div className="flex items-center text-slate-400 text-xs">
-<span>Candidate: Marcus Aurelius</span>
+<span>Onboarding review (assign employee context to show live data)</span>
 </div>
 </div>
 <div className="flex items-center gap-6">
@@ -21,9 +24,7 @@ export default function OnboardingReview() {
 <button className="text-slate-400 hover:text-[#4cd7f6] transition-colors">
 <span className="material-symbols-outlined" data-icon="help_outline">help_outline</span>
 </button>
-<div className="h-8 w-8 rounded-full overflow-hidden border border-outline-variant/30">
-<img className="h-full w-full object-cover" data-alt="Close-up professional portrait of a male corporate administrator in a neutral studio setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCGw0KrrzEUrsC1Ou7DQuK-jwyeg8b0ekfmaJJi9UXw6NGObJeZHMj5rrh4HpLEy-c2ib7gAoDxTGJ2zpnjJroUnApaofXL5AFT47-XvHk8snWiShh6eKz47GUz_5HMCM14g6-UWd6DVWlUlyB3VVlCV9nunJom3QIYzfiA0SBtkfXaAjxVOW36Cmao1uENNPeHInyuoQMsq9HMGFQXQhX7Clx_5w1fVUBVHtahSgl1pDRKChxO2t8LKubxaOQ-gHTq79f9cSDOB5vX"/>
-</div>
+<EntityAvatar name={user?.name || user?.email || "Admin"} size="sm" className="border border-outline-variant/30" />
 </div>
 </header>
 
@@ -71,8 +72,8 @@ export default function OnboardingReview() {
 
 <div className="col-span-12 lg:col-span-8 glass-card rounded-xl p-8 flex gap-8 items-start relative overflow-hidden">
 <div className="relative">
-<div className="w-32 h-32 rounded-lg overflow-hidden border-2 border-white shadow-xl">
-<img className="w-full h-full object-cover" data-alt="High-quality profile photo of a modern professional man in a dark knit sweater against a minimal grey background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAPCT7-qiX1FPKoPQ7Zur3brHhXuZdO4m0s3g2VKueomrC294C5Nf5a-iqDd0S0vMD85T2C99QNg-YMLxJwcLyFLg3sUzsV5rUwWYIDs67lfKxuH9JARJvxyY3tY30J7_uQW45tpQkbKJZz3drpUscI81Hcwan1eZbQH5SoAQci_PWLDCaW8oMTF6K1yf43e4PjV7fQ1Oy3B0_dJtRQwGGNLRuii0tUU80TWAR8XtpPG1e6KRBwZjO73BR_8XQUjUjLcduM8HgAWXaj"/>
+<div className="flex w-32 shrink-0 justify-center">
+<EntityAvatar name="Employee" size="hero" rounded="lg" className="border-2 border-white shadow-xl" />
 </div>
 <button className="absolute -bottom-2 -right-2 w-8 h-8 bg-primary-container text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
 <span className="material-symbols-outlined text-xs" data-icon="edit">edit</span>

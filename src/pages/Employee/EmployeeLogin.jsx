@@ -12,7 +12,7 @@ export default function EmployeeLogin() {
   const [error, setError] = useState("");
 
   const loginMutation = useMutation({
-    mutationFn: ({ email: e, password: p }) => authService.login(e, p),
+    mutationFn: ({ email: e, password: p }) => authService.employeeLogin(e, p),
     onSuccess: (data) => {
       const resolvedEmployeeId =
         data.employee?.id ?? data.employeeId ?? data.user?.employeeId ?? data.user?.id ?? null;

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { jobsService } from "../../../services/jobs.service";
@@ -20,6 +20,14 @@ export default function JobPostings() {
     const list = apiData?.data;
     return Array.isArray(list) ? list : [];
   }, [apiData]);
+  const [orderedJobs, setOrderedJobs] = useState([]);
+  const [draggingId, setDraggingId] = useState(null);
+  const [dropTargetId, setDropTargetId] = useState(null);
+  const wasDraggingRef = useRef(false);
+
+  useEffect(() => {
+    setOrderedJobs(jobsData);
+  }, [jobsData]);
 
   const createMutation = useMutation({
     mutationFn: (data) => jobsService.create(data),
@@ -36,6 +44,12 @@ export default function JobPostings() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['jobs'] }),
   });
 
+  const reorderMutation = useMutation({
+    mutationFn: (orderedIds) => jobsService.reorder(orderedIds),
+    onError: () => queryClient.invalidateQueries({ queryKey: ['jobs'] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['jobs'] }),
+  });
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingJob, setEditingJob] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -47,27 +61,25 @@ export default function JobPostings() {
     type: "All",
   });
 
-  const isArchivedStatus = (status) => status === "ARCHIVED" || status === "Archived";
-
   const categoryOptions = useMemo(() => {
-    const set = new Set(jobsData.map((j) => j.category).filter(Boolean));
+    const set = new Set(orderedJobs.map((j) => j.category).filter(Boolean));
     return ["All", ...Array.from(set)];
-  }, [jobsData]);
+  }, [orderedJobs]);
 
   const seniorityOptions = useMemo(() => {
-    const set = new Set(jobsData.map((j) => j.seniority).filter(Boolean));
+    const set = new Set(orderedJobs.map((j) => j.seniority).filter(Boolean));
     return ["All", ...Array.from(set)];
-  }, [jobsData]);
+  }, [orderedJobs]);
 
   const typeOptions = useMemo(() => {
-    const set = new Set(jobsData.map((j) => j.type).filter(Boolean));
+    const set = new Set(orderedJobs.map((j) => j.jobType || j.type).filter(Boolean));
     return ["All", ...Array.from(set)];
-  }, [jobsData]);
+  }, [orderedJobs]);
 
   const filteredData = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return jobsData.filter((job) => {
-      if (!showArchived && isArchivedStatus(job.status)) return false;
+    return orderedJobs.filter((job) => {
+      if (!showArchived && job.status !== "Active") return false;
 
       const matchSearch =
         !q ||
@@ -75,18 +87,19 @@ export default function JobPostings() {
         (job.category || "").toLowerCase().includes(q) ||
         (job.location || "").toLowerCase().includes(q);
 
+      const employment = job.jobType || job.type;
       const matchCategory = filters.category === "All" || job.category === filters.category;
-      const matchType = filters.type === "All" || job.type === filters.type;
+      const matchType = filters.type === "All" || employment === filters.type;
       const matchSeniority = filters.seniority === "All" || job.seniority === filters.seniority;
 
       return matchSearch && matchCategory && matchType && matchSeniority;
     });
-  }, [search, filters, jobsData, showArchived]);
+  }, [search, filters, orderedJobs, showArchived]);
 
-  const totalActiveJobs = jobsData.filter((job) => job.status === "Active").length;
-  const totalApplications = jobsData.reduce((sum, job) => sum + Number(job.applicants || 0), 0);
-  const closedPositions = jobsData.filter((job) => job.status === "Closed").length;
-  const openPositions = jobsData.length - closedPositions;
+  const totalActiveJobs = orderedJobs.filter((job) => job.status === "Active").length;
+  const totalApplications = orderedJobs.reduce((sum, job) => sum + Number(job.applicantsCount ?? job.applicants ?? 0), 0);
+  const closedPositions = orderedJobs.filter((job) => job.status === "Closed").length;
+  const openPositions = orderedJobs.filter((job) => job.status === "Active").length;
   const closedPositionsDisplay = String(closedPositions).padStart(2, "0");
 
   const jobsTotal = filteredData.length;
@@ -119,12 +132,7 @@ export default function JobPostings() {
     if (editingJob) {
       updateMutation.mutate({ id: editingJob.id, data: jobData });
     } else {
-      createMutation.mutate({
-        ...jobData,
-        status: "Active",
-        postedDate: jobData.postedDate || new Date().toISOString().slice(0, 10),
-        requirements: jobData.requirements?.length ? jobData.requirements : [],
-      });
+      createMutation.mutate(jobData);
     }
     setEditingJob(null);
     setIsCreateOpen(false);
@@ -133,6 +141,31 @@ export default function JobPostings() {
   const clearFilters = () => {
     setFilters({ category: "All", seniority: "All", type: "All" });
     setSearch("");
+  };
+
+  const reorderWithinVisibleRows = (allRows, visibleRows, fromId, toId) => {
+    if (fromId === toId) return allRows;
+    const visibleIds = visibleRows.map((j) => j.id);
+    const visibleSet = new Set(visibleIds);
+    const visibleOrdered = allRows.filter((j) => visibleSet.has(j.id));
+    const fromIdx = visibleOrdered.findIndex((j) => j.id === fromId);
+    const toIdx = visibleOrdered.findIndex((j) => j.id === toId);
+    if (fromIdx < 0 || toIdx < 0) return allRows;
+
+    const moved = [...visibleOrdered];
+    const [picked] = moved.splice(fromIdx, 1);
+    moved.splice(toIdx, 0, picked);
+
+    let i = 0;
+    return allRows.map((j) => (visibleSet.has(j.id) ? moved[i++] : j));
+  };
+
+  const handleRowDrop = (targetId) => {
+    if (!draggingId || !targetId || draggingId === targetId || reorderMutation.isPending) return;
+    const next = reorderWithinVisibleRows(orderedJobs, filteredData, draggingId, targetId);
+    if (next === orderedJobs) return;
+    setOrderedJobs(next);
+    reorderMutation.mutate(next.map((j) => j.id));
   };
 
   if (isLoading) return <PageSkeleton />;
@@ -299,7 +332,7 @@ export default function JobPostings() {
               >
                 {seniorityOptions.map((s) => (
                   <option key={s} value={s}>
-                    {s === "All" ? "Seniority" : s}
+                    {s === "All" ? "Experience" : s}
                   </option>
                 ))}
               </select>
@@ -319,7 +352,7 @@ export default function JobPostings() {
               </button>
               <label className="flex cursor-pointer items-center gap-2 text-sm text-on-surface-variant">
                 <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} className="rounded border-outline-variant" />
-                Show archived
+                Show drafts &amp; closed
               </label>
             </div>
 
@@ -333,19 +366,15 @@ export default function JobPostings() {
                     <th className="px-4 py-4">Salary</th>
                     <th className="px-4 py-4 text-center">Applicants</th>
                     <th className="px-4 py-4">Status</th>
+                    <th className="px-4 py-4 text-center">Featured</th>
                     <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="text-sm divide-y divide-outline-variant/10">
                   {filteredData.map((job, index) => {
                     const status = job.status;
-                    const dateLabel = isArchivedStatus(status)
-                      ? "Archived"
-                      : status === "Active"
-                        ? "Posted"
-                        : status === "Closed"
-                          ? "Closed"
-                          : "Updated";
+                    const dateLabel =
+                      status === "Active" ? "Posted" : status === "Closed" ? "Closed" : status === "Draft" ? "Draft" : "Updated";
                     const statusPill =
                       status === "Active" ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-green-100 text-green-700">
@@ -357,11 +386,6 @@ export default function JobPostings() {
                           <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
                           {status}
                         </span>
-                      ) : isArchivedStatus(status) ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-slate-200 text-slate-700">
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
-                          Archived
-                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-600">
                           <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
@@ -369,7 +393,7 @@ export default function JobPostings() {
                         </span>
                       );
 
-                    const applicants = Number(job.applicants || 0);
+                    const applicants = Number(job.applicantsCount ?? job.applicants ?? 0);
                     const applicantsPill =
                       applicants === 0 ? (
                         <span className="bg-surface-container text-outline px-3 py-1 rounded-full text-xs font-bold">{applicants}</span>
@@ -380,19 +404,59 @@ export default function JobPostings() {
                     return (
                       <tr
                         className={
-                          index % 2 === 1
-                            ? "hover:bg-surface-container-low/30 transition-colors bg-surface-container-low/10 cursor-pointer"
-                            : "hover:bg-surface-container-low/30 transition-colors cursor-pointer"
+                          `${index % 2 === 1 ? "bg-surface-container-low/10" : ""} ` +
+                          `hover:bg-surface-container-low/30 transition-colors cursor-pointer ` +
+                          `${draggingId === job.id ? "opacity-50" : ""} ` +
+                          `${dropTargetId === job.id ? "ring-2 ring-secondary/35 ring-inset" : ""}`
                         }
                         key={job.id}
-                        onClick={() => navigate(`/admin/job-postings/${job.id}`, { state: { job } })}
+                        draggable={!reorderMutation.isPending}
+                        onDragStart={(e) => {
+                          wasDraggingRef.current = true;
+                          setDraggingId(job.id);
+                          setDropTargetId(null);
+                          e.dataTransfer.effectAllowed = "move";
+                          e.dataTransfer.setData("text/plain", job.id);
+                        }}
+                        onDragOver={(e) => {
+                          if (!draggingId || draggingId === job.id) return;
+                          e.preventDefault();
+                          setDropTargetId(job.id);
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleRowDrop(job.id);
+                          setDraggingId(null);
+                          setDropTargetId(null);
+                        }}
+                        onDragEnd={() => {
+                          setDraggingId(null);
+                          setDropTargetId(null);
+                          window.setTimeout(() => {
+                            wasDraggingRef.current = false;
+                          }, 0);
+                        }}
+                        onClick={() => {
+                          if (wasDraggingRef.current) return;
+                          navigate(`/admin/job-postings/${job.id}`, { state: { job } });
+                        }}
                       >
                         <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span className="font-bold text-primary">{job.title}</span>
-                            <span className="text-[11px] text-on-surface-variant">
-                              {dateLabel}: {formatPostedDate(job.postedDate)}
+                          <div className="flex items-start gap-2">
+                            <span
+                              className="material-symbols-outlined text-[18px] text-outline mt-0.5 cursor-grab active:cursor-grabbing"
+                              title="Drag to reorder"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              drag_indicator
                             </span>
+                            <div className="flex flex-col">
+                              <span className="font-bold text-primary">{job.title}</span>
+                              <span className="text-[11px] text-on-surface-variant">
+                                {dateLabel}: {formatPostedDate(job.postedDate)}
+                              </span>
+                            </div>
                           </div>
                         </td>
                         <td className="px-4 py-4 text-on-surface-variant">{job.category}</td>
@@ -402,6 +466,19 @@ export default function JobPostings() {
                           <div className="flex justify-center">{applicantsPill}</div>
                         </td>
                         <td className="px-4 py-4">{statusPill}</td>
+                        <td className="px-4 py-4 text-center">
+                          {job.featured ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-900">
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                              On
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600">
+                              <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                              Off
+                            </span>
+                          )}
+                        </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <button

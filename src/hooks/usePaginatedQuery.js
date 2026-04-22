@@ -5,9 +5,17 @@ export function usePaginatedQuery(queryKey, fetchFn, options = {}) {
   const [page, setPage] = useState(1);
   const limit = options.limit || 20;
 
+  const staticParams =
+    queryKey.length > 1 &&
+    typeof queryKey[1] === 'object' &&
+    queryKey[1] !== null &&
+    !Array.isArray(queryKey[1])
+      ? queryKey[1]
+      : {};
+
   const query = useQuery({
     queryKey: [...queryKey, { page, limit }],
-    queryFn: () => fetchFn({ page, limit }),
+    queryFn: () => fetchFn({ ...staticParams, page, limit }),
     placeholderData: (prev) => prev,
     staleTime: options.staleTime,
   });

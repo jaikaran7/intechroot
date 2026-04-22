@@ -3,33 +3,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { timesheetsService } from "../../../services/timesheets.service";
 import PageSkeleton from "../../../components/PageSkeleton";
 import ErrorState from "../../../components/ErrorState";
-
-
-const toYMD = (d) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-const parseYMD = (ymd) => {
-  const [y, m, day] = String(ymd).split("-").map(Number);
-  return new Date(y, m - 1, day, 0, 0, 0, 0);
-};
-
-const addDaysISO = (isoDate, days) => {
-  const d = parseYMD(isoDate);
-  d.setDate(d.getDate() + days);
-  return toYMD(d);
-};
-
-const getWeekStartISO = (date) => {
-  const d = date instanceof Date ? new Date(date) : parseYMD(date);
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return toYMD(d);
-};
-
-const calculateTotal = (weekData) =>
-  Object.values(weekData).reduce((sum, val) => sum + Number(val || 0), 0);
+import EntityAvatar from "@/components/shared/EntityAvatar";
+import { useAuthStore } from "@/store/authStore";
+import {
+  addDaysISO,
+  calculateTotal,
+  formatHourCell,
+  formatTimesheetRangeLabel,
+  getWeekStartISO,
+  parseYMD,
+  weekMondayISOFromDb,
+} from "../../Employee/timesheetUtils";
 
 function formatAdminWeekRangeSubtitle(row) {
   if (!row?.dateRange?.from || !row?.dateRange?.to) return "";
@@ -52,7 +36,7 @@ function formatRejectionTimestamp(iso) {
 export default function Timesheets() {
   const entriesPerPage = 5;
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewFilter, setViewFilter] = useState("Current Week");
+  const [viewFilter, setViewFilter] = useState("All periods");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("All");
@@ -63,6 +47,8 @@ export default function Timesheets() {
   const [rejectionReason, setRejectionReason] = useState("");
   const [activeNote, setActiveNote] = useState("");
   const [feedbackModal, setFeedbackModal] = useState({ open: false, message: "" });
+  const { user, role } = useAuthStore();
+  const hideEditForSuperAdmin = role === "super_admin";
 
   const queryClient = useQueryClient();
 
@@ -97,22 +83,30 @@ export default function Timesheets() {
 
   const timesheetData = useMemo(() => {
     const currentWeekStartISO = getWeekStartISO(new Date());
-    return rawTimesheets.map((ts, rowIndex) => {
-      const weekStartMonday = getWeekStartISO(ts.weekStart ?? ts.weekStart);
-      const isCurrentWeek = weekStartMonday === currentWeekStartISO;
+    const lastWeekStartISO = addDaysISO(currentWeekStartISO, -7);
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    return rawTimesheets
+      .map((ts, rowIndex) => {
+      const weekStartMonday = weekMondayISOFromDb(ts.weekStart);
+      if (!weekStartMonday) return null;
       const from = weekStartMonday;
-      const to = addDaysISO(from, 4);
+      const to = from ? addDaysISO(from, 6) : "";
       const stripeClass = rowIndex % 2 === 1 ? "bg-surface-container-low/30" : "";
 
-      const weekData = {
-        mon: Number(ts?.weekData?.mon ?? 0),
-        tue: Number(ts?.weekData?.tue ?? 0),
-        wed: Number(ts?.weekData?.wed ?? 0),
-        thu: Number(ts?.weekData?.thu ?? 0),
-        fri: Number(ts?.weekData?.fri ?? 0),
-        sat: Number(ts?.weekData?.sat ?? 0),
-        sun: Number(ts?.weekData?.sun ?? 0),
-      };
+      const weekData = ts?.weekData && typeof ts.weekData === "object" ? ts.weekData : {};
+
+      let viewType = "Other";
+      if (weekStartMonday === currentWeekStartISO) viewType = "Current Week";
+      else if (weekStartMonday === lastWeekStartISO) viewType = "Last Week";
+      else {
+        const ws = from ? parseYMD(from) : null;
+        if (ws && !Number.isNaN(ws.getTime()) && ws >= monthStart && ws <= monthEnd) {
+          viewType = "Current Month";
+        }
+      }
 
       return {
         id: ts.id,
@@ -127,14 +121,25 @@ export default function Timesheets() {
         rejectionNote: ts.rejectionNote || "",
         weekStart: weekStartMonday,
         dateRange: { from, to },
-        viewType: isCurrentWeek ? "Current Week" : "Last Week",
+        rangeLabel: formatTimesheetRangeLabel(ts),
+        viewType,
         highlightedDay: "",
         stripeClass,
       };
-    });
+    })
+      .filter(Boolean);
   }, [rawTimesheets]);
 
   const data = Array.isArray(timesheetData) ? timesheetData : [];
+
+  const stats = useMemo(() => {
+    const list = rawTimesheets;
+    const pending = list.filter((t) => t.status === "Pending").length;
+    const approved = list.filter((t) => t.status === "Approved").length;
+    const rejected = list.filter((t) => t.status === "Rejected").length;
+    const totalHours = list.reduce((sum, t) => sum + calculateTotal(t.weekData || {}), 0);
+    return { pending, approved, rejected, totalHours };
+  }, [rawTimesheets]);
 
   const filteredData = useMemo(() => {
     return data.filter((row) => {
@@ -145,21 +150,26 @@ export default function Timesheets() {
         row.role.toLowerCase().includes(query) ||
         row.status.toLowerCase().includes(query);
       const matchesStatus = selectedStatus === "All" || row.status === selectedStatus;
-      const rowFrom = new Date(row.dateRange.from);
-      const rowTo = new Date(row.dateRange.to);
+      const rowFrom = row.dateRange.from ? parseYMD(row.dateRange.from) : null;
+      const rowTo = row.dateRange.to ? parseYMD(row.dateRange.to) : null;
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       const matchesView =
-        viewFilter === "Current Week"
-          ? row.viewType === "Current Week"
-          : viewFilter === "Last Week"
-            ? row.viewType === "Last Week"
-            : viewFilter === "Current Month"
-              ? rowFrom <= monthEnd && rowTo >= monthStart
-              : !customFrom || !customTo
-                ? true
-                : rowFrom <= new Date(customTo) && rowTo >= new Date(customFrom);
+        viewFilter === "All periods"
+          ? true
+          : viewFilter === "Current Week"
+            ? row.viewType === "Current Week"
+            : viewFilter === "Last Week"
+              ? row.viewType === "Last Week"
+              : viewFilter === "Current Month"
+                ? row.viewType === "Current Month"
+                : !customFrom || !customTo
+                  ? true
+                  : rowFrom &&
+                    rowTo &&
+                    rowFrom <= new Date(customTo + "T12:00:00") &&
+                    rowTo >= new Date(customFrom + "T12:00:00");
       return matchesSearch && matchesStatus && matchesView;
     });
   }, [customFrom, customTo, searchQuery, selectedStatus, data, viewFilter]);
@@ -196,6 +206,10 @@ export default function Timesheets() {
     return () => window.clearTimeout(timeout);
   }, [feedbackModal]);
 
+  useEffect(() => {
+    if (hideEditForSuperAdmin) setEditingRowId(null);
+  }, [hideEditForSuperAdmin]);
+
   const approveRow = (id) => {
     setEditingRowId(null);
     approveMutation.mutate(id);
@@ -218,7 +232,7 @@ export default function Timesheets() {
   };
 
   const rejectingRow = rejectingRowId ? (data.find((r) => r.id === rejectingRowId) ?? null) : null;
-  const rejectingRangeLabel = rejectingRow ? formatAdminWeekRangeSubtitle(rejectingRow) : "";
+  const rejectingRangeLabel = rejectingRow ? rejectingRow.rangeLabel || formatAdminWeekRangeSubtitle(rejectingRow) : "";
 
   if (isLoading) return <PageSkeleton />;
   if (isError) return <ErrorState message="Failed to load timesheets." onRetry={refetch} />;
@@ -244,10 +258,12 @@ export default function Timesheets() {
       </div>
       <div className="flex items-center gap-3">
       <div className="text-right">
-      <p className="text-xs font-bold text-primary">Alex Rivera</p>
-      <p className="text-[10px] text-slate-500">Administrator</p>
+      <p className="text-xs font-bold text-primary">{user?.name || "Admin"}</p>
+      <p className="text-[10px] text-slate-500">
+        {(user?.role && String(user.role).replace(/_/g, " ")) || "Administrator"}
+      </p>
       </div>
-      <img alt="Administrator Profile" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" data-alt="Close-up portrait of a professional male administrator in a modern office setting with soft natural light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDsANp7zU3dDtogpYWHrdPf0-sIpJ8WzVxfPk1m5nICvNzk6nvzMybseKc5wmPae1rwGefknzXKUzn0-AMx-5pRldbT3lpHR2mkdqAQYQi96WZqBzWxC8imhn08ca8b-I43MuwDA__C68Mu9A3OF0naMFnrP3KXKHAOCVHdU05t1jVu_XOytA0ekT_98qNb4Bm6TvOkC8lrB3TflQl58WCBHLgw5Xc5bKWW-O5GlgQLwYbCa3BcRzlLgUUmCtDtn3_pyfQqlC3JHSih"/>
+      <EntityAvatar name={user?.name || user?.email || "Admin"} size="md" className="border-2 border-white shadow-sm" />
       </div>
       </div>
       </header>
@@ -277,7 +293,7 @@ export default function Timesheets() {
       <span className="material-symbols-outlined text-6xl" data-icon="pending_actions">pending_actions</span>
       </div>
       <p className="text-xs font-bold uppercase tracking-widest text-secondary font-label">Pending</p>
-      <p className="text-3xl font-extrabold font-headline mt-1">24</p>
+      <p className="text-3xl font-extrabold font-headline mt-1">{stats.pending}</p>
       <p className="text-[10px] text-slate-500 mt-2 flex items-center gap-1">
       <span className="material-symbols-outlined text-[12px]" data-icon="arrow_upward">arrow_upward</span>
                               12% from last week
@@ -285,18 +301,20 @@ export default function Timesheets() {
       </div>
       <div className="glass-card p-6 rounded-xl">
       <p className="text-xs font-bold uppercase tracking-widest text-on-tertiary-container font-label">Approved</p>
-      <p className="text-3xl font-extrabold font-headline mt-1">142</p>
+      <p className="text-3xl font-extrabold font-headline mt-1">{stats.approved}</p>
       <p className="text-[10px] text-slate-500 mt-2">Current billing cycle</p>
       </div>
       <div className="glass-card p-6 rounded-xl">
       <p className="text-xs font-bold uppercase tracking-widest text-error font-label">Rejected</p>
-      <p className="text-3xl font-extrabold font-headline mt-1">08</p>
+      <p className="text-3xl font-extrabold font-headline mt-1">{stats.rejected}</p>
       <p className="text-[10px] text-slate-500 mt-2">Requires immediate action</p>
       </div>
       <div className="glass-card p-6 rounded-xl bg-gradient-to-br from-primary-container to-slate-900 text-white">
       <p className="text-xs font-bold uppercase tracking-widest text-tertiary-fixed font-label">Total Hours</p>
-      <p className="text-3xl font-extrabold font-headline mt-1">5,840</p>
-      <p className="text-[10px] text-slate-400 mt-2">Week ending Oct 27</p>
+      <p className="text-3xl font-extrabold font-headline mt-1">
+        {(Number.isFinite(stats.totalHours) ? stats.totalHours : 0).toLocaleString("en-US", { maximumFractionDigits: 1 })}
+      </p>
+      <p className="text-[10px] text-slate-400 mt-2">Across loaded timesheets</p>
       </div>
       </div>
 
@@ -307,6 +325,7 @@ export default function Timesheets() {
       <div className="flex items-center gap-2">
       <span className="text-xs font-bold text-slate-400 uppercase">View:</span>
       <select className="bg-transparent border-none text-sm font-semibold focus:ring-0 cursor-pointer" onChange={(event) => setViewFilter(event.target.value)} value={viewFilter}>
+      <option>All periods</option>
       <option>Current Week</option>
       <option>Last Week</option>
       <option>Current Month</option>
@@ -336,11 +355,12 @@ export default function Timesheets() {
       </div>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
       <table className="w-full text-left border-collapse">
       <thead className="bg-white border-b border-slate-100">
       <tr>
       <th className="px-8 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Employee</th>
+      <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 min-w-[10rem]">Date range</th>
       <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">M</th>
       <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">T</th>
       <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">W</th>
@@ -350,12 +370,14 @@ export default function Timesheets() {
       <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">S</th>
       <th className="px-8 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-right">Total</th>
       <th className="px-8 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Status</th>
+      {!hideEditForSuperAdmin && (
       <th className="px-8 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">
       <div className="inline-flex items-center gap-1">
       <span className="material-symbols-outlined text-sm" data-icon="edit">edit</span>
       <span>Edit</span>
       </div>
       </th>
+      )}
       <th className="px-8 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-right">Actions</th>
       </tr>
       </thead>
@@ -364,23 +386,20 @@ export default function Timesheets() {
       <tr className={`${row.stripeClass} hover:bg-slate-50 transition-colors`} key={row.id}>
       <td className={`px-8 py-5 ${row.status === "Rejected" ? "border-l-4 border-error" : ""}`}>
       <div className="flex items-center gap-3">
-      {row.avatarType === "image" ? (
-      <img alt="Employee" className="w-8 h-8 rounded-full object-cover" src={row.avatar.image}/>
-      ) : (
-      <div className="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-white text-xs font-bold">{row.avatar.initials}</div>
-      )}
+      <EntityAvatar name={row.employeeName || "Employee"} size="sm" />
       <div>
       <p className="text-sm font-bold text-primary">{row.employeeName}</p>
       <p className="text-[10px] text-slate-400">{row.role}</p>
       </div>
       </div>
       </td>
+      <td className="px-6 py-5 text-xs font-semibold text-primary whitespace-nowrap">{row.rangeLabel || "—"}</td>
       {["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((day) => (
       <td className={`px-6 py-5 text-center text-sm font-medium ${row.highlightedDay === day ? "text-error font-bold" : ""}`} key={`${row.id}-${day}`}>
-      {editingRowId === row.id ? (
-      <input className="w-12 bg-transparent border border-slate-200 rounded text-center text-sm font-medium focus:ring-0" onChange={(event) => handleChange(row.id, day, event.target.value)} type="text" value={row.weekData[day]} />
+      {!hideEditForSuperAdmin && editingRowId === row.id ? (
+      <input className="w-12 bg-transparent border border-slate-200 rounded text-center text-sm font-medium focus:ring-0" onChange={(event) => handleChange(row.id, day, event.target.value)} type="text" value={row.weekData[day] === null || row.weekData[day] === undefined ? "" : String(row.weekData[day])} />
       ) : (
-      row.weekData[day].toFixed(1)
+      formatHourCell(row.weekData[day])
       )}
       </td>
       ))}
@@ -411,15 +430,20 @@ export default function Timesheets() {
                                               {row.status}
                                           </span>
       </td>
+      {!hideEditForSuperAdmin && (
       <td className="px-8 py-5 text-center">
       <button className="w-8 h-8 inline-flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:text-primary hover:bg-slate-50 transition-all" onClick={() => setEditingRowId((previous) => (previous === row.id ? null : row.id))} title="Edit">
       <span className="material-symbols-outlined text-lg" data-icon="edit">edit</span>
       </button>
       </td>
+      )}
       <td className="px-8 py-5 text-right">
       {row.status === "Rejected" ? (
       <button className="px-3 py-1.5 text-[10px] font-bold text-secondary uppercase hover:bg-secondary/10 rounded transition-all" onClick={() => setActiveNote(row.rejectionNote || "No notes available.")}>View Notes</button>
       ) : row.status === "Approved" ? (
+      hideEditForSuperAdmin ? (
+      <span className="text-[10px] text-slate-400">—</span>
+      ) : (
       <div className="relative inline-block">
       <button className="p-2 text-slate-400 hover:text-primary transition-colors" onClick={() => setActiveMenuId(activeMenuId === row.id ? null : row.id)}>
       <span className="material-symbols-outlined text-lg" data-icon="more_vert">more_vert</span>
@@ -432,6 +456,7 @@ export default function Timesheets() {
       </div>
       )}
       </div>
+      )
       ) : (
       <div className="flex justify-end gap-2">
       <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-error-container text-error hover:bg-error-container/20 transition-all" onClick={() => { setRejectingRowId(row.id); setRejectionReason(""); }} title="Reject">
@@ -447,7 +472,7 @@ export default function Timesheets() {
       ))}
       {paginatedData.length === 0 && (
       <tr>
-      <td className="px-8 py-8 text-sm text-slate-500" colSpan={12}>No timesheet records found.</td>
+      <td className="px-8 py-8 text-sm text-slate-500" colSpan={hideEditForSuperAdmin ? 12 : 13}>No timesheet records found.</td>
       </tr>
       )}
       </tbody>
@@ -476,7 +501,7 @@ export default function Timesheets() {
       <div className="flex items-center gap-6">
       <div className="flex items-center gap-2">
       <span className="material-symbols-outlined text-tertiary-fixed-dim" data-icon="library_add_check">library_add_check</span>
-      <span className="text-sm font-bold">3 items selected</span>
+      <span className="text-sm font-bold">Bulk selection</span>
       </div>
       <div className="h-6 w-[1px] bg-slate-700"></div>
       <p className="text-xs text-on-primary-container">Select multiple rows to perform bulk approval or rejection actions.</p>

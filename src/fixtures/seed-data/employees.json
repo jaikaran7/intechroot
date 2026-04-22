@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Jane Doe",
+    "email": "jane.doe@intechroot.com",
+    "role": "Senior Frontend Developer",
+    "department": "Engineering",
+    "defaultPassword": "Employee1@123"
+  },
+  {
+    "name": "Mark Smith",
+    "email": "mark.smith@intechroot.com",
+    "role": "Backend Engineer",
+    "department": "Engineering",
+    "defaultPassword": "Employee2@123"
+  },
+  {
+    "name": "Alex J",
+    "email": "alex.j@intechroot.com",
+    "role": "QA Engineer",
+    "department": "Quality Assurance",
+    "defaultPassword": "Employee3@123"
+  }
+]

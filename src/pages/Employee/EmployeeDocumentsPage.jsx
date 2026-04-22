@@ -1,34 +1,34 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../../store/authStore";
 import { documentsService } from "../../services/documents.service";
+import { REQUIRED_DOCUMENT_ROWS } from "../../constants/requiredDocumentTemplates";
+import { uploadStatusBadge, onboardingVerificationBadge } from "../../components/shared/requiredDocumentBadges";
+import {
+  documentIconWrapClass,
+  formatDocumentSubtitle,
+} from "../../utils/applicantDocumentRows";
+import {
+  getRowUploadStatusKey,
+  hasUploadedFile,
+  resolveDocVerification,
+} from "../../utils/onboardingDocumentRules";
 
-const EXPIRING_DAYS = 30;
-
-function classifyDoc(expiryDateStr) {
-  if (!expiryDateStr) return "valid";
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const exp = new Date(expiryDateStr);
-  exp.setHours(0, 0, 0, 0);
-  if (Number.isNaN(exp.getTime())) return "valid";
-  if (exp < now) return "expired";
-  const soon = new Date(now);
-  soon.setDate(soon.getDate() + EXPIRING_DAYS);
-  if (exp <= soon) return "expiring";
-  return "valid";
-}
-
-function iconWrap(type) {
-  const t = String(type).toLowerCase();
-  if (t.includes("contract")) return { box: "bg-purple-50 text-purple-600", icon: "contract" };
-  if (t.includes("id") || t.includes("permit") || t.includes("passport")) return { box: "bg-blue-50 text-blue-600", icon: "description" };
-  return { box: "bg-amber-50 text-amber-600", icon: "assignment_ind" };
+function formatDateCell(iso) {
+  if (!iso) return { text: "—", italic: true };
+  const day = String(iso).slice(0, 10);
+  const d = new Date(`${day}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return { text: day, italic: false };
+  return {
+    text: d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+    italic: false,
+  };
 }
 
 export default function EmployeeDocumentsPage() {
   const { employeeId } = useAuthStore();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef(null);
 
   const { data: docs = [] } = useQuery({
     queryKey: ['documents', employeeId],
@@ -37,72 +37,136 @@ export default function EmployeeDocumentsPage() {
     enabled: !!employeeId,
   });
 
-  const [uploadFile, setUploadFile] = useState(null);
-  const [uploadOpen, setUploadOpen] = useState(false);
+  const [pendingUploadKey, setPendingUploadKey] = useState(null);
+  const [rowErrors, setRowErrors] = useState({});
+  const [previewingId, setPreviewingId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All Statuses");
+  const [expiryDraft, setExpiryDraft] = useState({});
 
   const upsertMutation = useMutation({
     mutationFn: (formData) => documentsService.upsert(formData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents', employeeId] });
-      setUploadOpen(false);
-      setUploadFile(null);
     },
+    onError: (err, formData) => {
+      const templateKey = formData.get("templateKey");
+      if (!templateKey) return;
+      setRowErrors((prev) => ({
+        ...prev,
+        [templateKey]: err?.response?.data?.error?.message || "Upload failed. Please try again.",
+      }));
+    }
   });
 
-  const handleUpload = (templateKey) => {
-    if (!uploadFile) return;
-    const fd = new FormData();
-    fd.append('file', uploadFile);
-    fd.append('ownerId', employeeId);
-    fd.append('ownerType', 'employee');
-    fd.append('templateKey', templateKey);
-    upsertMutation.mutate(fd);
-  };
+  const requiredRows = useMemo(
+    () => REQUIRED_DOCUMENT_ROWS.filter((row) => row.required),
+    [],
+  );
 
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("All Types");
-  const [statusFilter, setStatusFilter] = useState("All Statuses");
+  const docsByKey = useMemo(() => {
+    const map = new Map();
+    for (const d of docs) {
+      if (d?.templateKey) map.set(d.templateKey, d);
+    }
+    return map;
+  }, [docs]);
+
+  function handleUploadClick(templateKey) {
+    setPendingUploadKey(templateKey);
+    setRowErrors((prev) => ({ ...prev, [templateKey]: "" }));
+    fileInputRef.current?.click();
+  }
+
+  function onFileSelected(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    const templateKey = pendingUploadKey;
+    setPendingUploadKey(null);
+    if (!file || !templateKey || !employeeId) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      setRowErrors((prev) => ({ ...prev, [templateKey]: "File must be 10MB or smaller." }));
+      return;
+    }
+
+    const row = requiredRows.find((r) => r.key === templateKey);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("employeeId", employeeId);
+    fd.append("templateKey", templateKey);
+    fd.append("name", row?.label || templateKey);
+    const expiry = (expiryDraft[templateKey] || "").trim();
+    if (expiry) fd.append("expiryDate", expiry);
+    upsertMutation.mutate(fd);
+  }
+
+  async function handlePreview(docId) {
+    if (!docId) return;
+    setPreviewingId(docId);
+    try {
+      const data = await documentsService.getDownloadUrl(docId);
+      if (data?.signedUrl) window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    } finally {
+      setPreviewingId(null);
+    }
+  }
 
   const filtered = useMemo(() => {
-    return docs.filter((d) => {
+    return requiredRows.filter((row) => {
+      const stored = docsByKey.get(row.key);
+      const expiryValue = (stored?.expiryDate || expiryDraft[row.key] || "").slice(0, 10);
+      const uploadStatus = getRowUploadStatusKey(stored, row, expiryValue);
+      const statusLabel =
+        uploadStatus === "expired"
+          ? "EXPIRED"
+          : uploadStatus === "expiring_soon"
+            ? "EXPIRING SOON"
+            : uploadStatus === "uploaded"
+              ? "UPLOADED"
+              : "NOT UPLOADED";
       const q = search.trim().toLowerCase();
-      if (q && !d.name.toLowerCase().includes(q)) return false;
-      if (typeFilter !== "All Types" && d.type !== typeFilter) return false;
-      const st = classifyDoc(d.expiryDate);
-      const stLabel = st === "expired" ? "EXPIRED" : st === "expiring" ? "EXPIRING SOON" : "VALID";
-      if (statusFilter !== "All Statuses" && stLabel !== statusFilter) return false;
+      if (q && !(row.label || "").toLowerCase().includes(q)) return false;
+      if (statusFilter !== "All Statuses" && statusLabel !== statusFilter) return false;
       return true;
     });
-  }, [docs, search, typeFilter, statusFilter]);
+  }, [requiredRows, docsByKey, expiryDraft, search, statusFilter]);
 
-  const formatCell = (iso) => {
-    if (!iso) return { text: "N/A", italic: true };
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return { text: iso, italic: false };
-    return {
-      text: d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      italic: false,
-    };
-  };
+  const uploadedRequiredCount = useMemo(
+    () => requiredRows.filter((row) => hasUploadedFile(docsByKey.get(row.key))).length,
+    [requiredRows, docsByKey],
+  );
 
   return (
     <main className="ml-64 min-h-screen flex flex-col bg-surface text-on-surface">
       <div className="mt-16 p-8 flex-1">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,.pdf,.doc,.docx"
+          className="hidden"
+          onChange={onFileSelected}
+        />
+
         <div className="mb-10 flex justify-between items-end flex-wrap gap-4">
           <div>
             <h1 className="text-4xl font-extrabold text-primary-container tracking-tight mb-2 font-headline">Employee Documents</h1>
             <p className="text-on-surface-variant max-w-md font-body">
-              Manage, track, and verify essential employee certifications and legal documentation with automated expiry alerts.
+              Upload required compliance documents. Missing documents need upload; uploaded ones can be previewed.
             </p>
           </div>
           <button
             type="button"
             className="bg-primary-container text-on-primary px-6 py-3 rounded flex items-center gap-2 hover:translate-y-[-2px] transition-all shadow-lg shadow-primary-container/20 border-none cursor-pointer"
+            onClick={() => {
+              const firstMissing = requiredRows.find((row) => !hasUploadedFile(docsByKey.get(row.key)));
+              handleUploadClick(firstMissing?.key || requiredRows[0]?.key);
+            }}
           >
             <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
               add
             </span>
-            <span className="font-bold text-sm">Upload New Document</span>
+            <span className="font-bold text-sm">Upload Required Document</span>
           </button>
         </div>
 
@@ -114,28 +178,12 @@ export default function EmployeeDocumentsPage() {
             <div className="relative">
               <input
                 className="w-full bg-surface-container border-none text-sm px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-tertiary-fixed-dim/20"
-                placeholder="Filter by name..."
+                placeholder="Filter required documents..."
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-          </div>
-          <div className="w-48">
-            <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5 ml-1">
-              Document Type
-            </label>
-            <select
-              className="w-full bg-surface-container border-none text-sm px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-tertiary-fixed-dim/20"
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-            >
-              <option>All Types</option>
-              <option>ID</option>
-              <option>Contract</option>
-              <option>Certification</option>
-              <option>Tax Form</option>
-            </select>
           </div>
           <div className="w-48">
             <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5 ml-1">Status</label>
@@ -145,15 +193,17 @@ export default function EmployeeDocumentsPage() {
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option>All Statuses</option>
-              <option>VALID</option>
+              <option>UPLOADED</option>
+              <option>NOT UPLOADED</option>
               <option>EXPIRING SOON</option>
               <option>EXPIRED</option>
             </select>
           </div>
-          <div className="flex items-end h-full self-end pb-0.5">
-            <button type="button" className="p-2.5 bg-surface-container-high hover:bg-surface-container-highest rounded-lg transition-colors border-none cursor-pointer">
-              <span className="material-symbols-outlined text-on-surface-variant">tune</span>
-            </button>
+          <div className="ml-auto text-right">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Required Uploaded</p>
+            <p className="text-sm font-bold text-primary-container">
+              {uploadedRequiredCount} / {requiredRows.length}
+            </p>
           </div>
         </div>
 
@@ -162,10 +212,10 @@ export default function EmployeeDocumentsPage() {
             <thead>
               <tr className="bg-surface-container-low/50">
                 <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Document Name</th>
-                <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Type</th>
+                <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Upload Status</th>
                 <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Upload Date</th>
                 <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Expiry Date</th>
-                <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Status</th>
+                <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Verification</th>
                 <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500 text-right">Actions</th>
               </tr>
             </thead>
@@ -173,66 +223,84 @@ export default function EmployeeDocumentsPage() {
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-10 text-center text-on-surface-variant text-sm">
-                    No documents match your filters.
+                    No required documents match your filters.
                   </td>
                 </tr>
               ) : (
-                filtered.map((doc) => {
-                  const st = classifyDoc(doc.expiryDate);
-                  const { box, icon } = iconWrap(doc.type);
-                  const upload = formatCell(doc.uploadDate);
-                  const expiry = formatCell(doc.expiryDate);
-                  const rowCls =
-                    st === "expiring"
-                      ? "bg-amber-50/30 hover:bg-amber-50/50 transition-colors group"
-                      : "hover:bg-surface-container-low transition-colors group";
-                  const statusInner =
-                    st === "valid" ? (
-                      <div className="flex items-center gap-1.5 text-emerald-600">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider">VALID</span>
-                      </div>
-                    ) : st === "expiring" ? (
-                      <div className="flex items-center gap-1.5 text-amber-600">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider">EXPIRING SOON</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5 text-red-600">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider">EXPIRED</span>
-                      </div>
-                    );
+                filtered.map((row) => {
+                  const stored = docsByKey.get(row.key);
+                  const expiryValue = (stored?.expiryDate || expiryDraft[row.key] || "").slice(0, 10);
+                  const uploadStatus = getRowUploadStatusKey(stored, row, expiryValue);
+                  const verification = resolveDocVerification(stored);
+                  const upload = formatDateCell(stored?.uploadedAt || stored?.uploadDate);
+                  const expiry = formatDateCell(expiryValue);
+                  const rowCls = uploadStatus === "expiring_soon"
+                    ? "bg-amber-50/30 hover:bg-amber-50/50 transition-colors"
+                    : "hover:bg-surface-container-low transition-colors";
+                  const hasFile = hasUploadedFile(stored);
+                  const rowError = rowErrors[row.key];
+
                   return (
-                    <tr className={rowCls} key={doc.id}>
+                    <tr className={rowCls} key={row.key}>
                       <td className="px-6 py-5">
                         <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded flex items-center justify-center ${box}`}>
+                          <div className={documentIconWrapClass(row, uploadStatus)}>
                             <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                              {icon}
+                              {row.icon || "description"}
                             </span>
                           </div>
-                          <span className="font-bold text-primary-container text-sm">{doc.name}</span>
+                          <div>
+                            <p className="font-bold text-primary-container text-sm">{row.label}</p>
+                            <p className="text-[11px] text-on-surface-variant">{formatDocumentSubtitle(stored, row)}</p>
+                          </div>
                         </div>
                       </td>
-                      <td className="px-6 py-5">
-                        <span className="text-xs font-semibold px-2.5 py-1 rounded bg-slate-100 text-slate-600">{doc.type}</span>
-                      </td>
+                      <td className="px-6 py-5">{uploadStatusBadge(uploadStatus)}</td>
                       <td className={`px-6 py-5 text-sm text-on-surface-variant ${upload.italic ? "italic text-slate-400" : ""}`}>{upload.text}</td>
-                      <td
-                        className={`px-6 py-5 text-sm text-on-surface-variant ${st === "expiring" ? "text-amber-700 font-bold underline decoration-amber-200" : ""} ${expiry.italic ? "text-slate-400 italic" : ""}`}
-                      >
+                      <td className={`px-6 py-5 text-sm text-on-surface-variant ${expiry.italic ? "text-slate-400 italic" : ""}`}>
                         {expiry.text}
                       </td>
-                      <td className="px-6 py-5">{statusInner}</td>
+                      <td className="px-6 py-5">{onboardingVerificationBadge(verification)}</td>
                       <td className="px-6 py-5 text-right">
-                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button type="button" className="p-2 text-on-surface-variant hover:text-primary transition-colors hover:bg-white rounded" title="View">
-                            <span className="material-symbols-outlined text-[20px]">visibility</span>
-                          </button>
-                          <button type="button" className="p-2 text-on-surface-variant hover:text-primary transition-colors hover:bg-white rounded" title="Download">
-                            <span className="material-symbols-outlined text-[20px]">download</span>
-                          </button>
+                        <div className="flex flex-col items-end gap-1.5">
+                          <div className="flex justify-end gap-2">
+                            {hasFile ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="px-3 py-1.5 text-[10px] font-bold rounded bg-primary-container text-white hover:bg-primary transition-colors border-none cursor-pointer"
+                                  disabled={previewingId === stored?.id}
+                                  onClick={() => handlePreview(stored?.id)}
+                                >
+                                  {previewingId === stored?.id ? "Opening..." : "Preview"}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="px-3 py-1.5 text-[10px] font-bold rounded border border-outline-variant/30 bg-white text-on-surface hover:bg-surface-container-low transition-colors"
+                                  onClick={() => handleUploadClick(row.key)}
+                                >
+                                  Replace
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                className="px-3 py-1.5 text-[10px] font-bold rounded bg-primary-container text-white hover:bg-primary transition-colors border-none cursor-pointer"
+                                onClick={() => handleUploadClick(row.key)}
+                              >
+                                Upload
+                              </button>
+                            )}
+                          </div>
+                          {!hasFile && (
+                            <input
+                              type="date"
+                              value={expiryValue}
+                              onChange={(e) => setExpiryDraft((prev) => ({ ...prev, [row.key]: e.target.value }))}
+                              className="w-36 rounded border border-outline-variant/20 bg-white px-2 py-1 text-xs"
+                            />
+                          )}
+                          {rowError ? <p className="text-[10px] font-medium text-error">{rowError}</p> : null}
                         </div>
                       </td>
                     </tr>
@@ -243,7 +311,7 @@ export default function EmployeeDocumentsPage() {
           </table>
           <div className="p-4 bg-surface-container-low/30 flex justify-between items-center flex-wrap gap-2">
             <span className="text-xs text-on-surface-variant">
-              Showing {filtered.length === 0 ? 0 : 1}-{filtered.length} of {docs.length} documents
+              Showing {filtered.length === 0 ? 0 : 1}-{filtered.length} of {requiredRows.length} required documents
             </span>
             <div className="flex items-center gap-2">
               <button type="button" className="p-2 text-slate-400 hover:text-primary transition-colors border-none bg-transparent cursor-not-allowed" disabled>

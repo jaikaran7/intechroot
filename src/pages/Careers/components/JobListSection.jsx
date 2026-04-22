@@ -1,64 +1,104 @@
+import { useMemo } from "react";
 import Button from "../../../components/Form/Button";
 import { useNavigate } from "react-router-dom";
+import { presentJobForCareersList, presentJobForFeatured } from "../utils/presentJob";
 
-export function FeaturedRolesSection() {
+export function FeaturedRolesSection({ jobs = [], onViewDetails }) {
   const navigate = useNavigate();
-  const featuredRoles = [];
+  const cards = useMemo(
+    () =>
+      jobs.map((raw, idx) => ({
+        raw,
+        role: presentJobForFeatured(raw, idx),
+      })),
+    [jobs],
+  );
+
+  if (!cards.length) {
+    return null;
+  }
 
   return (
-    <section className="py-32 relative overflow-hidden bg-white">
-      <div className="max-w-7xl mx-auto px-8 relative">
-        <div className="flex flex-col md:flex-row justify-between items-end gap-12 mb-20">
+    <section className="relative overflow-hidden bg-white py-32">
+      <div className="relative mx-auto max-w-7xl px-8">
+        <div className="mb-20 flex flex-col items-end justify-between gap-12 md:flex-row">
           <div className="max-w-2xl">
-            <div className="text-secondary font-black text-[11px] uppercase tracking-[0.4em] mb-4">Urgent Opportunities</div>
-            <h2 className="text-6xl font-headline font-extrabold text-primary tracking-tighter leading-[0.95]">
+            <div className="mb-4 text-[11px] font-black uppercase tracking-[0.4em] text-secondary">Urgent Opportunities</div>
+            <h2 className="font-headline text-6xl font-extrabold leading-[0.95] tracking-tighter text-primary">
               Architectural <br />
               Strategic Roles
             </h2>
           </div>
-          <div className="hidden md:block text-on-surface-variant text-sm font-medium opacity-50">Updated 2 hours ago</div>
+          <div className="hidden text-sm font-medium text-on-surface-variant opacity-50 md:block">Featured roles from your pipeline</div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {featuredRoles.map((role, idx) => (
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+          {cards.map(({ raw, role }, idx) => (
             <div
-              key={role.title}
-              className={`glass-card p-10 rounded-[2.5rem] hover:-translate-y-3 transition-all duration-700 group flex flex-col h-full ${
-                idx === 1 ? "border-secondary/20 shadow-2xl scale-105 z-10" : ""
-              }`}
+              key={role.id}
+              className={`glass-card flex h-full flex-col rounded-[2.5rem] p-10 transition-all duration-700 group hover:-translate-y-3 ${
+                idx === 1 ? "z-10 scale-105 border-secondary/20 shadow-2xl" : ""
+              } ${onViewDetails ? "cursor-pointer" : ""}`}
+              onClick={() => onViewDetails?.(raw)}
             >
-              <div className="flex justify-between items-start mb-10">
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${idx === 0 ? "bg-secondary/5 group-hover:bg-secondary/10 transition-colors" : ""} ${idx === 1 ? "bg-tertiary-fixed/10" : ""} ${idx === 2 ? "bg-primary/5 group-hover:bg-primary/10 transition-colors" : ""}`}>
-                  <span className={`material-symbols-outlined text-3xl ${idx === 0 ? "text-secondary" : ""} ${idx === 1 ? "text-tertiary-fixed" : ""} ${idx === 2 ? "text-primary" : ""}`}>{role.icon}</span>
+              <div className="mb-10 flex items-start justify-between">
+                <div
+                  className={`flex h-14 w-14 items-center justify-center rounded-2xl ${idx === 0 ? "bg-secondary/5 transition-colors group-hover:bg-secondary/10" : ""} ${idx === 1 ? "bg-tertiary-fixed/10" : ""} ${idx === 2 ? "bg-primary/5 transition-colors group-hover:bg-primary/10" : ""}`}
+                >
+                  <span
+                    className={`material-symbols-outlined text-3xl ${idx === 0 ? "text-secondary" : ""} ${idx === 1 ? "text-tertiary-fixed" : ""} ${idx === 2 ? "text-primary" : ""}`}
+                  >
+                    {role.icon}
+                  </span>
                 </div>
-                <span className={`${role.badgeClass} text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-tighter`}>{role.badgeText}</span>
+                <span className={`${role.badgeClass} rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-tighter`}>{role.badgeText}</span>
               </div>
-              <h3 className={`text-2xl font-headline font-bold mb-4 ${role.titleHover} transition-colors duration-500`}>{role.title}</h3>
-              <p className="text-on-surface-variant text-sm mb-10 flex items-center gap-2 opacity-70">
+              <h3 className={`mb-4 text-2xl font-headline font-bold transition-colors duration-500 ${role.titleHover}`}>{role.title}</h3>
+              <p className="mb-10 flex items-center gap-2 text-sm text-on-surface-variant opacity-70">
                 <span className="material-symbols-outlined text-sm">location_on</span> {role.location}
               </p>
-              <div className="flex flex-wrap gap-2 mb-10 mt-auto">
+              <div className="mb-8 mt-auto flex flex-wrap gap-2">
                 {role.tags.map((tag) => (
-                  <span key={tag} className="bg-surface-container-high/50 px-3 py-1 rounded-lg text-[10px] font-bold text-primary uppercase tracking-wider">
+                  <span
+                    key={tag}
+                    className="rounded-lg bg-surface-container-high/50 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-primary"
+                  >
                     {tag}
                   </span>
                 ))}
               </div>
-              <Button
-                className={role.buttonClass}
-                onClick={() =>
-                  navigate("/apply", {
-                    state: {
-                      jobId: `featured-${role.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "role"}`,
-                      jobTitle: role.title,
-                      company: "InTechRoot",
-                      discipline: role.title,
-                      experience: role.experience,
-                    },
-                  })
-                }
-              >
-                Apply Position
-              </Button>
+              <div className="mt-auto flex flex-col gap-3">
+                <Button
+                  className={role.buttonClass}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate({
+                      pathname: "/careers",
+                      hash: "#apply",
+                      state: {
+                        jobId: role.id,
+                        jobTitle: role.title,
+                        company: "InTechRoot",
+                        discipline: role.title,
+                        experience: role.experience,
+                      },
+                    });
+                  }}
+                >
+                  Apply Position
+                </Button>
+                {onViewDetails ? (
+                  <Button
+                    type="button"
+                    className="w-full rounded-full border border-outline-variant/30 bg-white py-3.5 text-[10px] font-black uppercase tracking-widest text-primary shadow-sm transition-all hover:bg-surface-container-low"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onViewDetails(raw);
+                    }}
+                  >
+                    More details
+                  </Button>
+                ) : null}
+              </div>
             </div>
           ))}
         </div>
@@ -67,72 +107,124 @@ export function FeaturedRolesSection() {
   );
 }
 
-export default function JobListSection({ jobs, searchTerm, setSearchTerm }) {
+export default function JobListSection({ jobs = [], searchTerm, setSearchTerm, isLoading, isError, onRetry, onViewDetails }) {
   const navigate = useNavigate();
+
+  const rows = useMemo(() => jobs.map((j) => ({ raw: j, view: presentJobForCareersList(j) })), [jobs]);
 
   return (
     <div className="flex-1 space-y-10">
-      <div className="relative group">
-        <span className="material-symbols-outlined absolute left-6 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-secondary transition-colors">search</span>
+      <div className="group relative">
+        <span className="material-symbols-outlined absolute left-6 top-1/2 -translate-y-1/2 text-on-surface-variant transition-colors group-focus-within:text-secondary">
+          search
+        </span>
         <input
-          className="w-full pl-16 pr-8 py-6 glass-card rounded-3xl border-white/40 focus:ring-4 focus:ring-secondary/5 focus:outline-none transition-all placeholder:text-on-surface-variant/40 placeholder:font-medium"
+          className="glass-card w-full rounded-3xl border-white/40 py-6 pl-16 pr-8 font-medium transition-all placeholder:font-medium placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-4 focus:ring-secondary/5"
           placeholder="Search architectural roles by title, skill or vector..."
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
-      {jobs.map((job) => (
-        <div
-          key={job.id}
-          className="glass-card p-10 rounded-[2.5rem] border-white/40 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-700 group flex flex-col md:flex-row gap-10 items-start md:items-center"
-        >
-          <div className="w-20 h-20 bg-surface-container-low rounded-[1.5rem] flex items-center justify-center flex-shrink-0 text-primary border border-white/20">
-            <span className="material-symbols-outlined text-4xl">{job.icon}</span>
-          </div>
-          <div className="flex-1">
-            <div className="flex flex-col md:flex-row md:items-center gap-4 mb-4">
-              <h3 className="text-2xl font-headline font-extrabold text-primary group-hover:text-secondary transition-colors duration-500">{job.title}</h3>
-              <span className={`${job.badgeClass} text-[9px] font-black px-3 py-1 rounded-full tracking-widest uppercase`}>{job.badge}</span>
+
+      {isLoading ? (
+        <div className="glass-card rounded-[2.5rem] border-white/40 p-12 text-center text-on-surface-variant">Loading open roles…</div>
+      ) : null}
+
+      {isError ? (
+        <div className="glass-card rounded-[2.5rem] border-red-100 bg-red-50/50 p-10 text-center">
+          <p className="mb-4 text-sm font-medium text-red-800">We couldn&apos;t load job postings. Check your connection or API configuration.</p>
+          {onRetry ? (
+            <Button className="rounded-full bg-primary px-8 py-3 text-xs font-bold uppercase tracking-widest text-white" onClick={onRetry} type="button">
+              Try again
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {!isLoading && !isError && rows.length === 0 ? (
+        <div className="glass-card rounded-[2.5rem] border-white/40 p-12 text-center text-on-surface-variant">
+          No roles match your filters. Try adjusting filters or search.
+        </div>
+      ) : null}
+
+      {!isLoading &&
+        !isError &&
+        rows.map(({ raw, view: job }) => (
+          <div
+            key={job.id}
+            className={`glass-card group flex flex-col items-start gap-10 rounded-[2.5rem] border-white/40 p-10 shadow-sm transition-all duration-700 hover:-translate-y-1 hover:shadow-xl md:flex-row md:items-center ${
+              onViewDetails ? "cursor-pointer" : ""
+            }`}
+            onClick={() => onViewDetails?.(raw)}
+          >
+            <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-[1.5rem] border border-white/20 bg-surface-container-low text-primary">
+              <span className="material-symbols-outlined text-4xl">{job.icon}</span>
             </div>
-            <div className="flex flex-wrap items-center gap-x-8 gap-y-3 text-sm font-medium text-on-surface-variant opacity-60">
-              {job.meta.map((metaItem, idx) => (
-                <span key={metaItem} className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-lg">{job.metaIcons[idx]}</span>
-                  {metaItem}
-                </span>
-              ))}
+            <div className="flex-1">
+              <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-4">
+                <div className="min-w-0">
+                  <h3 className="font-headline text-2xl font-extrabold text-primary transition-colors duration-500 group-hover:text-secondary">{job.listTitle}</h3>
+                  {job.listSubtitle ? (
+                    <p className="mt-1 text-xs font-medium uppercase tracking-wider text-on-surface-variant/70">{job.listSubtitle}</p>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <span className={`rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest ${job.categoryClass}`}>{job.categoryLabel}</span>
+                  <span className={`rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest ${job.statusClass}`}>{job.statusLabel}</span>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-8 gap-y-3 text-sm font-medium text-on-surface-variant opacity-60">
+                {job.meta.map((metaItem, idx) => (
+                  <span key={`${job.id}-meta-${idx}`} className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-lg">{job.metaIcons[idx]}</span>
+                    {metaItem}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
-          <div className="flex md:flex-col items-center gap-4 w-full md:w-auto">
-            <Button
-              className="flex-1 md:w-36 py-4 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-full hover:bg-secondary transition-all duration-500 shadow-lg"
-                onClick={() =>
-                  navigate("/apply", {
+            <div className="flex w-full flex-col items-stretch gap-3 md:w-auto md:min-w-[10rem]">
+              <Button
+                className="w-full rounded-full bg-primary py-4 text-[10px] font-black uppercase tracking-widest text-white shadow-lg transition-all duration-500 hover:bg-secondary md:min-w-[9rem]"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate({
+                    pathname: "/careers",
+                    hash: "#apply",
                     state: {
                       jobId: job.id,
                       jobTitle: job.title,
                       company: "InTechRoot",
                       discipline: job.title,
-                      experience: job.experience,
+                      experience: job.experience || "",
                     },
-                  })
-                }
-            >
-              Apply Now
-            </Button>
-            <Button className="p-4 glass-card rounded-full border-white/20 hover:bg-surface-container-low transition-colors">
-              <span className="material-symbols-outlined text-xl text-primary">bookmark</span>
-            </Button>
+                  });
+                }}
+                type="button"
+              >
+                Apply Now
+              </Button>
+              {onViewDetails ? (
+                <Button
+                  type="button"
+                  className="w-full rounded-full border border-outline-variant/40 bg-white py-3.5 text-[10px] font-black uppercase tracking-widest text-primary shadow-sm transition-all hover:bg-surface-container-low"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewDetails(raw);
+                  }}
+                >
+                  More details
+                </Button>
+              ) : null}
+            </div>
           </div>
+        ))}
+
+      {!isLoading && !isError && rows.length > 0 ? (
+        <div className="pt-16 text-center">
+          <p className="text-[10px] font-black uppercase tracking-[0.35em] text-on-surface-variant/60">Showing all {rows.length} open role{rows.length === 1 ? "" : "s"}</p>
         </div>
-      ))}
-      <div className="pt-16 text-center">
-        <Button className="font-black text-[10px] text-secondary uppercase tracking-[0.4em] hover:opacity-50 transition-opacity flex items-center gap-4 mx-auto group">
-          Load More Opportunities
-          <span className="material-symbols-outlined group-hover:translate-x-2 transition-transform">east</span>
-        </Button>
-      </div>
+      ) : null}
     </div>
   );
 }

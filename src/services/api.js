@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useAuthStore } from '../store/authStore';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
@@ -34,7 +35,11 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    const url = originalRequest.url || '';
     if (error.response?.status === 401 && !originalRequest._retry) {
+      if (url.includes('/auth/refresh-token')) {
+        return Promise.reject(error);
+      }
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -56,7 +61,7 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        localStorage.removeItem('access_token');
+        useAuthStore.getState().clearAuth();
         // All roles share the unified login page
         const path = window.location.pathname;
         if (path.startsWith('/applicant')) window.location.href = '/applicant/login';

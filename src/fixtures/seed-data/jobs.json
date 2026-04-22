@@ -1,0 +1,32 @@
+[
+  {
+    "title": "Senior React Developer",
+    "sector": "Engineering",
+    "status": "Active"
+  },
+  {
+    "title": "Cloud Infrastructure Engineer",
+    "sector": "DevOps",
+    "status": "Active"
+  },
+  {
+    "title": "UX / Product Designer",
+    "sector": "Design",
+    "status": "Closed"
+  },
+  {
+    "title": "Staff Data Engineer",
+    "sector": "Data",
+    "status": "Active"
+  },
+  {
+    "title": "Principal Security Architect",
+    "sector": "Security",
+    "status": "Active"
+  },
+  {
+    "title": "AI / ML Platform Engineer",
+    "sector": "Engineering",
+    "status": "Active"
+  }
+]

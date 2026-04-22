@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { applicationsService } from "../../../services/applications.service";
+import { documentsService } from "../../../services/documents.service";
+import { onboardingService } from "../../../services/onboarding.service";
 import AdminDocumentApproval from "./applicationReview/AdminDocumentApproval";
 import AdminFinalApproval from "./applicationReview/AdminFinalApproval";
 import AdminProfileReview from "./applicationReview/AdminProfileReview";
@@ -15,13 +17,39 @@ import { onboardingVerificationBadge, uploadStatusBadge } from "@/components/sha
 import { getRowUploadStatusKey, hasUploadedFile, resolveDocVerification } from "@/utils/onboardingDocumentRules";
 import PageSkeleton from "../../../components/PageSkeleton";
 import ErrorState from "../../../components/ErrorState";
+import AdminDocumentPreviewModal from "@/components/admin/AdminDocumentPreviewModal";
+import EntityAvatar from "@/components/shared/EntityAvatar";
+import {
+  compactUrlLabel,
+  formatAppliedDateDisplay,
+  normalizeExternalHref,
+} from "@/utils/applicantDisplayHelpers";
+import { useAuthStore } from "@/store/authStore";
 
 const OFFER_STAGE_INDEX = 4; // "Offer & Onboarding" stage
+
+/** LinkedIn “in” mark (monochrome via currentColor). */
+function LinkedInLogoIcon({ className }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+    </svg>
+  );
+}
+
+function isLinkedInUrl(href) {
+  return Boolean(href && /linkedin\.com/i.test(String(href)));
+}
 
 /** Admin onboarding wizard step: 1=profile, 2=documents, 3=final hire */
 function getOnboardingAdminStep(onboarding) {
   const ob = onboarding || {};
-  if (!ob.profileCompleted) return 1;
+  if (!ob.adminProfileApproved) return 1;
   if (!ob.documentsCompleted) return 2;
   return 3;
 }
@@ -65,6 +93,22 @@ function formatMessageWhen(iso) {
   });
 }
 
+/** Match server normalization so pasted host-only links persist and appear on the applicant dashboard. */
+function normalizeInterviewMeetingLink(raw) {
+  const s = (raw || "").trim();
+  if (!s) return "";
+  if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(s)) return s;
+  return `https://${s}`;
+}
+
+function formatInterviewSaveError(err) {
+  const details = err?.response?.data?.error?.details;
+  if (Array.isArray(details) && details.length) {
+    return details.map((d) => (d.field ? `${d.field}: ${d.message}` : d.message)).join(" · ");
+  }
+  return err?.response?.data?.error?.message || "Unable to save interview.";
+}
+
 function resolveInterviewTypeForForm(iv) {
   if (!iv) return INTERVIEW_TYPES[0];
   if (iv.type && INTERVIEW_TYPES.includes(iv.type)) return iv.type;
@@ -99,7 +143,15 @@ export default function ApplicationProfile() {
   /** When set, interview modal updates this row instead of creating a new one. */
   const [rescheduleTarget, setRescheduleTarget] = useState(null);
   const [stageMoveError, setStageMoveError] = useState("");
+  const [documentVerifyError, setDocumentVerifyError] = useState("");
   const [hireMessage, setHireMessage] = useState("");
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+  const [onboardingNote, setOnboardingNote] = useState("");
+  const [onboardingGateBusy, setOnboardingGateBusy] = useState(false);
+  const [documentPreview, setDocumentPreview] = useState(null);
+  // Admin may freely move between stages via the stage switcher — null falls back to derived step.
+  const [forcedOnboardingStep, setForcedOnboardingStep] = useState(null);
+  const { user } = useAuthStore();
 
   // ── API data ──────────────────────────────────────────────
   const { data: applicationData, isLoading, isError, refetch } = useQuery({
@@ -133,14 +185,34 @@ export default function ApplicationProfile() {
     onError: (err) => setHireMessage(err.response?.data?.error?.message || "Hire failed."),
   });
 
+  const rejectMutation = useMutation({
+    mutationFn: () => applicationsService.rejectApplication(id),
+    onSuccess: () => {
+      setHireMessage("Application rejected. The applicant has been notified.");
+      queryClient.invalidateQueries({ queryKey: ['applications'] });
+      queryClient.invalidateQueries({ queryKey: ['application', id] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+    },
+    onError: (err) => setHireMessage(err.response?.data?.error?.message || "Failed to reject application."),
+  });
+
   const addInterviewMutation = useMutation({
     mutationFn: (data) => applicationsService.createInterview(id, data),
-    onSuccess: invalidate,
   });
 
   const updateInterviewMutation = useMutation({
     mutationFn: ({ iid, data }) => applicationsService.updateInterview(id, iid, data),
-    onSuccess: invalidate,
+  });
+
+  const verifyDocumentMutation = useMutation({
+    mutationFn: ({ documentId, verification }) => documentsService.verify(documentId, verification),
+    onSuccess: () => {
+      setDocumentVerifyError("");
+      queryClient.invalidateQueries({ queryKey: ['application', id] });
+    },
+    onError: (err) => {
+      setDocumentVerifyError(err?.response?.data?.error?.message || "Could not update document verification.");
+    },
   });
 
   const sendMessageMutation = useMutation({
@@ -159,24 +231,112 @@ export default function ApplicationProfile() {
     link: "",
     notes: "",
   });
+  const [interviewModalError, setInterviewModalError] = useState("");
   useEffect(() => {
     if (!isMessageSentPopupOpen) return undefined;
     const timeout = window.setTimeout(() => setIsMessageSentPopupOpen(false), 2000);
     return () => window.clearTimeout(timeout);
   }, [isMessageSentPopupOpen]);
   const getDisplayValue = (value) => (value ? value : "Not Provided");
-  const stages = applicationData?.stages?.length ? applicationData.stages : [];
+
+  const ALL_STAGES = [
+    'Application Submitted',
+    'Profile Screening',
+    'Technical Evaluation',
+    'Client Interview',
+    'Offer & Onboarding',
+  ];
+  const stages = ALL_STAGES.map((name) => ({
+    name,
+    date: applicationData?.stages?.find((s) => s.name === name)?.date ?? '',
+  }));
   const stageIndex = Number.isFinite(Number(applicationData?.currentStageIndex))
     ? applicationData.currentStageIndex
     : 0;
-  const progressPercent =
-    stages.length > 1 ? (stageIndex / (stages.length - 1)) * 100 : 0;
+  const isEmployee =
+    applicationData?.lifecycleStage === "employee" ||
+    applicationData?.status === "Employee";
+
+  const journeyStages = useMemo(() => {
+    const base = ALL_STAGES.map((name) => ({
+      name,
+      date: applicationData?.stages?.find((s) => s.name === name)?.date ?? "",
+    }));
+    if (applicationData?.lifecycleStage === "employee") {
+      return [...base, { name: "Employee", date: "Hired" }];
+    }
+    return base;
+  }, [applicationData]);
+
+  const activeJourneyIndex = isEmployee ? journeyStages.length - 1 : stageIndex;
+
+  const journeyProgressPercent =
+    journeyStages.length > 1 ? (activeJourneyIndex / (journeyStages.length - 1)) * 100 : 0;
+
+  const atFinalPipelineStage = stageIndex >= OFFER_STAGE_INDEX;
+  const needsOnboardingPortalEnable =
+    !isEmployee && atFinalPipelineStage && !Boolean(applicationData?.onboarding?.enabled);
+
   const moveToNextDisabled =
     applicationData?.lifecycleStage === "employee" ||
-    (Boolean(applicationData?.onboarding?.enabled) && stageIndex >= OFFER_STAGE_INDEX) ||
+    atFinalPipelineStage ||
     advanceStageMutation.isPending;
+
+  const handleConfirmOnboarding = async () => {
+    setStageMoveError("");
+    setOnboardingGateBusy(true);
+    try {
+      await applicationsService.advanceStage(id, onboardingNote);
+      await onboardingService.enableOnboarding(id);
+      invalidate();
+      setShowOnboardingModal(false);
+      setOnboardingNote("");
+    } catch (err) {
+      const msg = String(err.response?.data?.error?.message || err.message || "");
+      if (/final stage/i.test(msg)) {
+        try {
+          await onboardingService.enableOnboarding(id);
+          invalidate();
+          setShowOnboardingModal(false);
+          setOnboardingNote("");
+        } catch (e2) {
+          setStageMoveError(
+            e2.response?.data?.error?.message ||
+              "Stage is already at Offer & Onboarding, but enabling the portal failed. Use Enable onboarding portal below.",
+          );
+        }
+      } else {
+        setStageMoveError(
+          msg ||
+            "Could not advance to offer or enable the onboarding portal. Try again, or use Enable onboarding below if the stage already moved.",
+        );
+      }
+    } finally {
+      setOnboardingGateBusy(false);
+    }
+  };
+
+  const handleEnableOnboardingOnly = async () => {
+    setStageMoveError("");
+    setOnboardingGateBusy(true);
+    try {
+      await onboardingService.enableOnboarding(id);
+      invalidate();
+    } catch (err) {
+      setStageMoveError(err.response?.data?.error?.message || "Failed to enable onboarding portal.");
+    } finally {
+      setOnboardingGateBusy(false);
+    }
+  };
+
   const handleMoveToNextStage = () => {
     setStageMoveError("");
+    // Moving from Client Interview (index 3) → Offer & Onboarding requires enable onboarding
+    if (stageIndex === 3) {
+      setOnboardingNote("");
+      setShowOnboardingModal(true);
+      return;
+    }
     advanceStageMutation.mutate();
   };
   const handleSendMessage = () => {
@@ -184,12 +344,14 @@ export default function ApplicationProfile() {
     sendMessageMutation.mutate(messageDraft.trim());
   };
   const openNewInterviewModal = () => {
+    setInterviewModalError("");
     setRescheduleTarget(null);
     setInterviewForm({ type: INTERVIEW_TYPES[0], date: "", time: "", link: "", notes: "" });
     setIsInterviewModalOpen(true);
   };
 
   const openRescheduleInterviewModal = (iv, index) => {
+    setInterviewModalError("");
     setRescheduleTarget({ id: iv?.id ?? null, index });
     setInterviewForm({
       type: resolveInterviewTypeForForm(iv),
@@ -202,6 +364,7 @@ export default function ApplicationProfile() {
   };
 
   const closeInterviewModal = () => {
+    setInterviewModalError("");
     setRescheduleTarget(null);
     setIsInterviewModalOpen(false);
     setInterviewForm({ type: INTERVIEW_TYPES[0], date: "", time: "", link: "", notes: "" });
@@ -209,21 +372,33 @@ export default function ApplicationProfile() {
 
   const handleScheduleInterviewSubmit = () => {
     if (!applicationData) return;
+    setInterviewModalError("");
     const displayTime = formatTimeFromInput(interviewForm.time);
+    const linkTrimmed = interviewForm.link?.trim() || "";
+    const linkNormalized = linkTrimmed ? normalizeInterviewMeetingLink(linkTrimmed) : "";
     const payload = {
       title: interviewForm.type,
       type: interviewForm.type,
       date: interviewForm.date,
       time: displayTime || interviewForm.time,
+      ...(linkNormalized && { link: linkNormalized }),
+      ...(interviewForm.notes?.trim() && { notes: interviewForm.notes.trim() }),
     };
+
+    const onInterviewSaved = () => {
+      setInterviewModalError("");
+      invalidate();
+      closeInterviewModal();
+    };
+    const onInterviewSaveError = (err) => setInterviewModalError(formatInterviewSaveError(err));
 
     if (rescheduleTarget?.id) {
       updateInterviewMutation.mutate(
         { iid: rescheduleTarget.id, data: { ...payload, status: "scheduled" } },
-        { onSuccess: closeInterviewModal }
+        { onSuccess: onInterviewSaved, onError: onInterviewSaveError }
       );
     } else {
-      addInterviewMutation.mutate(payload, { onSuccess: closeInterviewModal });
+      addInterviewMutation.mutate(payload, { onSuccess: onInterviewSaved, onError: onInterviewSaveError });
     }
   };
 
@@ -237,9 +412,28 @@ export default function ApplicationProfile() {
   if (isError) return <main className="ml-64 pt-24 px-12"><ErrorState message="Failed to load application." onRetry={refetch} /></main>;
   if (!applicationData) return <main className="ml-64 pt-24 px-12"><p className="text-on-surface-variant">Application not found.</p></main>;
 
+  const linkedInTrim = (applicationData.linkedIn || "").trim();
+  const portfolioTrim = (
+    (applicationData.portfolio != null && String(applicationData.portfolio).trim()) ||
+    (applicationData.documents?.portfolio != null && String(applicationData.documents.portfolio).trim()) ||
+    ""
+  ).trim();
+  const primaryWebHref = linkedInTrim
+    ? normalizeExternalHref(linkedInTrim)
+    : portfolioTrim
+      ? normalizeExternalHref(portfolioTrim)
+      : "";
+  const primaryWebLabel = linkedInTrim
+    ? compactUrlLabel(linkedInTrim)
+    : portfolioTrim
+      ? compactUrlLabel(portfolioTrim)
+      : "";
+
+  /** Offer stage uses lifecycle `offer` until enable runs (`onboarding`). Any `enabled` means show admin onboarding tools. */
   const isOnboardingAdminView =
-    applicationData.lifecycleStage === "onboarding" && Boolean(applicationData.onboarding?.enabled);
-  const onboardingAdminStep = getOnboardingAdminStep(applicationData.onboarding);
+    Boolean(applicationData.onboarding?.enabled) && !isEmployee;
+  const derivedOnboardingStep = getOnboardingAdminStep(applicationData.onboarding);
+  const onboardingAdminStep = forcedOnboardingStep ?? derivedOnboardingStep;
   const onboardingStepName =
     onboardingAdminStep === 1
       ? "Profile Review"
@@ -247,9 +441,26 @@ export default function ApplicationProfile() {
         ? "Document Approval"
         : "Final Approval";
 
-  // Onboarding admin actions are wired through the onboarding service (not touched per Rule 4)
-  const handleAdminApproveProfile = () => {};
-  const handleAdminApproveDocuments = () => {};
+  const handleAdminApproveProfile = () => {
+    setStageMoveError("");
+    onboardingService
+      .adminApproveProfile(id)
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ['application', id] });
+        setForcedOnboardingStep(2);
+      })
+      .catch((err) => {
+        setStageMoveError(err.response?.data?.error?.message || "Could not approve profile.");
+      });
+  };
+  const handleAdminApproveDocuments = () => {
+    onboardingService.adminApproveDocuments(id).then(() => {
+      queryClient.invalidateQueries({ queryKey: ['application', id] });
+      setForcedOnboardingStep(3);
+    }).catch((err) => {
+      setStageMoveError(err.response?.data?.error?.message || "Failed to approve documents.");
+    });
+  };
   const handleFinalHire = () => {
     hireMutation.mutate();
   };
@@ -268,10 +479,12 @@ export default function ApplicationProfile() {
       </button>
       <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
       <div className="text-right">
-      <p className="text-sm font-semibold text-slate-900">Admin User</p>
-      <p className="text-[10px] uppercase tracking-widest text-slate-500">Administrator</p>
+      <p className="text-sm font-semibold text-slate-900">{user?.name || "Admin"}</p>
+      <p className="text-[10px] uppercase tracking-widest text-slate-500">
+        {(user?.role && String(user.role).replace(/_/g, " ")) || "Administrator"}
+      </p>
       </div>
-      <img alt="Administrator Profile" className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-100" data-alt="professional portrait of a middle-aged male executive with glasses in a modern office setting, clean lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDifDCiYCf_dEptp9cENBPzuFkKq99YFIJyURBnrDIZIc6iv9E4Os0NYgOCZdoUkK7fEgo4uZvT8xDxwPzRXWu1Zpkxjz3XD-cJSMPb1vAbSsE_pTbhjNcglADIHrqRXZ3wrUW04DjydXo3bZOt7-fgCwy5uvzpQPPNgU_rcsh0JFoEto18vm3A0lD0wXiiIY4aLF5h28y6g6h9xbFnQfIBOzets_nbUQnxSr8vqkvGG8G7SdsNXBrSn9G5pZTzJCIu8t8oBpmLZHTA"/>
+      <EntityAvatar name={user?.name || user?.email || "Admin"} size="md" className="ring-2 ring-slate-100" />
       </div>
       </div>
       </header>
@@ -298,8 +511,47 @@ export default function ApplicationProfile() {
       )}
       </nav>
 
+      {stageMoveError && isOnboardingAdminView ? (
+        <div className="mb-6 rounded-xl border border-error/30 bg-error-container/10 px-6 py-4 text-sm font-semibold text-error">
+          {stageMoveError}
+        </div>
+      ) : null}
+
       {isOnboardingAdminView ? (
         <div className="w-full">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest">
+              {[
+                { step: 1, label: "Profile" },
+                { step: 2, label: "Documents" },
+                { step: 3, label: "Final" },
+              ].map((stage, idx) => {
+                const active = onboardingAdminStep === stage.step;
+                return (
+                  <button
+                    key={stage.step}
+                    type="button"
+                    onClick={() => setForcedOnboardingStep(stage.step)}
+                    className={`px-4 py-2 rounded-lg border transition-colors ${
+                      active
+                        ? "bg-primary text-white border-primary"
+                        : "bg-white text-primary border-outline-variant/40 hover:bg-surface-container-low"
+                    }`}
+                  >
+                    <span className="mr-2 opacity-70">0{idx + 1}</span>
+                    {stage.label}
+                  </button>
+                );
+              })}
+            </div>
+            <Link
+              to={`/admin/applications/${id}`}
+              onClick={() => setForcedOnboardingStep(null)}
+              className="text-xs font-bold text-primary underline-offset-4 hover:underline"
+            >
+              ← Back to applicant detail
+            </Link>
+          </div>
           {onboardingAdminStep === 1 && (
             <AdminProfileReview application={applicationData} onApproveProfile={handleAdminApproveProfile} />
           )}
@@ -307,7 +559,13 @@ export default function ApplicationProfile() {
             <AdminDocumentApproval application={applicationData} onApproveDocuments={handleAdminApproveDocuments} />
           )}
           {onboardingAdminStep === 3 && (
-            <AdminFinalApproval application={applicationData} onFinalHire={handleFinalHire} hireMessage={hireMessage} />
+            <AdminFinalApproval
+              application={applicationData}
+              onFinalHire={handleFinalHire}
+              onReject={() => rejectMutation.mutate()}
+              rejectPending={rejectMutation.isPending}
+              hireMessage={hireMessage}
+            />
           )}
         </div>
       ) : (
@@ -320,7 +578,13 @@ export default function ApplicationProfile() {
       <div className="relative z-10 p-10 flex flex-col md:flex-row justify-between items-end md:items-center gap-8">
       <div className="flex items-center gap-8">
       <div className="relative">
-      <img alt={applicationData.name} className="w-32 h-32 rounded-xl object-cover ring-4 ring-white/10" data-alt="professional portrait of a young woman with a confident smile, wearing business attire, neutral studio background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAUPh2QBggh7tgZWw6ie4X6_Ob3-jRSIg1u_wAD5ig4eBbIR8cmuD8laaubaQdBHSJSU3g5twn8LgVbSeHds32d4HhLCiR2NzAPCbpDLK7gh4pz0bgD5_FdSipeMhQNDo5J_ISFEx1Bz9dkJGggj9HItsfWJ2qSi2Qg70LRU8eKgSzLc8pMCPVqx6JHbM-Ane8R8qc_s2zQqOdbSxbICxUdplLvoHgI3WeA3j76eA53Gabt5J4Hna6lPbSOrA2vxPOTD1dfDyx1RpTQ"/>
+      <EntityAvatar
+      name={applicationData.name}
+      size="hero"
+      rounded="xl"
+      className="ring-4 ring-white/10"
+      title={applicationData.name || "Applicant"}
+      />
       <div className="absolute -bottom-2 -right-2 bg-tertiary-fixed-dim text-on-tertiary-fixed px-3 py-1 rounded-full text-[10px] font-bold tracking-tighter uppercase shadow-lg">
                                   Verified
                               </div>
@@ -329,7 +593,7 @@ export default function ApplicationProfile() {
       <div className="flex items-center gap-3 mb-2">
       <h2 className="font-headline font-extrabold text-4xl text-white tracking-tight">{applicationData.name}</h2>
       <span className="px-3 py-1 bg-tertiary-container text-tertiary-fixed text-xs font-semibold rounded-full border border-tertiary-fixed/20">
-                                      {stages[stageIndex]?.name}
+                                      {isEmployee ? "Employee" : stages[stageIndex]?.name}
                                   </span>
       </div>
       <p className="font-headline text-lg text-primary-fixed-dim mb-4">{applicationData.role}</p>
@@ -338,16 +602,35 @@ export default function ApplicationProfile() {
       <span className="material-symbols-outlined text-tertiary-fixed-dim text-lg" data-icon="location_on">location_on</span>
                                       {applicationData.location}
                                   </div>
-      <div className="flex items-center gap-2">
-      <span className="material-symbols-outlined text-tertiary-fixed-dim text-lg" data-icon="language">language</span>
-      <Link className="hover:text-white underline underline-offset-4 decoration-tertiary-fixed-dim/30 transition-all" to="#">linkedin.com/in/elenanova</Link>
+      <div className="flex items-center gap-2 min-w-0">
+      {primaryWebHref ? (
+        linkedInTrim || isLinkedInUrl(primaryWebHref) ? (
+          <LinkedInLogoIcon className="h-[1.125rem] w-[1.125rem] shrink-0 text-tertiary-fixed-dim" />
+        ) : (
+          <span className="material-symbols-outlined text-tertiary-fixed-dim text-lg shrink-0" data-icon="link">link</span>
+        )
+      ) : (
+        <span className="material-symbols-outlined text-tertiary-fixed-dim text-lg shrink-0 opacity-40" data-icon="link_off">link_off</span>
+      )}
+      {primaryWebHref ? (
+      <a
+      href={primaryWebHref}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="hover:text-white underline underline-offset-4 decoration-tertiary-fixed-dim/30 transition-all truncate break-all"
+      >
+      {primaryWebLabel}
+      </a>
+      ) : (
+      <span className="text-white/60">Not provided</span>
+      )}
       </div>
       </div>
       </div>
       </div>
       <div className="flex flex-col items-end gap-3">
       <p className="text-[10px] text-white/40 uppercase tracking-[0.2em]">Application Date</p>
-      <p className="text-white font-medium">{getDisplayValue(applicationData.appliedDate)}</p>
+      <p className="text-white font-medium">{formatAppliedDateDisplay(applicationData.appliedDate)}</p>
       <div className="flex gap-2 mt-2">
       <button className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-white transition-all">
       <span className="material-symbols-outlined" data-icon="share">share</span>
@@ -371,14 +654,14 @@ export default function ApplicationProfile() {
                           </h3>
       <div className="flex items-center justify-between relative px-4">
       <div className="absolute top-5 left-12 right-12 h-0.5 bg-surface-container-high z-0"></div>
-      <div className="absolute top-5 left-12 h-0.5 bg-secondary z-0" style={{ width: `calc((100% - 6rem) * ${progressPercent}%)` }}></div>
-      {stages.map((stage, index) => (
-      <div className={`relative z-10 flex flex-col items-center gap-3 group ${index > stageIndex ? "opacity-40" : ""}`} key={stage.name}>
-      {index < stageIndex ? (
+      <div className="absolute top-5 left-12 h-0.5 bg-secondary z-0" style={{ width: `calc((100% - 6rem) * ${journeyProgressPercent}%)` }}></div>
+      {journeyStages.map((stage, index) => (
+      <div className="relative z-10 flex flex-col items-center gap-3 group" key={`${stage.name}-${index}`}>
+      {index < activeJourneyIndex ? (
       <div className="w-10 h-10 rounded-full bg-secondary text-white flex items-center justify-center shadow-lg shadow-secondary/20">
       <span className="material-symbols-outlined text-xl" data-icon="check" style={{fontVariationSettings: "'wght' 700"}}>check</span>
       </div>
-      ) : index === stageIndex ? (
+      ) : index === activeJourneyIndex ? (
       <div className="w-10 h-10 rounded-full bg-white border-4 border-secondary text-secondary flex items-center justify-center ring-8 ring-secondary/10">
       <span className="material-symbols-outlined text-xl" data-icon="diversity_3">diversity_3</span>
       </div>
@@ -388,13 +671,30 @@ export default function ApplicationProfile() {
       </div>
       )}
       <div className="text-center">
-      <p className={`text-xs font-bold uppercase tracking-wider ${index < stageIndex ? "text-secondary" : index === stageIndex ? "text-primary" : ""}`}>{stage.name}</p>
-      <p className={`text-[10px] ${index === stageIndex ? "text-on-tertiary-fixed-variant font-medium" : "text-outline"}`}>{stage.date}</p>
+      <p className={`text-xs font-bold uppercase tracking-wider ${index < activeJourneyIndex ? "text-secondary" : index === activeJourneyIndex ? "text-primary" : ""}`}>{stage.name}</p>
+      <p className={`text-[10px] ${index === activeJourneyIndex ? "text-on-tertiary-fixed-variant font-medium" : "text-outline"}`}>{stage.date}</p>
       </div>
       </div>
       ))}
       </div>
       </div>
+
+      {needsOnboardingPortalEnable ? (
+        <div className="mb-6 rounded-xl border border-amber-200/80 bg-amber-50/90 px-6 py-4 text-sm text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-100">
+          <p className="font-bold text-primary dark:text-white mb-1">Onboarding portal is not enabled yet</p>
+          <p className="text-on-surface-variant dark:text-amber-100/90 mb-4 max-w-3xl">
+            This applicant is already at Offer &amp; Onboarding in the pipeline, but they cannot open the onboarding checklist until you enable it. Use the button below (for example if a previous attempt failed after the stage moved).
+          </p>
+          <button
+            type="button"
+            disabled={onboardingGateBusy}
+            onClick={handleEnableOnboardingOnly}
+            className="rounded-lg bg-primary-container px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:opacity-95 disabled:opacity-50"
+          >
+            {onboardingGateBusy ? "Enabling…" : "Enable onboarding portal"}
+          </button>
+        </div>
+      ) : null}
 
       <footer className="bg-primary-container/5 rounded-xl p-6 border border-primary-container/10">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
@@ -518,14 +818,20 @@ export default function ApplicationProfile() {
       <p className="text-xs text-on-surface-variant mt-0.5">{row.meta}</p>
       </div>
       </div>
-      {row.href ? (
-      <a
+      {row.href && row.href !== "#" ? (
+      <button
+      type="button"
       className="text-sm font-semibold text-secondary hover:underline shrink-0"
-      href={row.href === "#" ? "#" : row.href}
-      onClick={row.href === "#" ? (e) => e.preventDefault() : undefined}
+      onClick={() =>
+      setDocumentPreview({
+      url: String(row.href),
+      title: row.key === "portfolio" ? "Portfolio link" : row.title,
+      fileName: row.key === "portfolio" ? undefined : row.title,
+      })
+      }
       >
       {row.action}
-      </a>
+      </button>
       ) : (
       <span className="text-xs text-outline shrink-0">Not Provided</span>
       )}
@@ -537,6 +843,9 @@ export default function ApplicationProfile() {
       {activeTab === "documents" && (
       <div>
       <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-6">Document Verification</p>
+      {documentVerifyError ? (
+      <p className="mb-4 text-sm text-error font-medium" role="alert">{documentVerifyError}</p>
+      ) : null}
       <div className="overflow-x-auto rounded-xl border border-outline-variant/10">
       <table className="w-full border-collapse text-left">
       <thead>
@@ -551,11 +860,13 @@ export default function ApplicationProfile() {
       <tbody className="divide-y divide-outline-variant/10">
       {getAllDocumentTemplateRows(applicationData).map((row) => {
       const stored = applicationData.onboardingDocuments?.find((d) => d.templateKey === row.key);
-      const expiryValue = (stored?.expiryDate || row.expiry || "").slice(0, 10);
+      const expiryValue = (stored?.expiryDate || "").slice(0, 10);
       const displayStatus = getRowUploadStatusKey(stored, row, expiryValue);
+      const statusForBadge = displayStatus === "not_uploaded_neutral" ? "not_uploaded" : displayStatus;
       const hasFile = hasUploadedFile(stored);
       const v = resolveDocVerification(stored);
-      const previewUrl = stored?.fileData?.trim() ? stored.fileData : stored?.fileUrl?.trim() || "/sample.pdf";
+      const previewUrl =
+        stored?.fileData?.trim() || stored?.fileUrl?.trim() || "/sample.pdf";
       const canApprove = hasFile && v !== "verified";
       const expStr = formatExpiryForDisplay(expiryValue, v);
       return (
@@ -576,7 +887,7 @@ export default function ApplicationProfile() {
       </div>
       </div>
       </td>
-      <td className="px-6 py-4">{uploadStatusBadge(displayStatus)}</td>
+      <td className="px-6 py-4">{uploadStatusBadge(statusForBadge)}</td>
       <td className="px-6 py-4">
       <span
       className={`text-xs ${
@@ -597,7 +908,12 @@ export default function ApplicationProfile() {
       type="button"
       disabled={!hasFile}
       onClick={() => {
-      if (hasFile) window.open(previewUrl, "_blank", "noopener,noreferrer");
+      if (!hasFile) return;
+      setDocumentPreview({
+      url: previewUrl,
+      title: row.label,
+      fileName: stored?.fileName || `${row.label.replace(/\s+/g, "_")}.pdf`,
+      });
       }}
       className="text-xs font-bold text-secondary hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
       >
@@ -605,20 +921,25 @@ export default function ApplicationProfile() {
       </button>
       <button
       type="button"
-      disabled={!canApprove}
+      disabled={!canApprove || !stored?.id || verifyDocumentMutation.isPending}
       className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-green-50 text-green-800 border border-green-200 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed"
       onClick={() => {
-      // Document verification wired through onboarding service (Phase D)
+      if (!stored?.id || !canApprove) return;
+      setDocumentVerifyError("");
+      verifyDocumentMutation.mutate({ documentId: stored.id, verification: "verified" });
       }}
       >
       Approve
       </button>
       <button
       type="button"
-      disabled={!hasFile || v === "verified"}
+      disabled={!hasFile || v === "verified" || !stored?.id || verifyDocumentMutation.isPending}
       className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-red-50 text-red-800 border border-red-200 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed"
       onClick={() => {
-      // Document rejection wired through onboarding service (Phase D)
+      if (!stored?.id || !hasFile || v === "verified") return;
+      if (!window.confirm("Reject this document? The applicant can upload a new version.")) return;
+      setDocumentVerifyError("");
+      verifyDocumentMutation.mutate({ documentId: stored.id, verification: "rejected" });
       }}
       >
       Reject
@@ -641,9 +962,11 @@ export default function ApplicationProfile() {
         { label: "Role Applied", value: getDisplayValue(applicationData.role) },
         { label: "Experience", value: getDisplayValue(applicationData.experience) },
         { label: "Location", value: getDisplayValue(applicationData.location) },
-        { label: "Application Date", value: getDisplayValue(applicationData.appliedDate) },
-        { label: "Current Stage", value: getDisplayValue(stages[stageIndex]?.name) },
-        { label: "Status", value: getDisplayValue(applicationData.status) },
+        { label: "LinkedIn", value: getDisplayValue(applicationData.linkedIn) },
+        { label: "Portfolio / website", value: getDisplayValue(portfolioTrim || applicationData.documents?.portfolio) },
+        { label: "Application Date", value: formatAppliedDateDisplay(applicationData.appliedDate) },
+        { label: "Current Stage", value: isEmployee ? "Employee" : getDisplayValue(stages[stageIndex]?.name) },
+        { label: "Status", value: isEmployee ? "Employee" : getDisplayValue(applicationData.status) },
       ].map((row) => (
       <div key={row.label}>
       <p className="text-[10px] uppercase tracking-widest text-outline font-bold mb-1.5">{row.label}</p>
@@ -686,7 +1009,18 @@ export default function ApplicationProfile() {
       </div>
       <div>
       <p className="text-xs text-outline font-medium uppercase tracking-widest mb-0.5">Portfolio</p>
-      <p className="font-semibold text-primary">{getDisplayValue(applicationData.documents?.portfolio)}</p>
+      {portfolioTrim ? (
+      <a
+      href={normalizeExternalHref(portfolioTrim)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="font-semibold text-secondary hover:underline break-all"
+      >
+      {compactUrlLabel(portfolioTrim)}
+      </a>
+      ) : (
+      <p className="font-semibold text-primary">Not Provided</p>
+      )}
       </div>
       </div>
       </div>
@@ -739,6 +1073,17 @@ export default function ApplicationProfile() {
       <div className="flex-1 min-w-0">
       <p className="font-bold text-sm text-primary break-words">{iv.title || iv.type}</p>
       <p className="text-xs text-on-surface-variant mt-0.5 break-words">{formatInterviewWhen(iv)}</p>
+      {iv.link && (
+        <a
+          href={iv.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-secondary underline break-all mt-0.5 inline-block"
+          onClick={(e) => e.stopPropagation()}
+        >
+          Join meeting
+        </a>
+      )}
       </div>
       <div className="shrink-0">{interviewStatusBadge(iv.status)}</div>
       </div>
@@ -817,11 +1162,14 @@ export default function ApplicationProfile() {
       <label className="block text-[10px] font-bold uppercase tracking-widest text-outline mb-1">Meeting Link</label>
       <input
       className="w-full border border-slate-200 rounded-lg p-2.5 bg-white focus:ring-0 text-sm"
-      type="url"
-      placeholder="https://"
+      type="text"
+      inputMode="url"
+      autoComplete="url"
+      placeholder="https://meet.google.com/… or meet.google.com/…"
       value={interviewForm.link}
       onChange={(e) => setInterviewForm((f) => ({ ...f, link: e.target.value }))}
       />
+      <p className="mt-1 text-[10px] text-on-surface-variant">https:// is added automatically if you omit it.</p>
       </div>
       <div>
       <label className="block text-[10px] font-bold uppercase tracking-widest text-outline mb-1">Notes</label>
@@ -833,9 +1181,17 @@ export default function ApplicationProfile() {
       />
       </div>
       </div>
+      {interviewModalError ? (
+      <p className="mt-3 text-xs text-error font-medium" role="alert">{interviewModalError}</p>
+      ) : null}
       <div className="mt-4 flex justify-end gap-2">
       <button className="px-4 py-2 text-xs font-bold border border-slate-200 rounded-lg" onClick={closeInterviewModal} type="button">Cancel</button>
-      <button className="px-4 py-2 text-xs font-bold bg-primary-container text-white rounded-lg" onClick={handleScheduleInterviewSubmit} type="button">{rescheduleTarget ? "Save schedule" : "Schedule Interview"}</button>
+      <button
+      className="px-4 py-2 text-xs font-bold bg-primary-container text-white rounded-lg disabled:opacity-60"
+      onClick={handleScheduleInterviewSubmit}
+      type="button"
+      disabled={addInterviewMutation.isPending || updateInterviewMutation.isPending}
+      >{rescheduleTarget ? "Save schedule" : "Schedule Interview"}</button>
       </div>
       </div>
       </div>
@@ -861,6 +1217,67 @@ export default function ApplicationProfile() {
       <h4 className="text-xl font-bold text-primary">Message Sent</h4>
       </div>
       </div>
+      )}
+
+      <AdminDocumentPreviewModal
+      open={documentPreview != null}
+      onClose={() => setDocumentPreview(null)}
+      url={documentPreview?.url || ""}
+      title={documentPreview?.title || "Document preview"}
+      downloadFileName={documentPreview?.fileName}
+      />
+
+      {showOnboardingModal && applicationData && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/30 backdrop-blur-md">
+          <div className="glass-card rounded-xl p-6 w-[min(92vw,34rem)] shadow-2xl border border-white/20">
+            <h4 className="text-lg font-bold text-primary mb-1">Move to Offer & Onboarding</h4>
+            <p className="text-xs text-on-surface-variant mb-4">
+              This will advance <span className="font-semibold text-primary">{applicationData.name}</span> ({applicationData.role}) from
+              Client Interview to the Offer & Onboarding stage and enable their onboarding portal access.
+            </p>
+            <div className="space-y-2 mb-4 text-xs bg-surface-container-low rounded-lg p-4 border border-outline-variant/10">
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant">Applicant</span>
+                <span className="font-semibold text-primary">{applicationData.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant">Email</span>
+                <span className="font-semibold text-primary">{applicationData.email}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant">Role</span>
+                <span className="font-semibold text-primary">{applicationData.role}</span>
+              </div>
+            </div>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-outline mb-1">
+              Admin notes (optional)
+            </label>
+            <textarea
+              className="w-full h-20 bg-white border border-slate-200 rounded p-3 text-sm focus:ring-0 mb-4"
+              placeholder="Add any notes for this stage advance…"
+              value={onboardingNote}
+              onChange={(e) => setOnboardingNote(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="px-4 py-2 text-xs font-bold border border-slate-200 rounded-lg"
+                onClick={() => setShowOnboardingModal(false)}
+                disabled={onboardingGateBusy}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-4 py-2 text-xs font-bold bg-primary-container text-white rounded-lg disabled:opacity-60"
+                onClick={handleConfirmOnboarding}
+                disabled={onboardingGateBusy}
+              >
+                {onboardingGateBusy ? "Processing…" : "Confirm & Enable Onboarding"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="fixed inset-0 pointer-events-none -z-10 opacity-[0.03]">

@@ -1,10 +1,25 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { adminService } from "../../../services/admin.service";
 import PageSkeleton from "../../../components/PageSkeleton";
 import ErrorState from "../../../components/ErrorState";
+import EntityAvatar from "@/components/shared/EntityAvatar";
+import { useAuthStore } from "@/store/authStore";
+import { formatAppliedDateDisplay } from "@/utils/applicantDisplayHelpers";
+
+const LIFECYCLE_LABEL = {
+  applied: "Applied",
+  screening: "Screening",
+  technical: "Technical",
+  client: "Client interview",
+  offer: "Offer",
+  onboarding: "Onboarding",
+  employee: "Hired",
+};
+
 export default function Dashboard() {
+  const { user } = useAuthStore();
   const navigate = useNavigate();
   const [selectedDepartment, setSelectedDepartment] = useState("All");
 
@@ -39,6 +54,8 @@ export default function Dashboard() {
       { department: "Corporate Operations", sourced: alloc(sourcedTotal, weights[2]), screening: alloc(screeningTotal, weights[2]), evaluation: alloc(evaluationTotal, weights[2]), offer: alloc(offerTotal, weights[2]), hired: alloc(hiredTotal, weights[2]) },
     ];
   }, [pipeline, deptMap]);
+
+  const recentApplications = stats?.recentApplications ?? [];
 
   const pipelineDepartments = useMemo(
     () => ["All", ...pipelineData.map((item) => item.department)],
@@ -100,10 +117,12 @@ export default function Dashboard() {
       <div className="h-8 w-[1px] bg-slate-200"></div>
       <div className="flex items-center gap-3">
       <div className="text-right">
-      <p className="text-xs font-bold text-primary leading-tight">Sarah Jenkins</p>
-      <p className="text-[10px] text-on-primary-container leading-tight">Operations Director</p>
+      <p className="text-xs font-bold text-primary leading-tight">{user?.name || "Admin"}</p>
+      <p className="text-[10px] text-on-primary-container leading-tight">
+        {(user?.role && String(user.role).replace(/_/g, " ")) || "Administrator"}
+      </p>
       </div>
-      <img alt="Administrator Profile" className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" data-alt="professional portrait of a confident female executive with a friendly expression in a modern office setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBzXz-N8I7RoB_PxK2jJY9vE40zbAc7a9LBK_gxjU1SCf1tQn7J5t96TwFLOly-_hj16_kL9eT-x-QgwOQLG5HZ4pFsjfNL7ZDskZ8gRmeNq8BciEXZERU_dl4_pJBEtz2RKbFp-VznPYWjiUoLkqcKuz7qeJVozPYm4E1TTZ6TD20LlfEJszGz6EcB2zhG8ZmvIQRCK_9bx5ELYF9939yNjKOKbY1_8oVuSNdhkOGGEjhteOeVY84xI8rCv0G2ZeVbtE_BqR2mdLPD"/>
+      <EntityAvatar name={user?.name || user?.email || "Admin"} size="md" className="border-2 border-white shadow-sm" />
       </div>
       </div>
       </header>
@@ -291,113 +310,53 @@ export default function Dashboard() {
       <th className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Candidate</th>
       <th className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Applied Role</th>
       <th className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Status</th>
-      <th className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Match Score</th>
+      <th className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Applied</th>
       <th className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Actions</th>
       </tr>
       </thead>
       <tbody className="divide-y divide-slate-100">
-
-      <tr className="hover:bg-slate-50 transition-all group">
-      <td className="px-8 py-5">
-      <div className="flex items-center gap-3">
-      <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden">
-      <img alt="Candidate" className="w-full h-full object-cover" data-alt="close-up of a professional man in his 30s with a sharp haircut and navy blue blazer looking directly at the camera" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAb3aptqurQzmhFbp_gDQ7FMQtxK1QL9ltpKaZ62x1EHG7_V_IZql5IIVZseIGCSbv15YZv3zU7YZjBKUle6zp2iu8GWR10Lr6Jrn4_7HGnjnhMnA50vwYvwU9mYKY80RjZkNnYaaHeTyOiE4w1G_yheEHZSn4MjgoxTbL-VymuMIcjyGhgtGaJkOwrS7CDjeEOPdsgvKFG68PJMICcdQWQvHQ4rzkYDc_KjxbC71TicZLUUZa6zpQNtDHMHvxqSmofbqnAaN1FF9ex"/>
-      </div>
-      <div>
-      <p className="text-sm font-bold text-primary">Alexander Thron</p>
-      <p className="text-[11px] text-slate-400">London, UK</p>
-      </div>
-      </div>
-      </td>
-      <td className="px-8 py-5">
-      <p className="text-sm text-on-surface">Senior DevOps Architect</p>
-      <p className="text-[11px] text-slate-400">Infrastructure Dept.</p>
-      </td>
-      <td className="px-8 py-5">
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-tertiary-fixed text-on-tertiary-fixed-variant">Interviewing</span>
-      </td>
-      <td className="px-8 py-5">
-      <div className="flex items-center gap-2">
-      <div className="flex-1 bg-slate-100 h-1.5 rounded-full overflow-hidden w-24">
-      <div className="bg-primary-container h-full w-[94%]"></div>
-      </div>
-      <span className="text-xs font-bold text-primary">94%</span>
-      </div>
-      </td>
-      <td className="px-8 py-5">
-      <button className="p-2 text-slate-400 hover:text-primary transition-colors">
-      <span className="material-symbols-outlined text-xl">more_vert</span>
-      </button>
+      {recentApplications.length === 0 ? (
+      <tr>
+      <td className="px-8 py-8 text-sm text-on-surface-variant" colSpan={5}>
+      No applications in the database yet.
       </td>
       </tr>
-
-      <tr className="bg-surface-container-low hover:bg-slate-50 transition-all group">
+      ) : (
+      recentApplications.map((row) => {
+      const stageLabel = LIFECYCLE_LABEL[row.lifecycleStage] || row.lifecycleStage || "—";
+      return (
+      <tr className="hover:bg-slate-50 transition-all group" key={row.id}>
       <td className="px-8 py-5">
       <div className="flex items-center gap-3">
-      <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden">
-      <img alt="Candidate" className="w-full h-full object-cover" data-alt="professional headshot of a middle-aged woman with glasses and a friendly, intelligent gaze in an architectural firm setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJymlLONDjAkIZ878UaP3czGSKxUmWTbcYjD4tT74KebF10PnYCxA3BWqEwelRgCGMbFWPGvrRCSF_ZmOE7PWUnWVnnDv5JH7we0q4LrMAbQvgIwXVqPO_bIP_gJJyXe_2vqKVEXlAngFUn_ZWARblazqcghUsikA4EljsIBIA7x6mNfv-QNYll8olUkmSqGt7u5MTt0PzPFQ4o6XAEnm_0Lww57QrzQPxdCTNVcMuYWTRRNYjwa0nUVHTyOqkM6VsfyVM1gkrFoSh"/>
+      <EntityAvatar name={row.name} size="md" />
+      <div className="min-w-0">
+      <Link className="text-sm font-bold text-primary hover:text-secondary hover:underline" to={`/admin/applications/${row.id}`}>
+      {row.name}
+      </Link>
+      <p className="text-[11px] text-slate-400 truncate">{row.location?.trim() || "—"}</p>
       </div>
-      <div>
-      <p className="text-sm font-bold text-primary">Elena Rodriguez</p>
-      <p className="text-[11px] text-slate-400">Madrid, Spain</p>
-      </div>
-      </div>
-      </td>
-      <td className="px-8 py-5">
-      <p className="text-sm text-on-surface">Lead Solution Strategist</p>
-      <p className="text-[11px] text-slate-400">Corporate Strategy</p>
-      </td>
-      <td className="px-8 py-5">
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">Review Complete</span>
-      </td>
-      <td className="px-8 py-5">
-      <div className="flex items-center gap-2">
-      <div className="flex-1 bg-slate-200 h-1.5 rounded-full overflow-hidden w-24">
-      <div className="bg-primary-container h-full w-[88%]"></div>
-      </div>
-      <span className="text-xs font-bold text-primary">88%</span>
       </div>
       </td>
       <td className="px-8 py-5">
-      <button className="p-2 text-slate-400 hover:text-primary transition-colors">
-      <span className="material-symbols-outlined text-xl">more_vert</span>
-      </button>
+      <p className="text-sm text-on-surface">{row.role || "—"}</p>
+      </td>
+      <td className="px-8 py-5">
+      <span className="inline-flex max-w-full flex-wrap items-center rounded-full bg-surface-container-high px-2.5 py-0.5 text-xs font-medium text-on-surface-variant">
+      {stageLabel}
+      </span>
+      </td>
+      <td className="px-8 py-5">
+      <span className="text-xs text-on-surface-variant">{formatAppliedDateDisplay(row.appliedDate)}</span>
+      </td>
+      <td className="px-8 py-5">
+      <Link className="text-xs font-bold text-secondary hover:underline" to={`/admin/applications/${row.id}`}>
+      View
+      </Link>
       </td>
       </tr>
-
-      <tr className="hover:bg-slate-50 transition-all group">
-      <td className="px-8 py-5">
-      <div className="flex items-center gap-3">
-      <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden">
-      <img alt="Candidate" className="w-full h-full object-cover" data-alt="young male professional wearing a light grey suit and white shirt, looking thoughtful in a modern minimalist workspace" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMW8KGItU251ViiyhEuYAz_C1oO0St7oBdY3yHI02Ld1Me-0aBrUbl9BK_gTxU0JsLsN-ip3veHJrdc9BA0SHdMSutoBIamBKpWCccG2lminl33XVFJNIwDxCj_Kvk-E3sNeiaNwsUsIEe4zEbcJwN3b9bsBb_WDqjaa0yCaNFJef6xqgaRAcEriP2IitaSNi_UJOsbslIcnXYiFV8S60BLMzDvhvTAaiPoxOlN8rg6fM87k97zUszaj0kXe02-IoJQtln-UppcoLP"/>
-      </div>
-      <div>
-      <p className="text-sm font-bold text-primary">Marcus Wu</p>
-      <p className="text-[11px] text-slate-400">Toronto, CA</p>
-      </div>
-      </div>
-      </td>
-      <td className="px-8 py-5">
-      <p className="text-sm text-on-surface">Cybersecurity Consultant</p>
-      <p className="text-[11px] text-slate-400">Network Security</p>
-      </td>
-      <td className="px-8 py-5">
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-fixed text-on-secondary-container">Background Check</span>
-      </td>
-      <td className="px-8 py-5">
-      <div className="flex items-center gap-2">
-      <div className="flex-1 bg-slate-100 h-1.5 rounded-full overflow-hidden w-24">
-      <div className="bg-primary-container h-full w-[91%]"></div>
-      </div>
-      <span className="text-xs font-bold text-primary">91%</span>
-      </div>
-      </td>
-      <td className="px-8 py-5">
-      <button className="p-2 text-slate-400 hover:text-primary transition-colors">
-      <span className="material-symbols-outlined text-xl">more_vert</span>
-      </button>
-      </td>
-      </tr>
+      );
+      })
+      )}
       </tbody>
       </table>
       </div>

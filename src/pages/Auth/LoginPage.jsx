@@ -213,7 +213,7 @@ export default function LoginPage() {
               <p className="text-sm text-on-surface-variant font-medium">
                 New to InTechRoot?{" "}
                 <Link
-                  to="/apply"
+                  to="/careers#apply"
                   className="text-primary font-bold hover:underline decoration-[#4cd7f6] decoration-2 underline-offset-4 transition-all"
                 >
                   Create an Account

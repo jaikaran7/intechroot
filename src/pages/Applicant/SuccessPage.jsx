@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "./success.css";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../../store/authStore";
 import { applicationsService } from "../../services/applications.service";
+import { documentsService } from "../../services/documents.service";
 import UpcomingInterviews from "./components/UpcomingInterviews";
 import { onboardingVerificationBadge, uploadStatusBadge } from "@/components/shared/requiredDocumentBadges";
 import {
@@ -25,12 +26,12 @@ function triggerDownload(url, name) {
   a.remove();
 }
 
-const DEFAULT_STAGES = [
-  { name: "Application Submitted", date: "Oct 12", status: "completed" },
-  { name: "Profile Screening", date: "Oct 18", status: "completed" },
-  { name: "Technical Evaluation", date: "Oct 24", status: "completed" },
-  { name: "Client Interview", date: "In Progress", status: "current" },
-  { name: "Offer & Onboarding", date: "Pending", status: "upcoming" },
+const ALL_STAGE_NAMES = [
+  "Application Submitted",
+  "Profile Screening",
+  "Technical Evaluation",
+  "Client Interview",
+  "Offer & Onboarding",
 ];
 
 const STAGE_DESCRIPTIONS = {
@@ -55,11 +56,16 @@ function stableApplicationId(email, numericId) {
 
 export default function SuccessPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { applicationId, clearAuth } = useAuthStore();
   const [expiryDraft, setExpiryDraft] = useState({});
   const [docErrors, setDocErrors] = useState({});
   const [pendingUploadKey, setPendingUploadKey] = useState(null);
+  const [onboardingWelcomeDismissed, setOnboardingWelcomeDismissed] = useState(false);
   const fileInputRef = useRef(null);
+
+  const onboardingWelcomeDismissalKey =
+    applicationId != null ? `intech_onboarding_welcome_dismissed_${applicationId}` : null;
 
   const { data: application = null } = useQuery({
     queryKey: ['application', applicationId],
@@ -67,6 +73,48 @@ export default function SuccessPage() {
     staleTime: 30_000,
     enabled: !!applicationId,
   });
+
+  const uploadDocMutation = useMutation({
+    mutationFn: ({ key, file, expiry, name }) => {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("applicationId", applicationId);
+      fd.append("templateKey", key);
+      fd.append("name", name);
+      fd.append("expiryDate", expiry);
+      return documentsService.upsert(fd);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['application', applicationId] });
+    },
+  });
+
+  const onboardingWelcomeOpen = Boolean(
+    application?.onboarding?.enabled && !application?.onboarding?.finalSubmitted,
+  );
+
+  useEffect(() => {
+    if (!onboardingWelcomeDismissalKey) return;
+    setOnboardingWelcomeDismissed(sessionStorage.getItem(onboardingWelcomeDismissalKey) === "1");
+  }, [onboardingWelcomeDismissalKey]);
+
+  useEffect(() => {
+    if (application?.onboarding?.finalSubmitted && onboardingWelcomeDismissalKey) {
+      sessionStorage.removeItem(onboardingWelcomeDismissalKey);
+      setOnboardingWelcomeDismissed(false);
+    }
+  }, [application?.onboarding?.finalSubmitted, onboardingWelcomeDismissalKey]);
+
+  const showOnboardingWelcomeModal = onboardingWelcomeOpen && !onboardingWelcomeDismissed;
+
+  useEffect(() => {
+    if (!showOnboardingWelcomeModal) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [showOnboardingWelcomeModal]);
 
   const allDocumentRows = useMemo(() => getAllDocumentTemplateRows(application), [application]);
 
@@ -87,12 +135,28 @@ export default function SuccessPage() {
     };
   }, [application]);
 
-  const stages = application?.stages?.length ? application.stages : DEFAULT_STAGES;
+  const stages = ALL_STAGE_NAMES.map((name) => {
+    const fromApi = application?.stages?.find((s) => s.name === name);
+    return {
+      name,
+      date: fromApi?.date ?? "",
+      status: fromApi?.status,
+    };
+  });
   const rawIdx =
     application?.currentStageIndex != null
       ? application.currentStageIndex
-      : stages.findIndex((s) => s.status === "current");
+      : ALL_STAGE_NAMES.findIndex((n) => n === application?.status);
   const currentStageIndex = rawIdx >= 0 ? rawIdx : 0;
+
+  const isEmployeeApplicant =
+    application?.lifecycleStage === "employee" || application?.status === "Employee";
+  /** Offer stage reached but hiring has not enabled the onboarding checklist yet. */
+  const awaitingPortalOnboarding =
+    Boolean(application) &&
+    !isEmployeeApplicant &&
+    currentStageIndex >= ALL_STAGE_NAMES.length - 1 &&
+    !application.onboarding?.enabled;
 
   const stableId = stableApplicationId(formData.email, application?.id);
   const fullName = formData.name || application?.name || "Candidate";
@@ -111,12 +175,24 @@ export default function SuccessPage() {
     navigate("/applicant/login", { replace: true });
   };
 
+  const handleContinueOnboarding = () => {
+    if (!application?.onboarding) return;
+    const step = application.onboarding.step || 1;
+    navigate(`/applicant/onboarding/${step}`);
+  };
+
+  const dismissOnboardingWelcome = () => {
+    if (onboardingWelcomeDismissalKey) {
+      sessionStorage.setItem(onboardingWelcomeDismissalKey, "1");
+    }
+    setOnboardingWelcomeDismissed(true);
+  };
+
   const handleUploadClick = (rowKey) => {
     if (!application) return;
     const stored = application.onboardingDocuments?.find((d) => d.templateKey === rowKey);
     if (resolveDocVerification(stored) === "verified") return;
-    const templateRow = allDocumentRows.find((r) => r.key === rowKey);
-    const expiry = (stored?.expiryDate || expiryDraft[rowKey] || templateRow?.expiry || "").trim();
+    const expiry = (stored?.expiryDate || expiryDraft[rowKey] || "").trim();
     if (!expiry) {
       setDocErrors((e) => ({ ...e, [rowKey]: "Please set an expiry date before uploading." }));
       return;
@@ -135,13 +211,20 @@ export default function SuccessPage() {
     const row = allDocumentRows.find((r) => r.key === key);
     const stored = application.onboardingDocuments?.find((d) => d.templateKey === key);
     if (resolveDocVerification(stored) === "verified") return;
-    const expiry = (stored?.expiryDate || expiryDraft[key] || row?.expiry || "").trim();
+    const expiry = (stored?.expiryDate || expiryDraft[key] || "").trim();
     if (!expiry) {
       setDocErrors((er) => ({ ...er, [key]: "Please set an expiry date before uploading." }));
       return;
     }
-    // Document upload is handled via the onboarding flow; stub here
-    console.info("Document upload pending API integration:", key, file.name, expiry);
+    const label = row?.label || key;
+    uploadDocMutation.mutate(
+      { key, file, expiry, name: label },
+      {
+        onError: () => {
+          setDocErrors((er) => ({ ...er, [key]: "Upload failed. Check your connection and try again." }));
+        },
+      },
+    );
   };
 
   const messages = application?.messages?.length ? application.messages : [];
@@ -167,18 +250,20 @@ export default function SuccessPage() {
     }
 
     if (v === "verified") {
+      const href = (stored?.fileUrl && String(stored.fileUrl).trim()) || DUMMY_FILE_URL;
+      const dlName = stored?.fileName || "document.pdf";
       return (
         <div className="flex flex-col items-end gap-2">
           <button
             type="button"
-            onClick={() => window.open(DUMMY_FILE_URL, "_blank", "noopener,noreferrer")}
+            onClick={() => window.open(href, "_blank", "noopener,noreferrer")}
             className={viewLinkClass}
           >
             View
           </button>
           <button
             type="button"
-            onClick={() => triggerDownload(DUMMY_FILE_URL, "sample.pdf")}
+            onClick={() => triggerDownload(href, dlName)}
             className={downloadOutlineClass}
           >
             Download
@@ -269,7 +354,7 @@ export default function SuccessPage() {
               Careers
             </Link>
             <Link
-              to="/apply"
+              to="/careers#apply"
               className="font-['Manrope'] text-sm font-bold uppercase tracking-tight text-[#7587a7] transition-colors hover:text-[#000615]"
             >
               Apply
@@ -298,18 +383,47 @@ export default function SuccessPage() {
 
       <main className="mx-auto min-h-screen max-w-[1440px] px-6 pb-24 pt-32 network-grid md:px-12">
         <input ref={fileInputRef} type="file" className="hidden" accept="image/*,.pdf,.doc,.docx" onChange={onFileSelected} />
-        {application.onboarding?.enabled && !application.onboarding?.finalSubmitted ? (
-          <div className="mb-10 flex flex-col gap-3 rounded-xl border border-secondary/30 bg-secondary/5 px-6 py-4 md:flex-row md:items-center md:justify-between">
-            <p className="text-sm font-semibold text-primary">You have an active onboarding checklist.</p>
-            <Link
-              to={`/applicant/onboarding/${application.onboarding.step || 1}`}
-              className="inline-flex justify-center rounded-lg bg-secondary px-5 py-2.5 text-center text-sm font-bold text-white"
-            >
-              Continue onboarding
-            </Link>
-          </div>
-        ) : null}
         <header className="mb-16">
+          {awaitingPortalOnboarding ? (
+            <div
+              className="mb-10 rounded-2xl border border-amber-200/90 bg-amber-50/95 px-5 py-4 text-sm text-amber-950 shadow-sm dark:border-amber-800/50 dark:bg-amber-950/35 dark:text-amber-50 md:px-6 md:py-5"
+              role="status"
+            >
+              <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.25em] text-amber-800 dark:text-amber-200">
+                Offer &amp; onboarding
+              </p>
+              <p className="font-headline text-base font-bold text-primary dark:text-white md:text-lg">
+                Onboarding checklist not unlocked yet
+              </p>
+              <p className="mt-1 max-w-2xl text-on-surface-variant dark:text-amber-100/90">
+                You are in the final hiring stage. Your recruiter still needs to enable the onboarding portal on their side. Refresh this page after they confirm, or check back shortly.
+              </p>
+            </div>
+          ) : null}
+          {onboardingWelcomeOpen && onboardingWelcomeDismissed ? (
+            <div
+              className="mb-10 flex flex-col gap-4 rounded-2xl border border-secondary/25 bg-secondary-container/10 px-5 py-4 shadow-sm backdrop-blur-sm dark:border-secondary/30 dark:bg-secondary/10 md:flex-row md:items-center md:justify-between md:px-6 md:py-5"
+              role="region"
+              aria-label="Onboarding reminder"
+            >
+              <div className="min-w-0">
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.25em] text-secondary">Offer &amp; onboarding</p>
+                <p className="font-headline text-base font-bold text-primary dark:text-white md:text-lg">
+                  Continue your onboarding checklist
+                </p>
+                <p className="mt-1 max-w-xl text-sm text-on-surface-variant dark:text-slate-300">
+                  Pick up where you left off — profile, documents, and next steps with our team.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleContinueOnboarding}
+                className="shrink-0 rounded-xl bg-primary-container px-6 py-3 font-headline text-sm font-bold text-white shadow-md transition hover:opacity-95 active:scale-[0.99] md:px-8"
+              >
+                Continue onboarding
+              </button>
+            </div>
+          ) : null}
           <div className="flex flex-col justify-between gap-8 md:flex-row md:items-end">
             <div className="max-w-2xl">
               <span className="mb-4 inline-block rounded bg-secondary-container/20 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-on-secondary-container">
@@ -353,8 +467,6 @@ export default function SuccessPage() {
             {stages.map((stage, i) => {
               const isCurrent = i === currentStageIndex;
               const isComplete = i < currentStageIndex;
-              const isUpcoming = i > currentStageIndex;
-              const isLast = i === stages.length - 1;
               const title = `${i + 1}. ${stage.name}`;
               const desc = STAGE_DESCRIPTIONS[stage.name] || "";
               const dateLine = isComplete
@@ -365,67 +477,50 @@ export default function SuccessPage() {
                   ? "In Progress"
                   : "Upcoming";
 
-              if (isCurrent) {
-                return (
-                  <div key={stage.name} className="group">
-                    <div className="flex h-full flex-col rounded-xl border-t-4 border-t-secondary bg-white/80 p-6 shadow-[0_20px_40px_rgba(64,89,170,0.12)] ring-2 ring-secondary/20 transition-all glass-card hover:bg-white">
-                      <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-white shadow-lg shadow-secondary/20">
-                        <span className="material-symbols-outlined text-xl">hub</span>
-                </div>
-                      <h3 className="mb-1 font-headline text-sm font-bold text-secondary">{title}</h3>
-                      <p className="mb-4 text-[11px] font-medium leading-tight text-on-surface-variant">{desc}</p>
-                      <span className="animate-pulse text-[9px] font-bold uppercase text-secondary">{dateLine}</span>
-              </div>
-            </div>
-                );
-              }
-
-              if (isComplete) {
-                return (
-                  <div key={stage.name} className="group">
-                    <div className="flex h-full flex-col rounded-xl border-t-4 border-t-primary-container p-6 transition-all glass-card hover:bg-white">
-                      <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
-                        <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    check_circle
-                  </span>
-                </div>
-                      <h3 className="mb-1 font-headline text-sm font-bold">{title}</h3>
-                      <p className="mb-4 text-[11px] leading-tight text-on-surface-variant">{desc}</p>
-                      <span className="text-[9px] font-bold uppercase text-on-surface-variant/60">{dateLine}</span>
-              </div>
-            </div>
-                );
-              }
-
-              if (isUpcoming && isLast) {
-                return (
-                  <div key={stage.name} className="group opacity-50 grayscale">
-                    <div className="flex h-full flex-col rounded-xl border-t-4 border-t-outline-variant p-6 transition-all glass-card">
-                      <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface-variant">
-                        <span className="material-symbols-outlined text-xl">verified</span>
-                </div>
-                      <h3 className="mb-1 font-headline text-sm font-bold">{title}</h3>
-                      <p className="mb-4 text-[11px] leading-tight text-on-surface-variant">{desc}</p>
-                      <span className="text-[9px] font-bold uppercase text-outline-variant">{dateLine}</span>
-              </div>
-            </div>
-                );
-              }
-
               return (
-                <div key={stage.name} className="group opacity-80">
-                  <div className="flex h-full flex-col rounded-xl border-t-4 border-t-outline-variant p-6 transition-all glass-card">
-                    <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface-variant">
-                      <span className="material-symbols-outlined text-xl">verified</span>
+                <div key={stage.name} className="group">
+                  <div
+                    className={`flex h-full flex-col rounded-xl border-t-4 p-6 transition-all glass-card ${
+                      isCurrent
+                        ? "border-t-secondary bg-white/80 shadow-[0_20px_40px_rgba(64,89,170,0.12)] ring-2 ring-secondary/25 hover:bg-white"
+                        : isComplete
+                          ? "border-t-primary-container hover:bg-white"
+                          : "border-t-outline-variant hover:bg-white/90"
+                    }`}
+                  >
+                    <div
+                      className={`mb-4 flex h-10 w-10 items-center justify-center rounded-lg ${
+                        isCurrent
+                          ? "bg-secondary text-white shadow-lg shadow-secondary/20"
+                          : isComplete
+                            ? "bg-primary-container/10 text-primary-container"
+                            : "bg-surface-container-highest text-on-surface-variant"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-xl" style={isComplete ? { fontVariationSettings: "'FILL' 1" } : undefined}>
+                        {isComplete ? "check_circle" : isCurrent ? "hub" : "flag"}
+                      </span>
                     </div>
-                    <h3 className="mb-1 font-headline text-sm font-bold">{title}</h3>
-                    <p className="mb-4 text-[11px] leading-tight text-on-surface-variant">{desc}</p>
-                    <span className="text-[9px] font-bold uppercase text-outline-variant">{dateLine}</span>
+                    <h3
+                      className={`mb-1 font-headline text-sm font-bold ${
+                        isCurrent ? "text-secondary" : isComplete ? "text-primary" : "text-primary"
+                      }`}
+                    >
+                      {title}
+                    </h3>
+                    <p className="mb-4 text-[11px] font-medium leading-tight text-on-surface-variant">{desc}</p>
+                    <span
+                      className={`text-[9px] font-bold uppercase ${
+                        isCurrent ? "animate-pulse text-secondary" : isComplete ? "text-on-surface-variant/70" : "text-outline-variant"
+                      }`}
+                    >
+                      {dateLine}
+                    </span>
                   </div>
                 </div>
               );
             })}
-              </div>
+          </div>
         </section>
 
         <section className="mb-20">
@@ -460,8 +555,9 @@ export default function SuccessPage() {
                 <tbody className="divide-y divide-outline-variant/10">
                   {allDocumentRows.map((row) => {
                     const stored = application.onboardingDocuments?.find((d) => d.templateKey === row.key);
-                    const expiryValue = (stored?.expiryDate || expiryDraft[row.key] || row.expiry || "").slice(0, 10);
+                    const expiryValue = (stored?.expiryDate || expiryDraft[row.key] || "").slice(0, 10);
                     const displayStatus = getRowUploadStatusKey(stored, row, expiryValue);
+                    const statusForBadge = displayStatus === "not_uploaded_neutral" ? "not_uploaded" : displayStatus;
                     const err = docErrors[row.key];
                     const verifiedLocked = resolveDocVerification(stored) === "verified";
                     return (
@@ -487,7 +583,7 @@ export default function SuccessPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-8 py-6">{uploadStatusBadge(displayStatus)}</td>
+                      <td className="px-8 py-6">{uploadStatusBadge(statusForBadge)}</td>
                       <td className="px-8 py-6">
                         <input
                           className={`w-full min-w-[8rem] rounded border border-outline-variant/20 bg-white px-2 py-1 text-xs focus:ring-0 ${
@@ -625,6 +721,41 @@ export default function SuccessPage() {
           </div>
         </div>
       </footer>
+
+      {showOnboardingWelcomeModal ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="onboarding-welcome-title"
+        >
+          <div className="absolute inset-0 bg-[#000615]/45 backdrop-blur-md dark:bg-black/50" aria-hidden="true" />
+          <div className="glass-card relative z-10 w-full max-w-[26rem] rounded-2xl border border-white/55 p-8 pt-12 shadow-[0_32px_90px_rgba(0,6,21,0.22)] backdrop-blur-2xl dark:border-white/15 dark:bg-[#0d1528]/80 dark:shadow-[0_32px_90px_rgba(0,0,0,0.55)]">
+            <button
+              type="button"
+              onClick={dismissOnboardingWelcome}
+              className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition hover:bg-black/5 hover:text-primary dark:hover:bg-white/10 dark:hover:text-white"
+              aria-label="Close and view dashboard"
+            >
+              <span className="material-symbols-outlined text-2xl leading-none">close</span>
+            </button>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.25em] text-secondary">Offer &amp; onboarding</p>
+            <h2 id="onboarding-welcome-title" className="mb-4 font-headline text-2xl font-extrabold tracking-tight text-primary dark:text-white md:text-3xl">
+              You&apos;re selected for onboarding
+            </h2>
+            <p className="mb-8 text-sm leading-relaxed text-on-surface-variant dark:text-slate-300">
+              Congratulations — complete your onboarding checklist and next steps with our team. Use the button below to continue.
+            </p>
+            <button
+              type="button"
+              onClick={handleContinueOnboarding}
+              className="w-full rounded-xl bg-primary-container px-5 py-3.5 font-headline text-sm font-bold text-white shadow-lg transition hover:opacity-95 active:scale-[0.99]"
+            >
+              Continue onboarding
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

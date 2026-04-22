@@ -48,14 +48,15 @@ export default function EmployeeDashboard() {
 
   const hours = useMemo(() => {
     const wd = weekTs?.weekData ?? {};
+    const n = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v));
     return {
-      mon: Number(wd.mon ?? 8.5),
-      tue: Number(wd.tue ?? 8),
-      wed: Number(wd.wed ?? 9),
-      thu: Number(wd.thu ?? 7.5),
-      fri: Number(wd.fri ?? 7.5),
-      sat: Number(wd.sat ?? 0),
-      sun: Number(wd.sun ?? 0),
+      mon: n(wd.mon),
+      tue: n(wd.tue),
+      wed: n(wd.wed),
+      thu: n(wd.thu),
+      fri: n(wd.fri),
+      sat: n(wd.sat),
+      sun: n(wd.sun),
     };
   }, [weekTs]);
 

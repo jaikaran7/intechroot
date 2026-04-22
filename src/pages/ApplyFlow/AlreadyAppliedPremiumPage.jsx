@@ -39,7 +39,7 @@ export default function AlreadyAppliedPremiumPage() {
             </Link>
           </div>
           <Link
-            to="/apply"
+            to="/careers#apply"
             className="bg-[#0A2540] text-white px-6 py-2.5 rounded-lg font-['Plus_Jakarta_Sans',sans-serif] font-bold text-sm hover:shadow-lg transition-all duration-300"
           >
             Get Started

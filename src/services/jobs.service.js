@@ -16,6 +16,9 @@ export const jobsService = {
   updateStatus: (id, status) =>
     api.patch(`/jobs/${id}/status`, { status }).then((r) => r.data.data),
 
+  reorder: (orderedIds) =>
+    api.patch('/jobs/reorder', { orderedIds }).then((r) => r.data),
+
   delete: (id) =>
     api.delete(`/jobs/${id}`).then((r) => r.data),
 };
