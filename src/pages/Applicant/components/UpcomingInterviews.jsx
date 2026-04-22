@@ -58,7 +58,7 @@ export default function UpcomingInterviews({ application }) {
                     rel="noopener noreferrer"
                     className="mb-2 inline-block text-sm font-bold text-tertiary-fixed underline underline-offset-4 hover:text-white"
                   >
-                    Meeting link
+                    Join meeting
                   </a>
                 ) : null}
                 {iv.notes ? <p className="text-sm text-on-primary-container/80">{iv.notes}</p> : null}

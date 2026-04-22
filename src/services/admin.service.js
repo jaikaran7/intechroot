@@ -7,6 +7,4 @@ export const adminService = {
   getPipelineReport: (params) =>
     api.get('/admin/reports/pipeline', { params }).then((r) => r.data),
 
-  getAuditLogs: (params) =>
-    api.get('/admin/audit-logs', { params }).then((r) => r.data),
 };

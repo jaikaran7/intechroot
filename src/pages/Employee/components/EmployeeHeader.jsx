@@ -1,12 +1,10 @@
-import { getEmployeeFromStore } from "../employeeEmployeesStore";
-import { getEmployeeSessionId } from "../employeeSession";
+import { useAuthStore } from "../../../store/authStore";
 
 export default function EmployeeHeader() {
-  const id = getEmployeeSessionId();
-  const employee = id ? getEmployeeFromStore(id) : null;
-  const imageSrc = employee?.performance?.panelImage;
-  const name = employee?.name ?? "Alex Sterling";
-  const role = employee?.role ?? "Sr. Solutions Architect";
+  const { user } = useAuthStore();
+  const imageSrc = null;
+  const name = user?.name ?? "Employee";
+  const role = user?.role ?? "";
 
   return (
     <header className="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 z-40 bg-white/60 backdrop-blur-xl flex justify-between items-center px-8">

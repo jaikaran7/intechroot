@@ -10,8 +10,15 @@ export const authService = {
   refreshToken: () =>
     api.post('/auth/refresh-token').then((r) => r.data.data),
 
-  applicantVerify: (email) =>
-    api.post('/auth/applicant/verify', { email }).then((r) => r.data.data),
+  applicantLogin: (email, password) =>
+    api
+      .post(
+        '/auth/applicant/login',
+        password != null && String(password).trim() !== ''
+          ? { email, password: String(password).trim() }
+          : { email }
+      )
+      .then((r) => r.data.data),
 
   employeeLogin: (email, password) =>
     api.post('/auth/employee/login', { email, password }).then((r) => r.data.data),

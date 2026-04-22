@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getJobs } from "@/fixtures/catalog";
-import { useApplicationsSync } from "@/data/applicationsStore";
-import { loadJobPostingsFromSession, persistJobPostingsToSession } from "./jobPostingsSession";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { jobsService } from "../../../services/jobs.service";
+import { applicationsService } from "../../../services/applications.service";
+import EntityAvatar from "@/components/shared/EntityAvatar";
+import { useAuthStore } from "@/store/authStore";
+
 function splitTitle(title) {
   const words = title.trim().split(/\s+/);
   if (words.length <= 1) return { line1: title, line2: null };
@@ -25,51 +28,57 @@ function jobPostingBadgeCopy(status) {
   return `${status} Posting`;
 }
 
-function resolveMergedJobs() {
-  const fromSession = loadJobPostingsFromSession();
-  return Array.isArray(fromSession) && fromSession.length > 0 ? fromSession : [...getJobs()];
-}
-
 export default function JobDetails() {
+  const { user } = useAuthStore();
   const { id } = useParams();
   const navigate = useNavigate();
-  const { applications } = useApplicationsSync();
-  const [job, setJob] = useState(null);
+  const queryClient = useQueryClient();
+
+  const { data: job = null } = useQuery({
+    queryKey: ['job', id],
+    queryFn: () => jobsService.getById(id),
+    staleTime: 300_000,
+    enabled: !!id,
+  });
+
+  const { data: appsData } = useQuery({
+    queryKey: ['applications', { jobId: id }],
+    queryFn: () => applicationsService.getAll({ jobId: id, limit: 100 }),
+    staleTime: 30_000,
+    enabled: !!id,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data) => jobsService.update(id, data),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.setQueryData(['job', id], updated);
+    },
+  });
+
   const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState(null);
 
-  const reloadJob = useCallback(() => {
-    const merged = resolveMergedJobs();
-    const found = merged.find((j) => String(j.id) === String(id));
-    setJob(found ?? null);
-    return found ?? null;
-  }, [id]);
-
-  useEffect(() => {
-    reloadJob();
-    setIsEditing(false);
-    setEditDraft(null);
-  }, [reloadJob]);
-
   const jobApplicants = useMemo(
-    () => applications.filter((app) => String(app.jobId ?? "") === String(id)),
-    [applications, id],
+    () => appsData?.data ?? [],
+    [appsData],
   );
 
-  const employmentLabel = job ? [job.type, job.contract].filter(Boolean).join(", ") : "";
+  const employmentLabel = job ? [job.jobType || job.type, job.contract].filter(Boolean).join(", ") : "";
 
   const salaryDisplay = job ? String(job.salary).replace(/\s*-\s*/, " — ") : "";
 
   const applicantCount = jobApplicants.length;
-  const screeningCount =
-    applicantCount > 0 ? Math.max(1, Math.round(applicantCount * 0.29)) : 0;
-  const interviewsCount =
-    applicantCount > 0 ? Math.max(0, Math.round(applicantCount * 0.12)) : 0;
+  const screeningCount = jobApplicants.filter((a) =>
+    ["applied", "screening"].includes(String(a.lifecycleStage || "").toLowerCase()),
+  ).length;
+  const interviewsCount = jobApplicants.filter((a) =>
+    ["technical", "client"].includes(String(a.lifecycleStage || "").toLowerCase()),
+  ).length;
 
+  const experienceBand = (job.experience || job.seniority || "").trim() || "the posted experience band";
   const experienceBlurb = job
-    ? `Minimum expectations align with ${job.seniority || "the posted level"}${
-        job.experience ? ` (${job.experience})` : ""
-      }. Key focus areas include ${(job.requirements || []).slice(0, 4).join(", ") || "core role competencies"}.`
+    ? `Target experience: ${experienceBand}. Key requirements include ${(job.requirements || []).slice(0, 4).join(", ") || "core role competencies"}.`
     : "";
 
   const startEdit = () => {
@@ -94,36 +103,7 @@ export default function JobDetails() {
     const category = editDraft.category.trim() || job.category;
     const description = editDraft.description.trim();
 
-    const merged = resolveMergedJobs();
-    const next = merged.map((j) =>
-      String(j.id) === String(id)
-        ? {
-            ...j,
-            title,
-            description,
-            location,
-            salary,
-            category,
-            sector: category,
-            meta: [location, j.type, salary],
-          }
-        : j,
-    );
-    persistJobPostingsToSession(next);
-    setJob((prev) =>
-      prev
-        ? {
-            ...prev,
-            title,
-            description,
-            location,
-            salary,
-            category,
-            sector: category,
-            meta: [location, prev.type, salary],
-          }
-        : prev,
-    );
+    updateMutation.mutate({ title, description, location, salary, category });
     setIsEditing(false);
     setEditDraft(null);
   };
@@ -192,15 +172,12 @@ export default function JobDetails() {
           <div className="mx-2 h-8 w-[1px] bg-outline-variant/30"></div>
           <div className="flex items-center gap-3 pl-2">
             <div className="text-right">
-              <p className="text-xs font-bold text-primary">Alex Sterling</p>
-              <p className="text-[10px] text-slate-500">Global Admin</p>
+              <p className="text-xs font-bold text-primary">{user?.name || "Admin"}</p>
+              <p className="text-[10px] text-slate-500">
+                {(user?.role && String(user.role).replace(/_/g, " ")) || "Administrator"}
+              </p>
             </div>
-            <img
-              alt="Admin Profile"
-              className="h-9 w-9 rounded-full border border-outline-variant/20 bg-slate-200 object-cover"
-              data-alt="professional portrait of a senior executive in a modern tech environment with soft cool lighting"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuC7ifhQT3IJ8VG-WDChBmulefO-NpZ3tBYpmQGYLRgejVB-YtCe4PoVlJPM066KiRaZZScWwbpIM8TKxN_RkhbNvbkoD1t-XYUech7PhqPhP6PliCwBTv0sSTBzPwOfILeqmEdm5z01EVnzRVqfuXi2M2S96GQR6mVeVJhxX_hvr79ZchoXlS-_Wks7wRPJPTU0fUl6w96KMUW-7NmXMuxiRO4xaxD8SzVHyLN5ahGec1fYm_2FFaDHQ92c_BRgvoRlIG7ebCo9_KTQ"
-            />
+            <EntityAvatar name={user?.name || user?.email || "Admin"} size="sm" className="border border-outline-variant/20" />
           </div>
         </div>
       </header>
@@ -292,7 +269,7 @@ export default function JobDetails() {
             <div className="col-span-12 space-y-10 lg:col-span-8">
               <div className="rounded-xl border border-[rgba(196,198,206,0.15)] bg-[rgba(255,255,255,0.7)] p-10 backdrop-blur-[16px]">
                 <h3 className="mb-6 flex items-center gap-3 font-headline text-xl font-bold text-primary">
-                  Strategic Impact
+                  Job description
                   <div className="h-[1px] flex-1 bg-gradient-to-r from-outline-variant/50 to-transparent"></div>
                 </h3>
                 {isEditing && editDraft ? (
@@ -323,7 +300,7 @@ export default function JobDetails() {
                     <span className="material-symbols-outlined text-lg" data-icon="task_alt">
                       task_alt
                     </span>
-                    Key Responsibilities
+                    Requirements
                   </h4>
                   <ul className="space-y-4">
                     {(job.requirements || []).map((item) => (
@@ -339,7 +316,7 @@ export default function JobDetails() {
                     <span className="material-symbols-outlined text-lg" data-icon="verified">
                       verified
                     </span>
-                    Requirements &amp; Skills
+                    Skills
                   </h4>
                   <div className="flex flex-wrap gap-2">
                     {(job.skills || []).map((skill) => (
@@ -366,7 +343,9 @@ export default function JobDetails() {
                   <ul className="space-y-3">
                     {jobApplicants.map((app) => (
                       <li key={app.id} className="flex items-center justify-between gap-4 border-b border-outline-variant/10 pb-3 last:border-none">
-                        <div>
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                          <EntityAvatar name={app.name} size="sm" className="shrink-0" />
+                          <div className="min-w-0">
                           <Link
                             className="text-sm font-bold text-primary hover:text-secondary"
                             to={`/admin/applications/${app.id}`}
@@ -376,8 +355,9 @@ export default function JobDetails() {
                           <p className="text-xs text-on-surface-variant">
                             {app.role} · {app.stage}
                           </p>
+                          </div>
                         </div>
-                        <span className="text-xs font-semibold text-on-surface-variant">{app.status}</span>
+                        <span className="shrink-0 text-xs font-semibold text-on-surface-variant">{app.status}</span>
                       </li>
                     ))}
                   </ul>
@@ -444,11 +424,13 @@ export default function JobDetails() {
                       <p className="font-headline text-3xl font-black text-primary">{applicantCount}</p>
                       <p className="mt-1 text-[11px] font-bold uppercase text-outline">Total Applicants</p>
                     </div>
+                    {applicantCount > 0 ? (
                     <div className="text-right">
                       <p className="rounded bg-tertiary-fixed/30 px-2 py-0.5 text-xs font-bold text-on-tertiary-container">
-                        +12% vs avg
+                        Live data
                       </p>
                     </div>
+                    ) : null}
                   </div>
                   <div className="flex h-2 w-full overflow-hidden rounded-full bg-surface-container">
                     <div className="h-full bg-primary-container" style={{ width: "28%" }}></div>
@@ -468,17 +450,10 @@ export default function JobDetails() {
                 </div>
               </div>
 
-              <div className="group relative h-40 overflow-hidden rounded-xl grayscale transition-all duration-500 hover:grayscale-0">
-                <img
-                  alt="Location Map"
-                  className="h-full w-full object-cover"
-                  data-alt="minimalist architectural map of London city center with stylized blue and grey accents"
-                  data-location="London"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuCL7tgc5aMc-aGRhl09sKJRm67eLX8mBGFl1McicTrwxXCECTXyzPw92JNlrBDfnMvW2vpcGPHJgZHqwzfe18Le5_mTCLCeLusj4zls8jMgtqlYOT7fbxzVMM99AnGp4Y0Cqm6bXv5uWQ8SkROO7fsEGkaqkMlFvK21hD4APM92jxwM_KgR3RCDmBnTznvJRK4csf2zE3_nsdR_0itvV8xqdyIoNT6ltxboL3smCHLs5jxeYipFn7mADEGfktyHP9wQkzWNQZL8nPK1"
-                />
-                <div className="absolute inset-0 bg-primary/20 transition-colors group-hover:bg-transparent"></div>
-                <div className="absolute bottom-4 left-4 rounded bg-white/90 px-3 py-1 text-[10px] font-black uppercase tracking-tighter shadow-sm backdrop-blur">
-                  HQ Hub: {String(job.location).split(",")[0]?.trim() || "Global"}
+              <div className="relative flex h-40 flex-col justify-end overflow-hidden rounded-xl border border-outline-variant/20 bg-gradient-to-br from-slate-100 via-surface-container-low to-secondary/10 p-6">
+                <span className="material-symbols-outlined mb-2 text-4xl text-secondary/60">location_on</span>
+                <div className="rounded bg-white/90 px-3 py-1 text-[10px] font-black uppercase tracking-tighter shadow-sm backdrop-blur">
+                  {String(job.location || "Location").split(",")[0]?.trim() || "—"}
                 </div>
               </div>
             </div>

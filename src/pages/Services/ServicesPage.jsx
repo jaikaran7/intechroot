@@ -7,7 +7,7 @@ import GlobalScaleSection from "./components/GlobalScaleSection";
 import IndustriesSection from "./components/IndustriesSection";
 import TestimonialsSection from "./components/TestimonialsSection";
 import CTASection from "./components/CTASection";
-import FooterSection from "./components/FooterSection";
+import SiteFooter from "../../components/SiteFooter";
 import "./services.css";
 
 export default function ServicesPage() {
@@ -26,7 +26,7 @@ export default function ServicesPage() {
       </GlobalScaleSection>
       <TestimonialsSection />
       <CTASection />
-      <FooterSection />
+      <SiteFooter />
     </div>
   );
 }

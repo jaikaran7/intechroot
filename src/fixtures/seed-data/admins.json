@@ -1,0 +1,10 @@
+[
+  {
+    "email": "superadmin@intechroot.com",
+    "role": "super_admin"
+  },
+  {
+    "email": "admin@intechroot.com",
+    "role": "admin"
+  }
+]

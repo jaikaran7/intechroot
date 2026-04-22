@@ -4,7 +4,7 @@ import StatsSection from "./components/StatsSection";
 import FeaturesSection from "./components/FeaturesSection";
 import ArchitectureSection from "./components/ArchitectureSection";
 import CTASection from "./components/CTASection";
-import FooterSection from "./components/FooterSection";
+import SiteFooter from "../../components/SiteFooter";
 import "./home.css";
 
 export default function HomePage() {
@@ -46,7 +46,7 @@ export default function HomePage() {
       <FeaturesSection />
       <ArchitectureSection />
       <CTASection />
-      <FooterSection />
+      <SiteFooter />
     </>
   );
 }

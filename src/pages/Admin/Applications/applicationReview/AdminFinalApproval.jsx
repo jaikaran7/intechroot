@@ -1,7 +1,20 @@
-/** Converted from application_process/admin_final_approval/code.html — main canvas only. */
+/** Admin STAGE 3 — Final Approval. Approve & move to Employee, or Reject the application. */
 
-export default function AdminFinalApproval({ application, onFinalHire, hireMessage }) {
+import { useState } from "react";
+import AdminDocumentPreviewModal from "@/components/admin/AdminDocumentPreviewModal";
+import EntityAvatar from "@/components/shared/EntityAvatar";
+import { resolveApplicationResumeUrl } from "@/utils/resolveApplicationResumeUrl";
+
+export default function AdminFinalApproval({ application, onFinalHire, onReject, hireMessage, rejectPending }) {
   const app = application || {};
+  const ob = app.onboarding || {};
+  const dossierUrl = resolveApplicationResumeUrl(app);
+  const [documentPreview, setDocumentPreview] = useState(null);
+  const finalSubmitted = Boolean(ob.finalSubmitted);
+  const canHire = finalSubmitted && !rejectPending;
+  const hireDisabledReason = !finalSubmitted
+    ? "Applicant must submit the onboarding checklist before you can approve."
+    : "";
 
   return (
     <main className="flex-1 px-8 py-12 bg-surface w-full max-w-full">
@@ -45,7 +58,19 @@ export default function AdminFinalApproval({ application, onFinalHire, hireMessa
           </p>
         </div>
         <div className="flex gap-4">
-          <button type="button" className="px-6 h-12 border border-outline-variant/30 text-primary font-bold text-sm tracking-tight rounded hover:bg-slate-50 transition-all">
+          <button
+            type="button"
+            disabled={!dossierUrl}
+            onClick={() => {
+              if (!dossierUrl) return;
+              setDocumentPreview({
+                url: dossierUrl,
+                title: "Application dossier (resume)",
+                fileName: `${(app.name || "Candidate").replace(/\s+/g, "_")}_Resume.pdf`,
+              });
+            }}
+            className="px-6 h-12 border border-outline-variant/30 text-primary font-bold text-sm tracking-tight rounded hover:bg-slate-50 transition-all disabled:cursor-not-allowed disabled:opacity-40"
+          >
             View Dossier
           </button>
         </div>
@@ -58,11 +83,7 @@ export default function AdminFinalApproval({ application, onFinalHire, hireMessa
               <span className="px-2 py-1 bg-green-100 text-green-800 text-[10px] font-bold rounded uppercase tracking-tighter">Verified</span>
             </div>
             <div className="flex items-center gap-4 mb-6">
-              <img
-                alt="Candidate Photo"
-                className="w-20 h-20 rounded-xl object-cover shadow-md"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDlj9mBwoOnyBeG8PFNWmkDwhW6XDoajMZGFq1P-3OAe6qeTwuIIdh6NemcPnCprND4tMEcEoj0eOAPrL3XYTDTcVsTDGS52y0uuOpKH6N5bJFY75YvL2_i7IDmASsRKzFaGJo8mRKOXwE5eee1DnGS0PmxgwFC7xH52n7aQsYl2CIH_6o71_pBvhFmomHcv_MxG0_cHscBOtDe-no-nvfwe2jx0DhE4jfREMDk9cFbl_bqqSPblDV_lJO8Mq1ll-AET-vXGnh8WEua"
-              />
+              <EntityAvatar name={app.name} size="profile" rounded="xl" className="shadow-md" />
               <div>
                 <h3 className="font-headline font-bold text-lg text-primary">{app.name || "—"}</h3>
                 <p className="text-sm text-on-surface-variant">{app.email || "—"}</p>
@@ -149,19 +170,30 @@ export default function AdminFinalApproval({ application, onFinalHire, hireMessa
               <button
                 type="button"
                 onClick={onFinalHire}
-                className="w-full h-14 bg-white text-primary-container font-black text-sm uppercase tracking-widest rounded shadow-xl hover:scale-[1.02] transition-transform active:scale-95 duration-200 flex items-center justify-center gap-2"
+                disabled={!canHire}
+                title={hireDisabledReason || undefined}
+                className="w-full h-14 bg-white text-primary-container font-black text-sm uppercase tracking-widest rounded shadow-xl hover:scale-[1.02] transition-transform active:scale-95 duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
               >
                 <span className="material-symbols-outlined">person_add</span>
                 Approve & Move to Employee
               </button>
               <button
                 type="button"
-                className="w-full h-14 bg-transparent border border-white/20 text-white font-bold text-sm uppercase tracking-widest rounded hover:bg-white/5 transition-all flex items-center justify-center gap-2"
+                onClick={() => {
+                  if (!onReject) return;
+                  if (!window.confirm(`Reject this application for ${app.name || "the applicant"}? This cannot be undone.`)) return;
+                  onReject();
+                }}
+                disabled={!onReject || rejectPending}
+                className="w-full h-14 bg-transparent border border-white/20 text-white font-bold text-sm uppercase tracking-widest rounded hover:bg-white/5 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="material-symbols-outlined text-lg">cancel</span>
-                Reject Application
+                {rejectPending ? "Rejecting…" : "Reject Application"}
               </button>
             </div>
+            {hireDisabledReason ? (
+              <p className="mt-3 text-[11px] text-white/80 italic">{hireDisabledReason}</p>
+            ) : null}
             {hireMessage ? <p className="mt-4 text-xs text-white/90">{hireMessage}</p> : null}
             <div className="mt-8 pt-8 border-t border-white/10">
               <div className="flex items-center gap-3">
@@ -194,6 +226,14 @@ export default function AdminFinalApproval({ application, onFinalHire, hireMessa
           </div>
         </div>
       </div>
+
+      <AdminDocumentPreviewModal
+        open={documentPreview != null}
+        onClose={() => setDocumentPreview(null)}
+        url={documentPreview?.url || ""}
+        title={documentPreview?.title || "Document preview"}
+        downloadFileName={documentPreview?.fileName}
+      />
     </main>
   );
 }

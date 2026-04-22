@@ -1,13 +1,11 @@
 import { Link } from "react-router-dom";
-import { getEmployeeFromStore } from "../employeeEmployeesStore";
-import { getEmployeeSessionId } from "../employeeSession";
+import { useAuthStore } from "../../../store/authStore";
 
 export default function EmployeeProfileChromeHeader() {
-  const id = getEmployeeSessionId();
-  const employee = id ? getEmployeeFromStore(id) : null;
-  const imageSrc = employee?.performance?.panelImage;
-  const line1 = employee?.name ?? "—";
-  const line2 = employee?.role ?? "Employee";
+  const { user } = useAuthStore();
+  const imageSrc = null;
+  const line1 = user?.name ?? "—";
+  const line2 = user?.role ?? "Employee";
 
   return (
     <header className="fixed top-0 right-0 z-40 flex h-16 w-[calc(100%-16rem)] items-center justify-between border-b border-slate-200/80 bg-slate-50/60 px-8 tonal-shift shadow-[0_40px_40px_0_rgba(0,6,21,0.04)] backdrop-blur-xl">

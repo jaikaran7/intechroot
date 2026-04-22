@@ -4,8 +4,8 @@ import Navbar from "./components/Navbar";
 import HomePage from "./pages/Home/HomePage";
 import CareersPage from "./pages/Careers/CareersPage";
 import ServicesPage from "./pages/Services/ServicesPage";
-import ApplyPage from "./pages/Apply/ApplyPage";
-const AdminLogin = lazy(() => import("./pages/Admin/AdminLogin"));
+import ApplyRedirect from "./pages/Apply/ApplyRedirect";
+const LoginPage = lazy(() => import("./pages/Auth/LoginPage"));
 const ProtectedAdmin = lazy(() => import("./components/ProtectedAdmin"));
 
 const ProtectedEmployee = lazy(() => import("./pages/Employee/components/ProtectedEmployee"));
@@ -69,7 +69,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/careers" element={<CareersPage />} />
           <Route path="/services" element={<ServicesPage />} />
-          <Route path="/apply" element={<ApplyPage />} />
+          <Route path="/apply" element={<ApplyRedirect />} />
           <Route path="/application-success" element={<ApplicationSubmittedPremiumSuccess />} />
           <Route path="/already-applied" element={<AlreadyAppliedPremiumPage />} />
           <Route path="/dashboard" element={<Navigate to="/applicant/dashboard" replace />} />
@@ -94,7 +94,8 @@ export default function App() {
           />
           <Route path="/about" element={<HomePage />} />
 
-          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/admin/login" element={<Navigate to="/login" replace />} />
           <Route
             path="/admin/*"
             element={

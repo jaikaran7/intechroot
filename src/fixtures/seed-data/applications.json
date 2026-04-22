@@ -1,0 +1,24 @@
+[
+  {
+    "referenceId": "ITR-SEED-001",
+    "name": "Alice Chen",
+    "email": "alice.chen@example.com",
+    "stage": "Profile Screening",
+    "stageIndex": 1
+  },
+  {
+    "referenceId": "ITR-SEED-002",
+    "name": "Bob Kim",
+    "email": "bob.kim@example.com",
+    "stage": "Client Interview",
+    "stageIndex": 3
+  },
+  {
+    "referenceId": "ITR-SEED-003",
+    "name": "Diana Ross",
+    "email": "diana.ross@example.com",
+    "stage": "Offer & Onboarding",
+    "stageIndex": 4,
+    "onboardingEnabled": true
+  }
+]

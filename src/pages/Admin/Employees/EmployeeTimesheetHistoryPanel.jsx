@@ -1,19 +1,31 @@
-import { useEffect, useMemo, useState } from "react";
-import { getEmployeeFromStore, subscribeEmployeesStore } from "@/pages/Employee/employeeEmployeesStore";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { timesheetsService } from "../../../services/timesheets.service";
+import { employeesService } from "../../../services/employees.service";
 
 /**
  * Timesheet history for one employee — embeds under Employee Details (no standalone chrome).
  */
 export default function EmployeeTimesheetHistoryPanel({ id }) {
-  const [storeVersion, setStoreVersion] = useState(0);
-  useEffect(() => subscribeEmployeesStore(() => setStoreVersion((v) => v + 1)), []);
+  const { data: employee = {} } = useQuery({
+    queryKey: ['employee', id],
+    queryFn: () => employeesService.getById(id),
+    staleTime: 60_000,
+    enabled: !!id,
+  });
 
-  const employee = useMemo(() => getEmployeeFromStore(id) || {}, [id, storeVersion]);
-  const timesheets = useMemo(
-    () =>
-      [...(employee.timesheets || [])].sort((a, b) => String(b.weekStart).localeCompare(String(a.weekStart))),
-    [employee],
-  );
+  const { data: tsData } = useQuery({
+    queryKey: ['timesheets', id],
+    queryFn: () => timesheetsService.getByEmployee(id, { limit: 100 }),
+    staleTime: 30_000,
+    enabled: !!id,
+  });
+
+  const timesheets = useMemo(() => {
+    const list = tsData?.data;
+    const arr = Array.isArray(list) ? [...list] : [];
+    return arr.sort((a, b) => String(b.weekStart).localeCompare(String(a.weekStart)));
+  }, [tsData]);
   const visibleTimesheets = timesheets;
   const totalRecords = timesheets.length;
   const showingStart = totalRecords === 0 ? 0 : 1;

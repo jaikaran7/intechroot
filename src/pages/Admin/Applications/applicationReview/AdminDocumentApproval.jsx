@@ -1,12 +1,9 @@
-/** Converted from application_process/admin_document_approval/code.html — content area only. */
+/** Admin STAGE 2 — Document Approval. Verify uploads, request new docs, save BGV link for the applicant. */
 
 import { useEffect, useState } from "react";
-import {
-  adminAddBgvRequest,
-  adminAddDocumentRequest,
-  adminSetBgvInstructions,
-  setOnboardingVerification,
-} from "@/data/applicationsStore";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { documentsService } from "@/services/documents.service";
+import { onboardingService } from "@/services/onboarding.service";
 import { onboardingVerificationBadge, uploadStatusBadge } from "@/components/shared/requiredDocumentBadges";
 import {
   documentIconWrapClass,
@@ -16,50 +13,105 @@ import {
   getApplicantDocumentRowState,
 } from "@/utils/applicantDocumentRows";
 import { hasUploadedFile, resolveDocVerification } from "@/utils/onboardingDocumentRules";
+import AdminDocumentPreviewModal from "@/components/admin/AdminDocumentPreviewModal";
+import EntityAvatar from "@/components/shared/EntityAvatar";
 
 const candidateIdLabel = (app) => (app?.id != null ? `#ITR-${String(app.id).padStart(5, "0")}` : "#ITR-—");
 
 export default function AdminDocumentApproval({ application, onApproveDocuments }) {
+  const queryClient = useQueryClient();
   const app = application || {};
   const ob = app.onboarding || {};
-  const adminBgv = app.adminBgvRequests || [];
+  const adminRequested = app.adminRequestedDocuments || [];
   const allDocRows = getAllDocumentTemplateRows(app);
-  const numericAppId = Number(app.id);
   const totalDocRows = allDocRows.length;
+
+  const invalidateApp = () => {
+    if (app.id) queryClient.invalidateQueries({ queryKey: ['application', app.id] });
+  };
+
+  const verifyDocumentMutation = useMutation({
+    mutationFn: ({ documentId, verification }) => documentsService.verify(documentId, verification),
+    onSuccess: invalidateApp,
+  });
+
+  const saveBgvMutation = useMutation({
+    mutationFn: (payload) => onboardingService.adminSetBgv(app.id, payload),
+    onSuccess: () => {
+      setActionMessage({ kind: "success", text: "BGV link saved for the candidate." });
+      invalidateApp();
+    },
+    onError: (err) => {
+      setActionMessage({
+        kind: "error",
+        text: err?.response?.data?.error?.message || "Failed to save BGV instructions.",
+      });
+    },
+  });
+
+  const requestDocumentMutation = useMutation({
+    mutationFn: (name) => onboardingService.adminRequestDocument(app.id, name),
+    onSuccess: () => {
+      setNewDocNameDraft("");
+      setIsDocRequestModalOpen(false);
+      setActionMessage({ kind: "success", text: "Document request added. The applicant will see it in their documents list." });
+      invalidateApp();
+    },
+    onError: (err) => {
+      setActionMessage({
+        kind: "error",
+        text: err?.response?.data?.error?.message || "Failed to request document.",
+      });
+    },
+  });
+
+  const deleteDocRequestMutation = useMutation({
+    mutationFn: (requestId) => onboardingService.adminDeleteDocumentRequest(app.id, requestId),
+    onSuccess: invalidateApp,
+  });
 
   const [bgvLinkDraft, setBgvLinkDraft] = useState(ob.bgvLink || "");
   const [bgvNoteDraft, setBgvNoteDraft] = useState(ob.bgvNote || "");
   const [isDocRequestModalOpen, setIsDocRequestModalOpen] = useState(false);
   const [newDocNameDraft, setNewDocNameDraft] = useState("");
-  const [isBgvRequestModalOpen, setIsBgvRequestModalOpen] = useState(false);
-  const [newBgvNameDraft, setNewBgvNameDraft] = useState("");
+  const [documentPreview, setDocumentPreview] = useState(null);
+  const [actionMessage, setActionMessage] = useState(null);
 
   useEffect(() => {
     setBgvLinkDraft(ob.bgvLink || "");
     setBgvNoteDraft(ob.bgvNote || "");
   }, [app.id, ob.bgvLink, ob.bgvNote]);
 
+  useEffect(() => {
+    if (!actionMessage) return undefined;
+    const t = window.setTimeout(() => setActionMessage(null), 4000);
+    return () => window.clearTimeout(t);
+  }, [actionMessage]);
+
   const handleSaveBgv = () => {
-    if (app.id == null) return;
-    adminSetBgvInstructions(app.id, { link: bgvLinkDraft, note: bgvNoteDraft });
+    if (!app.id) return;
+    saveBgvMutation.mutate({ bgvLink: bgvLinkDraft.trim(), bgvNote: bgvNoteDraft.trim() });
   };
 
   const handleSubmitNewDocumentRequest = () => {
-    if (app.id == null || !newDocNameDraft.trim()) return;
-    adminAddDocumentRequest(app.id, newDocNameDraft);
-    setNewDocNameDraft("");
-    setIsDocRequestModalOpen(false);
-  };
-
-  const handleSubmitNewBgvRequest = () => {
-    if (app.id == null || !newBgvNameDraft.trim()) return;
-    adminAddBgvRequest(app.id, newBgvNameDraft);
-    setNewBgvNameDraft("");
-    setIsBgvRequestModalOpen(false);
+    if (!app.id || !newDocNameDraft.trim()) return;
+    requestDocumentMutation.mutate(newDocNameDraft.trim());
   };
 
   return (
     <div className="p-10 max-w-7xl mx-auto w-full">
+      {actionMessage ? (
+        <div
+          className={`mb-6 rounded-xl px-6 py-3 text-sm font-semibold ${
+            actionMessage.kind === "error"
+              ? "bg-error-container/10 text-error border border-error/30"
+              : "bg-green-50 text-green-800 border border-green-200"
+          }`}
+          role={actionMessage.kind === "error" ? "alert" : "status"}
+        >
+          {actionMessage.text}
+        </div>
+      ) : null}
       <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-8">
         <div className="max-w-xl">
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-secondary mb-2 block">Application ID: {candidateIdLabel(app)}</span>
@@ -146,6 +198,7 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
               <tbody className="divide-y divide-surface-container">
                 {allDocRows.map((row) => {
                   const { stored, expiryValue, displayStatus, verification } = getApplicantDocumentRowState(app, row);
+                  const statusForBadge = displayStatus === "not_uploaded_neutral" ? "not_uploaded" : displayStatus;
                   const hasFile = hasUploadedFile(stored);
                   const v = verification;
                   const canApprove = hasFile && v !== "verified";
@@ -176,7 +229,7 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-5">{uploadStatusBadge(displayStatus)}</td>
+                      <td className="px-6 py-5">{uploadStatusBadge(statusForBadge)}</td>
                       <td className="px-6 py-5">
                         <span
                           className={`text-sm ${
@@ -197,7 +250,12 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
                             type="button"
                             disabled={!hasFile}
                             onClick={() => {
-                              if (hasFile) window.open(previewUrl, "_blank", "noopener,noreferrer");
+                              if (!hasFile) return;
+                              setDocumentPreview({
+                                url: previewUrl,
+                                title: row.label,
+                                fileName: stored?.fileName || `${row.label.replace(/\s+/g, "_")}.pdf`,
+                              });
                             }}
                             className="p-2 text-on-primary-container hover:bg-primary-container hover:text-white rounded transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
                             title="View"
@@ -206,11 +264,10 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
                           </button>
                           <button
                             type="button"
-                            disabled={!canApprove}
+                            disabled={!canApprove || !stored?.id || verifyDocumentMutation.isPending}
                             onClick={() => {
-                              if (Number.isFinite(numericAppId) && canApprove) {
-                                setOnboardingVerification(numericAppId, row.key, "verified");
-                              }
+                              if (!stored?.id || !canApprove) return;
+                              verifyDocumentMutation.mutate({ documentId: stored.id, verification: "verified" });
                             }}
                             className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             title="Approve"
@@ -221,11 +278,11 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
                           </button>
                           <button
                             type="button"
-                            disabled={!hasFile || v === "verified"}
+                            disabled={!hasFile || v === "verified" || !stored?.id || verifyDocumentMutation.isPending}
                             onClick={() => {
-                              if (Number.isFinite(numericAppId) && hasFile && v !== "verified") {
-                                setOnboardingVerification(numericAppId, row.key, "rejected");
-                              }
+                              if (!stored?.id || !hasFile || v === "verified") return;
+                              if (!window.confirm("Reject this document? The applicant can upload a new version.")) return;
+                              verifyDocumentMutation.mutate({ documentId: stored.id, verification: "rejected" });
                             }}
                             className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             title="Reject"
@@ -266,17 +323,6 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
               <span className="material-symbols-outlined text-secondary">policy</span>
               Background Verification
             </h2>
-            <button
-              type="button"
-              onClick={() => {
-                setNewBgvNameDraft("");
-                setIsBgvRequestModalOpen(true);
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-primary-container text-on-primary text-xs font-bold rounded hover:opacity-90 transition-all"
-            >
-              <span className="material-symbols-outlined text-sm">add</span>
-              Request New Verification
-            </button>
             </div>
             <div className="px-8 py-6 space-y-4">
             <p className="text-sm text-on-surface-variant leading-relaxed">
@@ -311,9 +357,10 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
               <button
                 type="button"
                 onClick={handleSaveBgv}
-                className="px-5 py-2.5 bg-primary-container text-on-primary text-xs font-bold rounded hover:opacity-90 transition-all"
+                disabled={saveBgvMutation.isPending}
+                className="px-5 py-2.5 bg-primary-container text-on-primary text-xs font-bold rounded hover:opacity-90 transition-all disabled:opacity-50"
               >
-                Save for candidate
+                {saveBgvMutation.isPending ? "Saving…" : "Save for candidate"}
               </button>
               {ob.bgvLink?.trim() ? (
                 <span className="text-xs text-on-surface-variant">Link on file · updates apply when the candidate opens step 3.</span>
@@ -321,19 +368,32 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
                 <span className="text-xs text-amber-800">No link saved yet — the candidate page shows default text until you save.</span>
               )}
             </div>
-            {adminBgv.length > 0 ? (
+            {adminRequested.length > 0 ? (
               <div className="border-t border-surface-container pt-5 mt-2">
                 <p className="text-[10px] font-extrabold uppercase tracking-widest text-on-surface-variant mb-3">
-                  Additional verification requests
+                  Admin-requested additional documents
                 </p>
                 <ul className="space-y-2">
-                  {adminBgv.map((r) => (
+                  {adminRequested.map((r) => (
                     <li
                       key={r.id}
-                      className="flex items-center gap-2 text-sm text-primary font-medium bg-surface-container-low/80 rounded-lg px-4 py-2 border border-outline-variant/15"
+                      className="flex items-center justify-between gap-3 text-sm text-primary font-medium bg-surface-container-low/80 rounded-lg px-4 py-2 border border-outline-variant/15"
                     >
-                      <span className="material-symbols-outlined text-secondary text-lg">verified_user</span>
-                      {r.name}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="material-symbols-outlined text-secondary text-lg">assignment_add</span>
+                        <span className="truncate">{r.name}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!window.confirm("Remove this document request? The applicant will no longer see it.")) return;
+                          deleteDocRequestMutation.mutate(r.id);
+                        }}
+                        disabled={deleteDocRequestMutation.isPending}
+                        className="text-[10px] font-bold text-error hover:underline disabled:opacity-40"
+                      >
+                        Remove
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -371,11 +431,7 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
             </button>
           </div>
           <div className="bg-surface-container-lowest border border-outline-variant/10 p-1">
-            <img
-              alt="Candidate"
-              className="w-full h-32 object-cover"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDYPTWLaomyvdp1M1yMwr12TU5L9Y9GUDS9gyCzIHRwQRLDF5mHTigvO0expu6nyqivxHYmpzz1a6CLGpHQnphfXAKMf8_OgdaQGQyUFwdGW5v2eGKJPSytmDn8exsRyfO9xP0nR_H_1Nc8Di71R2ZkpeO_b_kQpfAunxhvL2kOt0aF1ZBkNuFoj23UPfH1unOlmCcVuZyO6_Tc_sPcrOKzu1dnD8md5nzsp5uvjjqwzKjr5gzSHQnt3O1-yx9-96WUm4LloAMx3kAO"
-            />
+            <EntityAvatar name={app.name} size="hero" rounded="xl" className="mx-auto w-full max-w-[12rem]" />
             <div className="p-4">
               <p className="text-xs font-bold text-primary">{app.name || "—"}</p>
               <p className="text-[10px] text-on-surface-variant">{app.email || "—"}</p>
@@ -442,51 +498,23 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
               <button
                 type="button"
                 className="px-4 py-2 text-xs font-bold bg-primary-container text-white rounded-lg disabled:opacity-40"
-                disabled={!newDocNameDraft.trim()}
+                disabled={!newDocNameDraft.trim() || requestDocumentMutation.isPending}
                 onClick={handleSubmitNewDocumentRequest}
               >
-                Add request
+                {requestDocumentMutation.isPending ? "Adding…" : "Add request"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {isBgvRequestModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/20 backdrop-blur-md">
-          <div className="glass-card rounded-xl p-6 w-[min(92vw,32rem)] border border-white/30 shadow-2xl">
-            <h4 className="text-lg font-bold text-primary mb-3">Request new verification</h4>
-            <p className="text-xs text-on-surface-variant mb-3">
-              Enter a short name for the verification step. It appears for the candidate on onboarding step 3 right away.
-            </p>
-            <input
-              type="text"
-              className="w-full bg-white border border-slate-200 rounded p-3 text-sm focus:ring-0 focus:outline-none focus:ring-2 focus:ring-tertiary-fixed-dim/30"
-              placeholder="e.g. Employment history check"
-              value={newBgvNameDraft}
-              onChange={(e) => setNewBgvNameDraft(e.target.value)}
-              autoFocus
-            />
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                className="px-4 py-2 text-xs font-bold border border-slate-200 rounded-lg"
-                onClick={() => setIsBgvRequestModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="px-4 py-2 text-xs font-bold bg-primary-container text-white rounded-lg disabled:opacity-40"
-                disabled={!newBgvNameDraft.trim()}
-                onClick={handleSubmitNewBgvRequest}
-              >
-                Add request
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AdminDocumentPreviewModal
+        open={documentPreview != null}
+        onClose={() => setDocumentPreview(null)}
+        url={documentPreview?.url || ""}
+        title={documentPreview?.title || "Document preview"}
+        downloadFileName={documentPreview?.fileName}
+      />
     </div>
   );
 }

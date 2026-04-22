@@ -7,6 +7,9 @@ export const onboardingService = {
   submitProfile: (applicationId, data) =>
     api.patch(`/onboarding/${applicationId}/profile`, data).then((r) => r.data.data),
 
+  patchProfile: (applicationId, data) =>
+    api.patch(`/onboarding/${applicationId}/profile/partial`, data).then((r) => r.data.data),
+
   submitDocuments: (applicationId) =>
     api.patch(`/onboarding/${applicationId}/documents`).then((r) => r.data.data),
 
@@ -20,8 +23,14 @@ export const onboardingService = {
   enableOnboarding: (applicationId) =>
     api.post(`/onboarding/${applicationId}/admin/enable`).then((r) => r.data.data),
 
+  adminApproveProfile: (applicationId) =>
+    api.patch(`/onboarding/${applicationId}/admin/profile/approve`).then((r) => r.data.data),
+
   adminRequestDocument: (applicationId, name) =>
     api.post(`/onboarding/${applicationId}/admin/documents/request`, { name }).then((r) => r.data.data),
+
+  adminDeleteDocumentRequest: (applicationId, requestId) =>
+    api.delete(`/onboarding/${applicationId}/admin/documents/request/${requestId}`).then((r) => r.data.data),
 
   adminApproveDocuments: (applicationId) =>
     api.patch(`/onboarding/${applicationId}/admin/documents/approve`).then((r) => r.data.data),

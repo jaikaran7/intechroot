@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { getEmployeeFromStore, subscribeEmployeesStore } from "./employeeEmployeesStore";
-import { getEmployeeSessionId } from "./employeeSession";
+import { useQuery } from "@tanstack/react-query";
+import { useAuthStore } from "../../store/authStore";
+import { employeesService } from "../../services/employees.service";
+import { timesheetsService } from "../../services/timesheets.service";
 import { addDaysISO, calculateTotal, formatTimesheetRangeLabel, getWeekStartISO, parseYMD } from "./timesheetUtils";
 
 function documentStatusLabel(expiryDateStr) {
@@ -18,27 +20,43 @@ function documentStatusLabel(expiryDateStr) {
 }
 
 export default function EmployeeDashboard() {
-  const id = getEmployeeSessionId();
-  const [storeVersion, setStoreVersion] = useState(0);
-  useEffect(() => subscribeEmployeesStore(() => setStoreVersion((v) => v + 1)), []);
-  const employee = useMemo(() => (id ? getEmployeeFromStore(id) : null), [id, storeVersion]);
+  const { employeeId } = useAuthStore();
+
+  const { data: employee } = useQuery({
+    queryKey: ['employee', employeeId],
+    queryFn: () => employeesService.getById(employeeId),
+    staleTime: 120_000,
+    enabled: !!employeeId,
+  });
+
+  const { data: tsData } = useQuery({
+    queryKey: ['timesheets', employeeId],
+    queryFn: () => timesheetsService.getByEmployee(employeeId, { limit: 10 }),
+    staleTime: 30_000,
+    enabled: !!employeeId,
+  });
+
+  const timesheets = useMemo(() => {
+    const list = tsData?.data;
+    return Array.isArray(list) ? list : [];
+  }, [tsData]);
 
   const currentWeekStart = useMemo(() => getWeekStartISO(new Date()), []);
   const weekTs = useMemo(() => {
-    const list = employee?.timesheets ?? [];
-    return list.find((t) => getWeekStartISO(t.weekStart) === currentWeekStart) ?? list[0];
-  }, [employee, currentWeekStart]);
+    return timesheets.find((t) => getWeekStartISO(t.weekStart) === currentWeekStart) ?? timesheets[0];
+  }, [timesheets, currentWeekStart]);
 
   const hours = useMemo(() => {
     const wd = weekTs?.weekData ?? {};
+    const n = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v));
     return {
-      mon: Number(wd.mon ?? 8.5),
-      tue: Number(wd.tue ?? 8),
-      wed: Number(wd.wed ?? 9),
-      thu: Number(wd.thu ?? 7.5),
-      fri: Number(wd.fri ?? 7.5),
-      sat: Number(wd.sat ?? 0),
-      sun: Number(wd.sun ?? 0),
+      mon: n(wd.mon),
+      tue: n(wd.tue),
+      wed: n(wd.wed),
+      thu: n(wd.thu),
+      fri: n(wd.fri),
+      sat: n(wd.sat),
+      sun: n(wd.sun),
     };
   }, [weekTs]);
 
@@ -47,16 +65,16 @@ export default function EmployeeDashboard() {
 
   const totalWeek = useMemo(() => calculateTotal(hours), [hours]);
   const pendingCount = useMemo(
-    () => (employee?.timesheets ?? []).filter((t) => t.status === "Pending" || t.status === "Draft").length,
-    [employee],
+    () => timesheets.filter((t) => t.status === "Pending" || t.status === "Draft").length,
+    [timesheets],
   );
   const approvedCount = useMemo(
-    () => (employee?.timesheets ?? []).filter((t) => t.status === "Approved").length,
-    [employee],
+    () => timesheets.filter((t) => t.status === "Approved").length,
+    [timesheets],
   );
 
   const deadlinesCount = useMemo(() => {
-    const docs = employee?.documents ?? [];
+    const docs = [];
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     const soon = new Date(now);
@@ -88,14 +106,11 @@ export default function EmployeeDashboard() {
   const loc = employee?.personal?.address?.split(",").slice(-2).join(",").trim() ?? "London, UK";
 
   const recentTs = useMemo(() => {
-    return [...(employee?.timesheets ?? [])]
+    return [...timesheets]
       .sort((a, b) => String(b.weekStart).localeCompare(String(a.weekStart)))
       .slice(0, 5);
-  }, [employee]);
-  const recentDoc = useMemo(() => {
-    const docs = [...(employee?.documents ?? [])];
-    return docs[0];
-  }, [employee]);
+  }, [timesheets]);
+  const recentDoc = null;
 
   return (
     <main className="ml-64 pt-16 min-h-screen bg-surface flex flex-col md:flex-row">

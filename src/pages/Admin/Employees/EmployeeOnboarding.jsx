@@ -1,7 +1,10 @@
 import { useNavigate } from "react-router-dom";
+import EntityAvatar from "@/components/shared/EntityAvatar";
+import { useAuthStore } from "@/store/authStore";
 
 export default function EmployeeOnboarding() {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
 
   return (
     <>
@@ -18,10 +21,12 @@ export default function EmployeeOnboarding() {
       <div className="h-8 w-[1px] bg-outline-variant/30"></div>
       <div className="flex items-center gap-3">
       <div className="text-right">
-      <p className="text-xs font-bold text-primary">Administrator</p>
-      <p className="text-[10px] text-outline">Global Ops</p>
+      <p className="text-xs font-bold text-primary">{user?.name || "Admin"}</p>
+      <p className="text-[10px] text-outline">
+        {(user?.role && String(user.role).replace(/_/g, " ")) || "Administrator"}
+      </p>
       </div>
-      <img alt="Administrator Profile" className="w-9 h-9 rounded-full object-cover border border-outline-variant/20" data-alt="Close-up portrait of a professional male administrator in a modern office setting with soft natural lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA16rmLj8L2rjgNHfzdNilYqK1ifn_PnPkmBsmzxvX-cH9uulhwS2oZU5-QmNle3LC5__ALlSfOZ3AQAJKv0MFyyq1DxniLaXaIfzdeadoU-4C2oq6Op1HlVRo96X4GsaHFssljN5oGu3z5MF1BCpPSNzHLs2chMvLZKXiOYavqHqsmaVoUWU8IJat6egH7ikSnp6KsYxCaNgm4eU8zoZw7o34AU6WiZQpVnglqVhfd2CzQZNvjyTH_0lrzuih3IiRxhBka9DGafMil"/>
+      <EntityAvatar name={user?.name || user?.email || "Admin"} size="sm" className="border border-outline-variant/20" />
       </div>
       </div>
       </header>

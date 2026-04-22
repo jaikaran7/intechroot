@@ -1,14 +1,9 @@
-import { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { setApplicantSession } from "@/pages/Applicant/applicantSession";
 import "./premiumApplyScreens.css";
 
 export default function ApplicationSubmittedPremiumSuccess() {
   const location = useLocation();
-  useEffect(() => {
-    const applicantId = location.state?.applicantId;
-    if (applicantId != null) setApplicantSession(applicantId);
-  }, [location.state?.applicantId]);
+  const fromApply = Boolean(location.state?.fromApply);
   const reference = location.state?.referenceId || location.state?.reference || "MONO-7729-QX";
   const submittedAt =
     location.state?.submittedAtLabel ||
@@ -51,8 +46,16 @@ export default function ApplicationSubmittedPremiumSuccess() {
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0061FF] to-[#60EFFF]">Received.</span>
               </h1>
               <p className="text-[#425466] text-lg leading-relaxed max-w-md mx-auto">
-                Your journey with Azure Meridian starts here. We&apos;ve received your submission and our team is already reviewing it.
+                We&apos;ve received your submission. An administrator will review your application first. You will{" "}
+                <strong>not</strong> have portal access until you receive our approval email with your login link and
+                temporary password.
               </p>
+              {fromApply ? (
+                <p className="text-[#425466] text-sm leading-relaxed max-w-md mx-auto mt-3 rounded-lg bg-white/60 border border-slate-200/80 px-4 py-3">
+                  Watch your inbox for that message. It will also remind you to upload documents when asked, check interview
+                  links, and read messages for updates.
+                </p>
+              ) : null}
             </div>
 
             <div className="w-full max-w-md mb-12 px-4">
@@ -83,17 +86,18 @@ export default function ApplicationSubmittedPremiumSuccess() {
 
             <div className="flex flex-col sm:flex-row items-center gap-4 w-full justify-center">
               <Link
-                to="/dashboard"
-                className="premium-button w-full sm:w-auto px-10 py-4 bg-[#0A2540] text-white font-semibold rounded-xl hover:shadow-xl hover:shadow-[#0A2540]/20 transition-all duration-300 flex items-center justify-center gap-2 group/btn"
+                to="/applicant/login"
+                className="w-full sm:w-auto px-8 py-4 text-[#425466] font-semibold hover:text-[#0A2540] transition-colors duration-200 border border-slate-200 hover:border-slate-300 rounded-xl text-center"
               >
-                Go to Dashboard
-                <span className="material-symbols-outlined text-lg transition-transform group-hover/btn:translate-x-1">arrow_forward</span>
+                Applicant sign-in
+                <span className="block text-xs font-normal text-[#425466]/80 mt-1">Use this only after you receive the approval email</span>
               </Link>
               <Link
                 to="/careers"
-                className="w-full sm:w-auto px-8 py-4 text-[#425466] font-semibold hover:text-[#0A2540] transition-colors duration-200 border border-slate-200 hover:border-slate-300 rounded-xl"
+                className="premium-button w-full sm:w-auto px-10 py-4 bg-[#0A2540] text-white font-semibold rounded-xl hover:shadow-xl hover:shadow-[#0A2540]/20 transition-all duration-300 flex items-center justify-center gap-2 group/btn"
               >
                 Back to Careers
+                <span className="material-symbols-outlined text-lg transition-transform group-hover/btn:translate-x-1">arrow_forward</span>
               </Link>
             </div>
 

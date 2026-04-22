@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import EmployeeBentoProfile from "@/components/EmployeeBentoProfile";
-import { getEmployeeById } from "@/fixtures/catalog";
 import { buildProfileFormState } from "@/utils/employeeProfileFormState";
+import { employeesService } from "../../../services/employees.service";
+import PageSkeleton from "../../../components/PageSkeleton";
+import ErrorState from "../../../components/ErrorState";
 import EmployeeTimesheetHistoryPanel from "./EmployeeTimesheetHistoryPanel";
 export default function EmployeeDetails() {
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { id } = useParams();
   const profileRoute = `/admin/employees/${id}`;
   const timesheetsRoute = `/admin/employees/${id}/timesheets`;
@@ -21,10 +25,24 @@ export default function EmployeeDetails() {
       ? activeTopTabClass
       : inactiveTopTabClass;
 
-  const employee = getEmployeeById(id) || {};
-  const initialFormData = buildProfileFormState(employee);
-  const [formData, setFormData] = useState(initialFormData);
-  const [savedFormData, setSavedFormData] = useState(initialFormData);
+  const { data: employee = {}, isLoading, isError, refetch } = useQuery({
+    queryKey: ['employee', id],
+    queryFn: () => employeesService.getById(id),
+    staleTime: 60_000,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (data) => employeesService.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employee', id] });
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      setIsEditMode(false);
+      setShowSavePopup(true);
+    },
+  });
+
+  const [formData, setFormData] = useState({});
+  const [savedFormData, setSavedFormData] = useState({});
   const [showSavePopup, setShowSavePopup] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
 
@@ -39,11 +57,11 @@ export default function EmployeeDetails() {
   }, [showSavePopup]);
 
   useEffect(() => {
-    const next = buildProfileFormState(getEmployeeById(id) || {});
+    const next = buildProfileFormState(employee);
     setFormData(next);
     setSavedFormData(next);
     setIsEditMode(false);
-  }, [id]);
+  }, [employee]);
 
   const updateField = (field, value) => {
     setFormData((previous) => ({ ...previous, [field]: value }));
@@ -70,8 +88,7 @@ export default function EmployeeDetails() {
       return;
     }
     setSavedFormData(formData);
-    setIsEditMode(false);
-    setShowSavePopup(true);
+    saveMutation.mutate(formData);
   };
   const formatDateValue = (value) => {
     if (!value) {
@@ -83,6 +100,10 @@ export default function EmployeeDetails() {
     }
     return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
+
+  if (isLoading) return <PageSkeleton />;
+  if (isError) return <ErrorState message="Failed to load employee." onRetry={refetch} />;
+
   return (
     <>
       <main className="relative ml-64 flex min-h-screen flex-col bg-surface network-motif">

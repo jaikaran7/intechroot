@@ -1,78 +1,147 @@
 import { useEffect, useState } from "react";
 
+const CUSTOM = "__CUSTOM__";
+
+const ROLE_CATEGORY_PRESETS = [
+  "Engineering",
+  "Design",
+  "Frontend",
+  "Infrastructure",
+  "Product Design",
+  "Data",
+  "Security",
+  "Management",
+];
+
+const EXPERIENCE_PRESETS = ["0-1 years", "1-2 years", "1-3 years", "3-5 years", "5-8 years", "8+ years"];
+
 const emptyForm = {
   title: "",
-  category: "",
-  seniority: "",
+  roleCategorySelect: "",
+  categoryCustom: "",
+  experienceSelect: "",
+  experienceCustom: "",
   location: "",
   employment: "Full-time",
   salary: "",
   description: "",
+  status: "Active",
+  featured: false,
 };
+
+function jobTypeFromApi(job) {
+  if (!job) return "Full-time";
+  const jt = job.jobType || job.type;
+  if (jt === "Contract" || job.contract === "Consulting") return "Contract";
+  return "Full-time";
+}
+
+function splitCategoryFromJob(job) {
+  const cat = (job?.category || "").trim();
+  if (!cat) return { roleCategorySelect: "", categoryCustom: "" };
+  if (ROLE_CATEGORY_PRESETS.includes(cat)) return { roleCategorySelect: cat, categoryCustom: "" };
+  return { roleCategorySelect: CUSTOM, categoryCustom: cat };
+}
+
+function splitExperienceFromJob(job) {
+  const exp = (job?.experience || job?.seniority || "").trim();
+  if (!exp) return { experienceSelect: "", experienceCustom: "" };
+  if (EXPERIENCE_PRESETS.includes(exp)) return { experienceSelect: exp, experienceCustom: "" };
+  return { experienceSelect: CUSTOM, experienceCustom: exp };
+}
 
 function formFromJob(job) {
   if (!job) return { ...emptyForm };
-  const isContract = job.type === "Contract" || job.contract === "Consulting";
+  const { roleCategorySelect, categoryCustom } = splitCategoryFromJob(job);
+  const { experienceSelect, experienceCustom } = splitExperienceFromJob(job);
   return {
+    ...emptyForm,
     title: job.title || "",
-    category: job.category || "",
-    seniority: job.seniority || "",
+    roleCategorySelect,
+    categoryCustom,
+    experienceSelect,
+    experienceCustom,
     location: job.location || "",
-    employment: isContract ? "Contract" : "Full-time",
+    employment: jobTypeFromApi(job),
     salary: job.salary || "",
     description: job.description || "",
+    status: job.status === "Active" || job.status === "Draft" || job.status === "Closed" ? job.status : "Draft",
+    featured: Boolean(job.featured),
   };
 }
 
 export default function CreateJobModal({ editingJob, onClose, onSave }) {
   const [createForm, setCreateForm] = useState(() => formFromJob(editingJob));
   const [createSkills, setCreateSkills] = useState(() =>
-    editingJob?.skills?.length ? [...editingJob.skills] : [],
+    Array.isArray(editingJob?.skills) && editingJob.skills.length ? [...editingJob.skills] : [],
   );
   const [skillInput, setSkillInput] = useState("");
+  const [createRequirements, setCreateRequirements] = useState(() =>
+    Array.isArray(editingJob?.requirements) && editingJob.requirements.length ? [...editingJob.requirements] : [],
+  );
+  const [requirementInput, setRequirementInput] = useState("");
 
   useEffect(() => {
     setCreateForm(formFromJob(editingJob));
-    setCreateSkills(editingJob?.skills?.length ? [...editingJob.skills] : []);
+    setCreateSkills(Array.isArray(editingJob?.skills) && editingJob.skills.length ? [...editingJob.skills] : []);
     setSkillInput("");
+    setCreateRequirements(
+      Array.isArray(editingJob?.requirements) && editingJob.requirements.length ? [...editingJob.requirements] : [],
+    );
+    setRequirementInput("");
   }, [editingJob]);
 
-  const addSkillFromInput = () => {
+  const flushSkillFromInput = () => {
     const next = skillInput.trim();
     if (!next) return;
     setCreateSkills((prev) => (prev.includes(next) ? prev : [...prev, next]));
     setSkillInput("");
   };
 
+  const flushRequirementFromInput = () => {
+    const next = requirementInput.trim();
+    if (!next) return;
+    setCreateRequirements((prev) => (prev.includes(next) ? prev : [...prev, next]));
+    setRequirementInput("");
+  };
+
   const buildPayload = () => {
     const title = createForm.title.trim();
     if (!title) return null;
 
-    const category = createForm.category.trim() || "Engineering";
-    const seniority = createForm.seniority.trim() || "Senior (5-10 yrs)";
+    const category =
+      createForm.roleCategorySelect === CUSTOM
+        ? createForm.categoryCustom.trim() || "Engineering"
+        : createForm.roleCategorySelect.trim() || "Engineering";
+
+    const experienceBand =
+      createForm.experienceSelect === CUSTOM
+        ? createForm.experienceCustom.trim() || "3-5 years"
+        : createForm.experienceSelect.trim() || "3-5 years";
+
     const location = createForm.location.trim() || "Remote";
     const salary = createForm.salary.trim() || "TBD";
     const isContract = createForm.employment === "Contract";
+    const status =
+      createForm.status === "Active" || createForm.status === "Draft" || createForm.status === "Closed"
+        ? createForm.status
+        : "Draft";
 
     return {
       title,
       sector: category,
       category,
-      seniority,
+      seniority: experienceBand,
       contract: isContract ? "Consulting" : "Permanent",
-      type: isContract ? "Contract" : "Full-time",
+      jobType: isContract ? "Contract" : "Full-time",
       location,
       salary,
       description: createForm.description.trim() || "",
-      requirements: editingJob?.requirements?.length ? [...editingJob.requirements] : [],
-      skills: createSkills.length > 0 ? [...createSkills] : ["General"],
-      icon: editingJob?.icon || "work",
-      experience: seniority,
-      badge: editingJob?.badge || "Active",
-      badgeClass: editingJob?.badgeClass || "bg-primary-container/10 text-primary",
-      meta: [location, isContract ? "Contract" : "Full-time", salary],
-      metaIcons: ["location_on", "schedule", "payments"],
-      postedDate: editingJob?.postedDate || new Date().toISOString().slice(0, 10),
+      requirements: [...createRequirements],
+      skills: createSkills.length > 0 ? [...createSkills] : [],
+      experience: experienceBand,
+      status,
+      featured: Boolean(createForm.featured),
     };
   };
 
@@ -111,30 +180,55 @@ export default function CreateJobModal({ editingJob, onClose, onSave }) {
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-on-surface-variant mb-1.5 block text-[11px] font-bold uppercase tracking-wider">Role Category</label>
+            <div className="min-w-0">
+              <label className="text-on-surface-variant mb-1.5 block text-[11px] font-bold uppercase tracking-wider">Role category</label>
               <select
                 className="focus:ring-tertiary-fixed-dim w-full rounded-lg border-none bg-surface-container-low px-4 py-3 text-sm focus:ring-1"
-                value={createForm.category}
-                onChange={(e) => setCreateForm((f) => ({ ...f, category: e.target.value }))}
+                value={createForm.roleCategorySelect}
+                onChange={(e) => setCreateForm((f) => ({ ...f, roleCategorySelect: e.target.value }))}
               >
-                <option value="">Select...</option>
-                <option value="Engineering">Engineering</option>
-                <option value="Design">Design</option>
-                <option value="Management">Management</option>
+                <option value="">Select…</option>
+                {ROLE_CATEGORY_PRESETS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+                <option value={CUSTOM}>Custom…</option>
               </select>
+              {createForm.roleCategorySelect === CUSTOM ? (
+                <input
+                  className="focus:ring-tertiary-fixed-dim mt-2 w-full rounded-lg border-none bg-surface-container-low px-4 py-2.5 text-sm focus:ring-1"
+                  placeholder="e.g. Solutions Architecture"
+                  type="text"
+                  value={createForm.categoryCustom}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, categoryCustom: e.target.value }))}
+                />
+              ) : null}
             </div>
-            <div>
-              <label className="text-on-surface-variant mb-1.5 block text-[11px] font-bold uppercase tracking-wider">Seniority</label>
+            <div className="min-w-0">
+              <label className="text-on-surface-variant mb-1.5 block text-[11px] font-bold uppercase tracking-wider">Experience (years)</label>
               <select
                 className="focus:ring-tertiary-fixed-dim w-full rounded-lg border-none bg-surface-container-low px-4 py-3 text-sm focus:ring-1"
-                value={createForm.seniority}
-                onChange={(e) => setCreateForm((f) => ({ ...f, seniority: e.target.value }))}
+                value={createForm.experienceSelect}
+                onChange={(e) => setCreateForm((f) => ({ ...f, experienceSelect: e.target.value }))}
               >
-                <option value="">Select...</option>
-                <option value="Senior (5-10 yrs)">Senior (5-10 yrs)</option>
-                <option value="Executive (10+ yrs)">Executive (10+ yrs)</option>
+                <option value="">Select…</option>
+                {EXPERIENCE_PRESETS.map((x) => (
+                  <option key={x} value={x}>
+                    {x}
+                  </option>
+                ))}
+                <option value={CUSTOM}>Custom…</option>
               </select>
+              {createForm.experienceSelect === CUSTOM ? (
+                <input
+                  className="focus:ring-tertiary-fixed-dim mt-2 w-full rounded-lg border-none bg-surface-container-low px-4 py-2.5 text-sm focus:ring-1"
+                  placeholder="e.g. 10-12 years"
+                  type="text"
+                  value={createForm.experienceCustom}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, experienceCustom: e.target.value }))}
+                />
+              ) : null}
             </div>
           </div>
         </div>
@@ -181,67 +275,133 @@ export default function CreateJobModal({ editingJob, onClose, onSave }) {
         </div>
 
         <div>
-          <label className="text-on-surface-variant mb-1.5 block text-[11px] font-bold uppercase tracking-wider">Responsibilities</label>
+          <label className="text-on-surface-variant mb-1.5 block text-[11px] font-bold uppercase tracking-wider">Publish status</label>
+          <p className="text-on-surface-variant mb-2 text-[10px] leading-relaxed">Active jobs appear on the public careers page. Draft and Closed are hidden.</p>
+          <select
+            className="focus:ring-tertiary-fixed-dim w-full rounded-lg border-none bg-surface-container-low px-4 py-3 text-sm focus:ring-1"
+            value={createForm.status}
+            onChange={(e) => setCreateForm((f) => ({ ...f, status: e.target.value }))}
+          >
+            <option value="Active">Active — live on careers</option>
+            <option value="Draft">Draft — internal only</option>
+            <option value="Closed">Closed — not accepting applications</option>
+          </select>
+        </div>
+
+        <label className="bg-surface-container-low flex cursor-pointer items-center justify-between gap-4 rounded-lg p-4 ring-1 ring-outline-variant/10">
+          <div>
+            <span className="text-xs font-bold text-primary">Featured on careers</span>
+            <p className="text-on-surface-variant mt-0.5 max-w-[22rem] text-[10px] leading-relaxed">
+              When enabled, this role is highlighted in the &quot;Architectural Strategic Roles&quot; strip (up to six featured roles).
+            </p>
+          </div>
+          <input
+            checked={createForm.featured}
+            className="h-5 w-5 shrink-0 rounded border-outline-variant text-secondary focus:ring-secondary/30"
+            type="checkbox"
+            onChange={(e) => setCreateForm((f) => ({ ...f, featured: e.target.checked }))}
+          />
+        </label>
+
+        <div>
+          <label className="text-on-surface-variant mb-1.5 block text-[11px] font-bold uppercase tracking-wider">Job description</label>
           <textarea
             className="focus:ring-tertiary-fixed-dim w-full resize-none rounded-lg border-none bg-surface-container-low px-4 py-3 text-sm focus:ring-1"
-            placeholder="Describe the day-to-day impact of this role..."
-            rows={4}
+            placeholder="Describe the role, impact, and what success looks like…"
+            rows={5}
             value={createForm.description}
             onChange={(e) => setCreateForm((f) => ({ ...f, description: e.target.value }))}
           />
         </div>
+
         <div>
-          <label className="text-on-surface-variant mb-1.5 block text-[11px] font-bold uppercase tracking-wider">Skills (Tags)</label>
-          <div className="bg-surface-container-low flex min-h-[44px] flex-wrap items-center gap-2 rounded-lg p-2">
-            {createSkills.map((skill) => (
+          <label className="text-on-surface-variant mb-1.5 block text-[11px] font-bold uppercase tracking-wider">Key requirements</label>
+          <p className="text-on-surface-variant mb-2 text-[10px]">Bullet-style expectations (e.g. certifications, stack, clearance). Enter or Add for each line.</p>
+          <div className="bg-surface-container-low flex min-h-[48px] flex-wrap items-center gap-2 rounded-lg p-2 ring-1 ring-outline-variant/10">
+            {createRequirements.map((req) => (
               <span
-                key={skill}
-                className="border-outline-variant/30 flex items-center gap-1 rounded border bg-white px-2 py-1 text-xs font-medium"
+                key={req}
+                className="border-outline-variant/30 inline-flex max-w-full items-center gap-1 rounded border bg-white px-2 py-1 text-xs font-medium"
               >
-                {skill}{" "}
-                <span
-                  className="material-symbols-outlined cursor-pointer text-[14px]"
-                  data-icon="close"
-                  role="presentation"
-                  onClick={() => setCreateSkills((prev) => prev.filter((s) => s !== skill))}
+                <span className="truncate">{req}</span>
+                <button
+                  type="button"
+                  className="material-symbols-outlined flex h-5 w-5 shrink-0 items-center justify-center rounded text-[14px] text-on-surface-variant hover:bg-surface-container"
+                  aria-label={`Remove ${req}`}
+                  onClick={() => setCreateRequirements((prev) => prev.filter((r) => r !== req))}
                 >
                   close
-                </span>
+                </button>
               </span>
             ))}
-            <input
-              className="min-w-[60px] flex-1 border-none bg-transparent p-0 text-sm focus:ring-0"
-              placeholder="Add skill..."
-              type="text"
-              value={skillInput}
-              onChange={(e) => setSkillInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addSkillFromInput();
-                }
-              }}
-            />
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <input
+                className="min-w-0 flex-1 border-none bg-transparent px-2 py-2 text-sm focus:ring-0"
+                placeholder="Type a requirement…"
+                type="text"
+                value={requirementInput}
+                onChange={(e) => setRequirementInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    flushRequirementFromInput();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="shrink-0 rounded-lg bg-primary-container px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white hover:opacity-90"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={flushRequirementFromInput}
+              >
+                Add
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="space-y-3 pt-2">
-          <div className="bg-surface-container-low flex items-center justify-between rounded-lg p-3">
-            <div className="flex flex-col">
-              <span className="text-xs font-bold text-primary">Featured Job</span>
-              <span className="text-on-surface-variant text-[10px]">Pin to the top of careers page</span>
-            </div>
-            <div className="bg-tertiary-fixed-dim relative h-5 w-10 cursor-pointer rounded-full">
-              <div className="absolute right-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm"></div>
-            </div>
-          </div>
-          <div className="bg-surface-container-low flex items-center justify-between rounded-lg p-3">
-            <div className="flex flex-col">
-              <span className="text-xs font-bold text-primary">Publish Status</span>
-              <span className="text-on-surface-variant text-[10px]">Immediately visible to candidates</span>
-            </div>
-            <div className="bg-outline-variant/30 relative h-5 w-10 cursor-pointer rounded-full">
-              <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm"></div>
+        <div>
+          <label className="text-on-surface-variant mb-1.5 block text-[11px] font-bold uppercase tracking-wider">Skills (tags)</label>
+          <p className="text-on-surface-variant mb-2 text-[10px]">Press Enter or click Add after typing. Tags save with the posting.</p>
+          <div className="bg-surface-container-low flex min-h-[48px] flex-wrap items-center gap-2 rounded-lg p-2 ring-1 ring-outline-variant/10">
+            {createSkills.map((skill) => (
+              <span
+                key={skill}
+                className="border-outline-variant/30 inline-flex items-center gap-1 rounded border bg-white px-2 py-1 text-xs font-medium"
+              >
+                {skill}
+                <button
+                  type="button"
+                  className="material-symbols-outlined flex h-5 w-5 items-center justify-center rounded text-[14px] text-on-surface-variant hover:bg-surface-container"
+                  aria-label={`Remove ${skill}`}
+                  onClick={() => setCreateSkills((prev) => prev.filter((s) => s !== skill))}
+                >
+                  close
+                </button>
+              </span>
+            ))}
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <input
+                className="min-w-0 flex-1 border-none bg-transparent px-2 py-2 text-sm focus:ring-0"
+                placeholder="Type a skill…"
+                type="text"
+                value={skillInput}
+                onChange={(e) => setSkillInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    flushSkillFromInput();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="shrink-0 rounded-lg bg-primary-container px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white hover:opacity-90"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={flushSkillFromInput}
+              >
+                Add
+              </button>
             </div>
           </div>
         </div>

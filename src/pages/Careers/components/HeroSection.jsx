@@ -37,7 +37,7 @@ export default function HeroSection() {
               </Button>
               <Button
                 className="px-10 py-5 rounded-full border border-white/20 text-white font-headline font-bold text-[11px] uppercase tracking-[0.25em] backdrop-blur-md hover:bg-white/5 transition-all"
-                onClick={() => navigate("/apply")}
+                onClick={() => navigate({ pathname: "/careers", hash: "#apply" })}
               >
                 Submit Resume
               </Button>
