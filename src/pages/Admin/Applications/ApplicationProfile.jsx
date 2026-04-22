@@ -434,6 +434,13 @@ export default function ApplicationProfile() {
     Boolean(applicationData.onboarding?.enabled) && !isEmployee;
   const derivedOnboardingStep = getOnboardingAdminStep(applicationData.onboarding);
   const onboardingAdminStep = forcedOnboardingStep ?? derivedOnboardingStep;
+  useEffect(() => {
+    if (forcedOnboardingStep == null) return;
+    if (forcedOnboardingStep > derivedOnboardingStep) {
+      setForcedOnboardingStep(derivedOnboardingStep);
+    }
+  }, [forcedOnboardingStep, derivedOnboardingStep]);
+
   const onboardingStepName =
     onboardingAdminStep === 1
       ? "Profile Review"
@@ -527,15 +534,22 @@ export default function ApplicationProfile() {
                 { step: 3, label: "Final" },
               ].map((stage, idx) => {
                 const active = onboardingAdminStep === stage.step;
+                const enabled = stage.step <= derivedOnboardingStep;
                 return (
                   <button
                     key={stage.step}
                     type="button"
-                    onClick={() => setForcedOnboardingStep(stage.step)}
+                    disabled={!enabled}
+                    onClick={() => {
+                      if (!enabled) return;
+                      setForcedOnboardingStep(stage.step);
+                    }}
                     className={`px-4 py-2 rounded-lg border transition-colors ${
                       active
                         ? "bg-primary text-white border-primary"
-                        : "bg-white text-primary border-outline-variant/40 hover:bg-surface-container-low"
+                        : enabled
+                          ? "bg-white text-primary border-outline-variant/40 hover:bg-surface-container-low"
+                          : "bg-surface-container-low text-outline border-outline-variant/30 opacity-60 cursor-not-allowed"
                     }`}
                   >
                     <span className="mr-2 opacity-70">0{idx + 1}</span>

@@ -36,7 +36,6 @@ const JobPostings = lazy(() => import("./pages/Admin/JobPostings/JobPostings"));
 const JobDetails = lazy(() => import("./pages/Admin/JobPostings/JobDetails"));
 const Reports = lazy(() => import("./pages/Admin/Settings/Reports"));
 const Settings = lazy(() => import("./pages/Admin/Settings/Settings"));
-const CompanyWorkspace = lazy(() => import("./pages/Admin/Settings/CompanyWorkspace"));
 const OnboardingReview = lazy(() => import("./pages/Admin/Employees/OnboardingReview"));
 
 function RouteFallback() {
@@ -118,7 +117,7 @@ export default function App() {
             <Route path="job-postings/:id" element={<JobDetails />} />
             <Route path="job-postings" element={<JobPostings />} />
             <Route path="reports" element={<Reports />} />
-            <Route path="settings/company-workspace" element={<CompanyWorkspace />} />
+            <Route path="settings/company-workspace" element={<Navigate to="/admin/settings" replace />} />
             <Route path="settings" element={<Settings />} />
           </Route>
 

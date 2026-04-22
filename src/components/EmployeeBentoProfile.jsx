@@ -22,8 +22,16 @@ export function formatSalary(value) {
 function buildFields(employee, formData) {
   const fd = formData || {};
   return {
-    dateOfBirth: fd.dateOfBirth ?? employee.personal?.dateOfBirth ?? "",
-    gender: fd.gender ?? employee.personal?.gender ?? "",
+    dateOfBirth:
+      fd.dateOfBirth ??
+      employee.personal?.dateOfBirth ??
+      employee.applicationProfile?.dateOfBirth ??
+      "",
+    gender:
+      fd.gender ??
+      employee.personal?.gender ??
+      employee.applicationProfile?.gender ??
+      "",
     address: fd.address ?? employee.personal?.address ?? "",
     employmentType: fd.employmentType ?? employee.employment?.employmentType ?? "",
     jobTitle: fd.jobTitle ?? employee.employment?.jobTitle ?? employee.role ?? "",

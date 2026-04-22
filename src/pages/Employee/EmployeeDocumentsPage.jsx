@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../../store/authStore";
 import { documentsService } from "../../services/documents.service";
+import { employeesService } from "../../services/employees.service";
 import { REQUIRED_DOCUMENT_ROWS } from "../../constants/requiredDocumentTemplates";
 import { uploadStatusBadge, onboardingVerificationBadge } from "../../components/shared/requiredDocumentBadges";
 import {
@@ -29,6 +30,13 @@ export default function EmployeeDocumentsPage() {
   const { employeeId } = useAuthStore();
   const queryClient = useQueryClient();
   const fileInputRef = useRef(null);
+
+  const { data: employee = null } = useQuery({
+    queryKey: ["employee", employeeId],
+    queryFn: () => employeesService.getById(employeeId),
+    staleTime: 60_000,
+    enabled: !!employeeId,
+  });
 
   const { data: docs = [] } = useQuery({
     queryKey: ['documents', employeeId],
@@ -59,10 +67,19 @@ export default function EmployeeDocumentsPage() {
     }
   });
 
-  const requiredRows = useMemo(
-    () => REQUIRED_DOCUMENT_ROWS.filter((row) => row.required),
-    [],
-  );
+  const requiredRows = useMemo(() => {
+    const baseRequired = REQUIRED_DOCUMENT_ROWS.filter((row) => row.required);
+    const adminRequested = (employee?.applicationProfile?.adminDocRequests || []).map((request) => ({
+      key: `adminreq_${request.id}`,
+      label: request.name,
+      required: true,
+      status: "not_uploaded",
+      expiry: "",
+      action: "upload",
+      icon: "assignment_add",
+    }));
+    return [...baseRequired, ...adminRequested];
+  }, [employee?.applicationProfile?.adminDocRequests]);
 
   const docsByKey = useMemo(() => {
     const map = new Map();

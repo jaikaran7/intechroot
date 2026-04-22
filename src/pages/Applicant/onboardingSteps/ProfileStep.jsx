@@ -10,6 +10,8 @@ const NATIONALITIES = [
   "Mexican", "Japanese", "Chinese", "Brazilian", "South African", "Nigerian", "Other",
 ];
 
+const GENDERS = ["Male", "Female", "Non-binary", "Prefer not to say"];
+
 function splitName(name) {
   const n = String(name || "").trim();
   if (!n) return { firstName: "", lastName: "" };
@@ -42,11 +44,12 @@ export default function ProfileStep({ applicationId, onboarding, maxAllowed }) {
       email: app.email || "",
       phone: app.phone || "",
       dateOfBirth: toDateInputValue(app.dateOfBirth),
+      gender: app.gender || "",
       nationality: app.nationality || "",
       profilePhotoUrl: app.profilePhotoUrl || "",
       profilePhotoName: app.profilePhotoName || "",
     };
-  }, [app.name, app.email, app.phone, app.dateOfBirth, app.nationality, app.profilePhotoUrl, app.profilePhotoName]);
+  }, [app.name, app.email, app.phone, app.dateOfBirth, app.gender, app.nationality, app.profilePhotoUrl, app.profilePhotoName]);
 
   const [form, setForm] = useState(initialFromApp);
   const [errors, setErrors] = useState({});
@@ -96,6 +99,7 @@ export default function ProfileStep({ applicationId, onboarding, maxAllowed }) {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) e.email = "Enter a valid email address.";
     if (!form.phone.trim()) e.phone = "Phone number is required.";
     if (!form.dateOfBirth) e.dateOfBirth = "Date of birth is required.";
+    if (!form.gender.trim()) e.gender = "Gender is required.";
     if (!form.nationality.trim()) e.nationality = "Nationality is required.";
     if (!form.profilePhotoUrl.trim()) e.profilePhotoUrl = "Profile photo is required.";
     setErrors(e);
@@ -147,6 +151,7 @@ export default function ProfileStep({ applicationId, onboarding, maxAllowed }) {
       email: form.email.trim().toLowerCase(),
       phone: form.phone.trim(),
       dateOfBirth: form.dateOfBirth,
+      gender: form.gender.trim(),
       nationality: form.nationality.trim(),
       profilePhotoUrl: form.profilePhotoUrl.trim(),
     };
@@ -240,7 +245,20 @@ export default function ProfileStep({ applicationId, onboarding, maxAllowed }) {
                 onChange={(e) => setField("dateOfBirth", e.target.value)}
               />
             </Field>
-            <Field label="Nationality" required error={errors.nationality} className="md:col-span-2">
+            <Field label="Gender" required error={errors.gender}>
+              <select
+                className="input"
+                value={form.gender}
+                disabled={finalSubmitted}
+                onChange={(e) => setField("gender", e.target.value)}
+              >
+                <option value="">Select gender</option>
+                {GENDERS.map((g) => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Nationality" required error={errors.nationality}>
               <select
                 className="input"
                 value={form.nationality}

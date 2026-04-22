@@ -5,6 +5,7 @@ import AdminDocumentPreviewModal from "@/components/admin/AdminDocumentPreviewMo
 import EntityAvatar from "@/components/shared/EntityAvatar";
 import { resolveApplicationResumeUrl } from "@/utils/resolveApplicationResumeUrl";
 import { formatAppliedDateDisplay } from "@/utils/applicantDisplayHelpers";
+import OnboardingAdminStepper from "./OnboardingAdminStepper";
 
 const candidateIdLabel = (app) => (app?.id != null ? `#ITR-${String(app.id).padStart(5, "0")}` : "#ITR-—");
 
@@ -35,30 +36,7 @@ export default function AdminProfileReview({ application, onApproveProfile }) {
 
   return (
     <div className="p-8 max-w-7xl mx-auto w-full">
-      <div className="mb-12 relative">
-        <div className="flex justify-between items-center max-w-2xl mx-auto">
-          <div className="flex flex-col items-center z-10">
-            <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary flex items-center justify-center ring-4 ring-surface shadow-lg">
-              <span className="material-symbols-outlined text-xl">person_search</span>
-            </div>
-            <span className="mt-2 text-xs font-bold font-headline text-primary uppercase tracking-widest">Review</span>
-          </div>
-          <div className="flex-1 h-0.5 bg-slate-200 -mt-6" />
-          <div className="flex flex-col items-center z-10">
-            <div className="w-10 h-10 rounded-full bg-surface-container text-on-surface-variant flex items-center justify-center ring-4 ring-surface">
-              <span className="material-symbols-outlined text-xl">description</span>
-            </div>
-            <span className="mt-2 text-xs font-medium font-headline text-slate-400 uppercase tracking-widest">Documents</span>
-          </div>
-          <div className="flex-1 h-0.5 bg-slate-200 -mt-6" />
-          <div className="flex flex-col items-center z-10">
-            <div className="w-10 h-10 rounded-full bg-surface-container text-on-surface-variant flex items-center justify-center ring-4 ring-surface">
-              <span className="material-symbols-outlined text-xl">task_alt</span>
-            </div>
-            <span className="mt-2 text-xs font-medium font-headline text-slate-400 uppercase tracking-widest">Final</span>
-          </div>
-        </div>
-      </div>
+      <OnboardingAdminStepper activeStep={1} />
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6">
         <div>
           <nav className="flex items-center gap-2 text-sm text-slate-500 mb-2">
@@ -76,7 +54,7 @@ export default function AdminProfileReview({ application, onApproveProfile }) {
             type="button"
             onClick={onApproveProfile}
             disabled={!profileCompleted}
-            className="px-6 py-3 bg-surface-container-lowest text-primary font-bold rounded-lg shadow-md hover:opacity-90 transition-all flex items-center gap-2 border border-outline-variant/40 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-6 py-3 bg-primary-container text-white font-bold rounded-lg shadow-md hover:bg-primary hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
             title={profileCompleted ? "Mark profile reviewed and move to Document Review" : "Waiting for applicant to submit their profile"}
           >
             <span className="material-symbols-outlined text-lg">arrow_forward</span>
@@ -131,6 +109,13 @@ export default function AdminProfileReview({ application, onApproveProfile }) {
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-outline">Date of Birth</p>
                 <p className="text-slate-700 font-medium">{formatDate(app.dateOfBirth)}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-4 text-sm">
+              <span className="material-symbols-outlined text-slate-400">wc</span>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-outline">Gender</p>
+                <p className="text-slate-700 font-medium">{app.gender || "—"}</p>
               </div>
             </div>
             <div className="flex items-start gap-4 text-sm">

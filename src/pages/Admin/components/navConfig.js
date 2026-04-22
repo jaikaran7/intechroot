@@ -9,20 +9,15 @@ export const ADMIN_NAV_ITEMS = [
   { to: "/admin/job-postings", label: "Job Postings", icon: "work_outline" },
   { to: "/admin/reports", label: "Reports", icon: "assessment" },
   { to: "/admin/settings", label: "Settings", icon: "settings" },
-  { to: "/admin/settings/company-workspace", label: "Company Workspace", icon: "corporate_fare" },
 ];
 
 export function isNavActive(pathname, href) {
   if (href === "/admin") {
     return pathname === "/admin" || pathname === "/admin/";
   }
-  if (href === "/admin/settings/company-workspace") {
-    const p = normPath(pathname);
-    return p === href || p.startsWith(`${href}/`);
-  }
   if (href === "/admin/settings") {
     const p = normPath(pathname);
-    return p === "/admin/settings";
+    return p === href || p.startsWith(`${href}/`);
   }
   return pathname === href || pathname.startsWith(`${href}/`);
 }

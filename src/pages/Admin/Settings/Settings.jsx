@@ -107,7 +107,6 @@ export default function Settings() {
   const tabButtons = useMemo(
     () => [
       { id: "account", label: "Account Profile", icon: "chevron_right" },
-      { id: "company", label: "Company Workspace", icon: "corporate_fare" },
       { id: "billing", label: "Billing & Plans", icon: "credit_card" },
       { id: "security", label: "Security & SSO", icon: "verified_user" },
       { id: "notifications", label: "Notifications", icon: "notifications" },
@@ -192,9 +191,6 @@ export default function Settings() {
           <div className="col-span-12 md:col-span-9 space-y-8">
             {activeTab === "account" && (
               <AccountProfile settings={settings} handleChange={handleChange} handleSave={handleSave} />
-            )}
-            {activeTab === "company" && (
-              <CompanyWorkspace settings={settings} handleChange={handleChange} handleSave={handleSave} />
             )}
             {activeTab === "billing" && <BillingPlans settings={settings} handleSave={handleSave} />}
             {activeTab === "security" && (

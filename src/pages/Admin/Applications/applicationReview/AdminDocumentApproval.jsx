@@ -15,6 +15,7 @@ import {
 import { hasUploadedFile, resolveDocVerification } from "@/utils/onboardingDocumentRules";
 import AdminDocumentPreviewModal from "@/components/admin/AdminDocumentPreviewModal";
 import EntityAvatar from "@/components/shared/EntityAvatar";
+import OnboardingAdminStepper from "./OnboardingAdminStepper";
 
 const candidateIdLabel = (app) => (app?.id != null ? `#ITR-${String(app.id).padStart(5, "0")}` : "#ITR-—");
 
@@ -112,6 +113,7 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
           {actionMessage.text}
         </div>
       ) : null}
+      <OnboardingAdminStepper activeStep={2} />
       <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-8">
         <div className="max-w-xl">
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-secondary mb-2 block">Application ID: {candidateIdLabel(app)}</span>
@@ -119,37 +121,6 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
           <p className="text-on-surface-variant leading-relaxed">
             {app.role || "Role"} — Document verification stage for final approval and compliance clearing.
           </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex flex-col items-center">
-            <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary flex items-center justify-center shadow-lg">
-              <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>
-                check
-              </span>
-            </div>
-            <span className="text-[10px] font-bold mt-2 text-primary/40 uppercase">Identity</span>
-          </div>
-          <div className="w-12 h-[2px] bg-primary mb-6" />
-          <div className="flex flex-col items-center">
-            <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-xl ring-4 ring-tertiary-fixed-dim/20">
-              <span className="text-sm font-bold">02</span>
-            </div>
-            <span className="text-[10px] font-bold mt-2 text-primary uppercase">Documents</span>
-          </div>
-          <div className="w-12 h-[2px] bg-surface-container-highest mb-6" />
-          <div className="flex flex-col items-center opacity-40">
-            <div className="w-10 h-10 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center">
-              <span className="text-sm font-bold">03</span>
-            </div>
-            <span className="text-[10px] font-bold mt-2 uppercase">Vetting</span>
-          </div>
-          <div className="w-12 h-[2px] bg-surface-container-highest mb-6" />
-          <div className="flex flex-col items-center opacity-40">
-            <div className="w-10 h-10 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center">
-              <span className="text-sm font-bold">04</span>
-            </div>
-            <span className="text-[10px] font-bold mt-2 uppercase">Signed</span>
-          </div>
         </div>
       </div>
       <div className="grid grid-cols-12 gap-6 items-start">

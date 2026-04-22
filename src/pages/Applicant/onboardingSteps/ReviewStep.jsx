@@ -22,7 +22,7 @@ function splitName(name) {
   };
 }
 
-const EDITABLE_FIELDS = ["firstName", "lastName", "phone", "dateOfBirth", "nationality"];
+const EDITABLE_FIELDS = ["firstName", "lastName", "phone", "dateOfBirth", "gender", "nationality"];
 
 export default function ReviewStep({ applicationId, onboarding, maxAllowed }) {
   const navigate = useNavigate();
@@ -108,6 +108,7 @@ export default function ReviewStep({ applicationId, onboarding, maxAllowed }) {
     else if (editingField === "lastName") payload.lastName = editDraft.trim();
     else if (editingField === "phone") payload.phone = editDraft.trim();
     else if (editingField === "dateOfBirth") payload.dateOfBirth = editDraft;
+    else if (editingField === "gender") payload.gender = editDraft.trim();
     else if (editingField === "nationality") payload.nationality = editDraft.trim();
     // firstName/lastName require the other side for the BE's name concat. Send both.
     if (editingField === "firstName") payload.lastName = lastName;
@@ -202,6 +203,19 @@ export default function ReviewStep({ applicationId, onboarding, maxAllowed }) {
                 type="date"
                 value={(application.dateOfBirth || "").slice(0, 10)}
                 displayValue={formatDate(application.dateOfBirth)}
+                editingField={editingField}
+                editDraft={editDraft}
+                setEditDraft={setEditDraft}
+                onEdit={startEdit}
+                onSave={saveEdit}
+                onCancel={() => setEditingField(null)}
+                isPending={patchMutation.isPending}
+                disabled={finalSubmitted}
+              />
+              <EditableRow
+                label="Gender"
+                field="gender"
+                value={application.gender || ""}
                 editingField={editingField}
                 editDraft={editDraft}
                 setEditDraft={setEditDraft}

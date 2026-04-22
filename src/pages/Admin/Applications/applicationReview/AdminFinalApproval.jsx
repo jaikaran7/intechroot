@@ -4,6 +4,7 @@ import { useState } from "react";
 import AdminDocumentPreviewModal from "@/components/admin/AdminDocumentPreviewModal";
 import EntityAvatar from "@/components/shared/EntityAvatar";
 import { resolveApplicationResumeUrl } from "@/utils/resolveApplicationResumeUrl";
+import OnboardingAdminStepper from "./OnboardingAdminStepper";
 
 export default function AdminFinalApproval({ application, onFinalHire, onReject, hireMessage, rejectPending }) {
   const app = application || {};
@@ -18,36 +19,8 @@ export default function AdminFinalApproval({ application, onFinalHire, onReject,
 
   return (
     <main className="flex-1 px-8 py-12 bg-surface w-full max-w-full">
-      <div className="max-w-4xl mx-auto mb-12">
-        <div className="flex items-center justify-between relative">
-          <div className="absolute top-1/2 left-0 w-full h-[2px] bg-surface-container -z-10 -translate-y-1/2" />
-          <div
-            className="absolute top-1/2 left-0 h-[2px] bg-gradient-to-r from-primary-container to-primary-container -z-10 -translate-y-1/2"
-            style={{ width: "100%" }}
-          />
-          <div className="flex flex-col items-center gap-3 bg-surface px-4">
-            <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary flex items-center justify-center shadow-lg">
-              <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>
-                check_circle
-              </span>
-            </div>
-            <span className="text-xs font-bold font-headline text-primary uppercase tracking-widest">Profiling</span>
-          </div>
-          <div className="flex flex-col items-center gap-3 bg-surface px-4">
-            <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary flex items-center justify-center shadow-lg">
-              <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>
-                check_circle
-              </span>
-            </div>
-            <span className="text-xs font-bold font-headline text-primary uppercase tracking-widest">Documentation</span>
-          </div>
-          <div className="flex flex-col items-center gap-3 bg-surface px-4">
-            <div className="w-12 h-12 rounded-full border-4 border-primary-container bg-surface-container-lowest text-primary flex items-center justify-center shadow-xl ring-8 ring-blue-50">
-              <span className="material-symbols-outlined text-xl font-bold">verified</span>
-            </div>
-            <span className="text-xs font-bold font-headline text-primary-container uppercase tracking-widest">Final Approval</span>
-          </div>
-        </div>
+      <div className="max-w-4xl mx-auto">
+        <OnboardingAdminStepper activeStep={3} />
       </div>
       <div className="max-w-6xl mx-auto mb-10 flex justify-between items-end">
         <div className="max-w-2xl">

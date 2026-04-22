@@ -4,8 +4,8 @@ export function buildProfileFormState(employee) {
     return {};
   }
   return {
-    dateOfBirth: employee.personal?.dateOfBirth || "",
-    gender: employee.personal?.gender || "",
+    dateOfBirth: employee.personal?.dateOfBirth || employee.applicationProfile?.dateOfBirth || "",
+    gender: employee.personal?.gender || employee.applicationProfile?.gender || "",
     address: employee.personal?.address || "",
     employmentType: employee.employment?.employmentType || "",
     jobTitle: employee.employment?.jobTitle || employee.role || "",

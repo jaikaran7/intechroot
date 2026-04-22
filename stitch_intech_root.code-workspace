@@ -1,11 +1,10 @@
 {
 	"folders": [
 		{
-			"name": "stitch_intech_root",
 			"path": "."
 		},
 		{
-			"path": "../apllication process"
+			"path": "../intechroot-be"
 		}
 	],
 	"settings": {}
