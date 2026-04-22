@@ -408,6 +408,14 @@ export default function ApplicationProfile() {
     return list.slice(0, 12);
   }, [applicationData?.messages]);
 
+  const derivedOnboardingStep = getOnboardingAdminStep(applicationData?.onboarding);
+  useEffect(() => {
+    if (forcedOnboardingStep == null) return;
+    if (forcedOnboardingStep > derivedOnboardingStep) {
+      setForcedOnboardingStep(derivedOnboardingStep);
+    }
+  }, [forcedOnboardingStep, derivedOnboardingStep]);
+
   if (isLoading) return <main className="ml-64 pt-24 px-12"><PageSkeleton rows={8} /></main>;
   if (isError) return <main className="ml-64 pt-24 px-12"><ErrorState message="Failed to load application." onRetry={refetch} /></main>;
   if (!applicationData) return <main className="ml-64 pt-24 px-12"><p className="text-on-surface-variant">Application not found.</p></main>;
@@ -432,14 +440,7 @@ export default function ApplicationProfile() {
   /** Offer stage uses lifecycle `offer` until enable runs (`onboarding`). Any `enabled` means show admin onboarding tools. */
   const isOnboardingAdminView =
     Boolean(applicationData.onboarding?.enabled) && !isEmployee;
-  const derivedOnboardingStep = getOnboardingAdminStep(applicationData.onboarding);
   const onboardingAdminStep = forcedOnboardingStep ?? derivedOnboardingStep;
-  useEffect(() => {
-    if (forcedOnboardingStep == null) return;
-    if (forcedOnboardingStep > derivedOnboardingStep) {
-      setForcedOnboardingStep(derivedOnboardingStep);
-    }
-  }, [forcedOnboardingStep, derivedOnboardingStep]);
 
   const onboardingStepName =
     onboardingAdminStep === 1
