@@ -4,18 +4,34 @@ import { useAuthStore } from "../../store/authStore";
 import { timesheetsService } from "../../services/timesheets.service";
 import {
   TIMESHEET_DAY_KEYS,
+  addDaysISO,
   buildWeekDataForPeriod,
   calculateTotal,
-  daysInclusiveISO,
   formatHourCell,
   formatTimesheetRangeLabel,
+  formatWeekOfCalendarRange,
+  formatWeekRangeWithWeekdays,
+  getPickerWeekBounds,
   getWeekStartISO,
+  parseYMD,
   toYMD,
   toYmdFromAny,
   weekMondayISOFromDb,
 } from "./timesheetUtils";
 
 const DAY_HEADER_SHORT = { mon: "M", tue: "T", wed: "W", thu: "T", fri: "F", sat: "ST", sun: "S" };
+
+const NAV_DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function formatNavDayCell(mondayISO, index) {
+  const d = parseYMD(mondayISO);
+  d.setDate(d.getDate() + index);
+  const start = parseYMD(mondayISO);
+  const end = parseYMD(addDaysISO(mondayISO, 6));
+  const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+  if (sameMonth) return String(d.getDate());
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 function projectSubtext(sheet, employee) {
   return (
@@ -67,11 +83,12 @@ export default function EmployeeTimesheetsPage() {
   const { employeeId } = useAuthStore();
   const queryClient = useQueryClient();
 
-  const { data: tsData } = useQuery({
+  const { data: tsData, isError: timesheetsQueryError, refetch: refetchTimesheets } = useQuery({
     queryKey: ['timesheets', employeeId],
     queryFn: () => timesheetsService.getByEmployee(employeeId, { limit: 50 }),
     staleTime: 30_000,
     enabled: !!employeeId,
+    retry: 1,
   });
 
   const mergeTimesheetIntoCache = (newSheet) => {
@@ -106,16 +123,11 @@ export default function EmployeeTimesheetsPage() {
 
   const employee = null; // employee data not needed here directly
 
-  const timesheets = useMemo(() => {
-    const list = tsData?.data;
-    const arr = Array.isArray(list) ? [...list] : [];
-    return arr.sort((a, b) => String(b.weekStart).localeCompare(String(a.weekStart)));
-  }, [tsData]);
-
+  /** All UI state must be declared before memos that read it (avoids TDZ / "Cannot access before initialization"). */
   const [editingRowId, setEditingRowId] = useState(null);
   const [newModalOpen, setNewModalOpen] = useState(false);
-  const [newPeriodStart, setNewPeriodStart] = useState("");
-  const [newPeriodEnd, setNewPeriodEnd] = useState("");
+  /** Monday `YYYY-MM-DD` for the new-timesheet week navigator. */
+  const [pickerWeekMonday, setPickerWeekMonday] = useState("");
   const [newProjectLabel, setNewProjectLabel] = useState("");
   const [newModalError, setNewModalError] = useState("");
   /** @type {null | { sheetId: string; weekLabel: string; note: string; rejectedAt: string | null }} */
@@ -123,6 +135,30 @@ export default function EmployeeTimesheetsPage() {
   const [viewRowId, setViewRowId] = useState(null);
   /** Local hour strings while editing a draft/rejected row `{ id, weekData }`. */
   const [draftEdit, setDraftEdit] = useState(null);
+
+  const timesheets = useMemo(() => {
+    const list = tsData?.data;
+    const arr = Array.isArray(list) ? [...list] : [];
+    return arr.sort((a, b) => String(b.weekStart ?? "").localeCompare(String(a.weekStart ?? "")));
+  }, [tsData]);
+
+  const pickerWeekSelection = useMemo(() => {
+    if (!pickerWeekMonday || !/^\d{4}-\d{2}-\d{2}$/.test(pickerWeekMonday)) return null;
+    try {
+      return getPickerWeekBounds(pickerWeekMonday, new Date());
+    } catch {
+      return null;
+    }
+  }, [pickerWeekMonday]);
+
+  const hasTimesheetForPickerWeek = useMemo(
+    () =>
+      Boolean(
+        pickerWeekSelection &&
+          timesheets.some((t) => weekMondayISOFromDb(t.weekStart) === pickerWeekSelection.mondayISO),
+      ),
+    [timesheets, pickerWeekSelection],
+  );
 
   const openRejectionFeedbackModal = (sheet) => {
     setRejectionFeedback({
@@ -154,39 +190,43 @@ export default function EmployeeTimesheetsPage() {
   }, [timesheets]);
 
   const openNewModal = () => {
-    setNewPeriodStart("");
-    setNewPeriodEnd("");
     setNewProjectLabel("");
     setNewModalError("");
+    setPickerWeekMonday(getWeekStartISO(new Date()));
     setNewModalOpen(true);
   };
 
+  const shiftPickerWeek = (deltaWeeks) => {
+    const curMon = getWeekStartISO(new Date());
+    setPickerWeekMonday((prev) => {
+      const base = prev && /^\d{4}-\d{2}-\d{2}$/.test(prev) ? prev : curMon;
+      const d = parseYMD(base);
+      d.setDate(d.getDate() + deltaWeeks * 7);
+      const next = toYMD(d);
+      if (deltaWeeks > 0 && next > curMon) return base;
+      return next;
+    });
+    setNewModalError("");
+  };
+
   const submitNewTimesheet = () => {
-    if (!employeeId || !newPeriodStart || !newPeriodEnd) {
-      setNewModalError("Select both start and end dates.");
+    if (!employeeId) {
+      setNewModalError("Not signed in.");
       return;
     }
-    if (newPeriodEnd < newPeriodStart) {
-      setNewModalError("End date must be on or after the start date.");
+    if (!pickerWeekSelection) {
+      setNewModalError("Could not determine this week. Try again.");
       return;
     }
-    if (daysInclusiveISO(newPeriodStart, newPeriodEnd) > 7) {
-      setNewModalError("The range cannot span more than 7 days.");
-      return;
-    }
-    const monA = getWeekStartISO(new Date(`${newPeriodStart}T12:00:00`));
-    const monB = getWeekStartISO(new Date(`${newPeriodEnd}T12:00:00`));
-    if (!monA || !monB || monA !== monB) {
-      setNewModalError("Start and end must fall within the same calendar week (Monday–Sunday).");
-      return;
-    }
-    const anchorMonday = monA;
+    const newPeriodStart = pickerWeekSelection.periodStart;
+    const newPeriodEnd = pickerWeekSelection.periodEnd;
+    const anchorMonday = pickerWeekSelection.mondayISO;
     const todayStr = toYMD(new Date());
     if (newPeriodEnd > todayStr) {
       setNewModalError("Dates cannot be in the future.");
       return;
     }
-    if (timesheets.some((t) => weekMondayISOFromDb(t.weekStart) === anchorMonday)) {
+    if (hasTimesheetForPickerWeek) {
       setNewModalError("You already have a timesheet for this week.");
       return;
     }
@@ -272,6 +312,21 @@ export default function EmployeeTimesheetsPage() {
     <>
       <main className="ml-64 pt-24 pb-12 px-8 min-h-screen bg-surface font-body text-on-background antialiased">
         <div className="max-w-[82rem] mx-auto space-y-8">
+          {timesheetsQueryError ? (
+            <div
+              className="flex flex-col gap-3 rounded-xl border border-error/25 bg-error-container/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+              role="alert"
+            >
+              <p className="text-sm font-medium text-on-surface">We couldn&apos;t load your timesheets. Check your connection and try again.</p>
+              <button
+                type="button"
+                className="shrink-0 rounded-lg bg-primary-container px-4 py-2 text-xs font-bold text-white"
+                onClick={() => void refetchTimesheets()}
+              >
+                Retry
+              </button>
+            </div>
+          ) : null}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
               <h2 className="font-headline text-4xl font-extrabold tracking-tight text-primary">Weekly Timesheet</h2>
@@ -515,46 +570,68 @@ export default function EmployeeTimesheetsPage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/20 backdrop-blur-md font-body">
           <div className="glass-card rounded-xl p-6 w-[min(92vw,32rem)]">
             <h4 className="text-lg font-bold text-primary mb-3">New timesheet</h4>
-            <p className="text-xs text-slate-500 mb-4">
-              Choose the period you worked (max 7 days, same Monday–Sunday week). Hours start empty so you can fill them in after creating.
+            <p className="text-xs text-slate-500 mb-1">
+              Timesheets are submitted weekly (Mon–Sun). Pick the week you worked; start and end dates are set automatically.
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">
-                  Start date *
-                </label>
-                <input
-                  type="date"
-                  className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                  max={toYMD(new Date())}
-                  value={newPeriodStart}
-                  onChange={(e) => {
-                    setNewPeriodStart(e.target.value);
-                    setNewModalError("");
-                  }}
-                />
+            <p className="text-xs text-slate-400 mb-4">Hours start empty — fill them in after creating.</p>
+            {pickerWeekMonday && pickerWeekSelection ? (
+              <div className="mb-4 rounded-xl border border-slate-200/90 bg-surface-container-low/80 p-4 shadow-[0_8px_24px_rgba(0,6,21,0.06)]">
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Week</p>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-primary-container/30 hover:bg-slate-50 hover:text-primary"
+                    aria-label="Previous week"
+                    onClick={() => shiftPickerWeek(-1)}
+                  >
+                    <span className="material-symbols-outlined text-xl leading-none">chevron_left</span>
+                  </button>
+                  <p className="min-w-0 flex-1 text-center font-headline text-sm font-bold leading-snug text-primary">
+                    {formatWeekOfCalendarRange(pickerWeekMonday, pickerWeekSelection.sunISO)}
+                  </p>
+                  <button
+                    type="button"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-primary-container/30 hover:bg-slate-50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35"
+                    aria-label="Next week"
+                    disabled={pickerWeekMonday >= getWeekStartISO(new Date())}
+                    onClick={() => shiftPickerWeek(1)}
+                  >
+                    <span className="material-symbols-outlined text-xl leading-none">chevron_right</span>
+                  </button>
+                </div>
+                {pickerWeekSelection.periodEnd < pickerWeekSelection.sunISO ? (
+                  <p className="mb-3 text-center text-[11px] text-slate-500">
+                    Submitting through{" "}
+                    <span className="font-semibold text-primary">
+                      {formatWeekRangeWithWeekdays(pickerWeekSelection.periodStart, pickerWeekSelection.periodEnd)}
+                    </span>{" "}
+                    (current week)
+                  </p>
+                ) : null}
+                <div className="grid grid-cols-7 gap-1 text-center">
+                  {NAV_DAY_LABELS.map((label) => (
+                    <div key={`nav-h-${label}`} className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                      {label}
+                    </div>
+                  ))}
+                  {NAV_DAY_LABELS.map((_, i) => (
+                    <div
+                      key={`nav-d-${pickerWeekMonday}-${i}`}
+                      className="rounded-lg bg-white/90 py-2 text-sm font-bold text-primary shadow-sm ring-1 ring-slate-100"
+                    >
+                      {formatNavDayCell(pickerWeekMonday, i)}
+                    </div>
+                  ))}
+                </div>
+                {hasTimesheetForPickerWeek ? (
+                  <p className="mt-3 text-center text-[11px] font-medium text-amber-800" role="status">
+                    You already have a timesheet for this week — pick another week or cancel.
+                  </p>
+                ) : null}
               </div>
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">
-                  End date *
-                </label>
-                <input
-                  type="date"
-                  className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                  max={toYMD(new Date())}
-                  value={newPeriodEnd}
-                  onChange={(e) => {
-                    setNewPeriodEnd(e.target.value);
-                    setNewModalError("");
-                  }}
-                />
-              </div>
-            </div>
-            {newPeriodStart && newPeriodEnd && (
-              <p className="text-xs text-slate-500 mb-3">
-                Inclusive range: <span className="font-semibold text-primary">{newPeriodStart}</span> —{" "}
-                <span className="font-semibold text-primary">{newPeriodEnd}</span> ({daysInclusiveISO(newPeriodStart, newPeriodEnd)} day
-                {daysInclusiveISO(newPeriodStart, newPeriodEnd) === 1 ? "" : "s"})
+            ) : (
+              <p className="mb-3 text-xs text-slate-500" role="status">
+                Open this dialog again to choose a week.
               </p>
             )}
             <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">
@@ -578,7 +655,12 @@ export default function EmployeeTimesheetsPage() {
               </button>
               <button
                 type="button"
-                className="px-4 py-2 text-xs font-bold bg-primary-container text-white rounded"
+                className="px-4 py-2 text-xs font-bold bg-primary-container text-white rounded disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={
+                  saveDraftMutation.isPending ||
+                  !pickerWeekSelection ||
+                  hasTimesheetForPickerWeek
+                }
                 onClick={submitNewTimesheet}
               >
                 Create

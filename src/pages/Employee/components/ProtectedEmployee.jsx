@@ -8,7 +8,8 @@ import EmployeeSidebar from "./EmployeeSidebar";
 export default function ProtectedEmployee({ children }) {
   const hydrated = useAuthHydration();
   const { role, accessToken } = useAuthStore();
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
 
   const isAuthed = Boolean(accessToken) && role === "employee";
 
@@ -29,7 +30,7 @@ export default function ProtectedEmployee({ children }) {
   }
 
   if (!isAuthed) {
-    return <Navigate to="/employee/login" replace />;
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
   const profileChrome = pathname === "/employee/profile";
   return (

@@ -6,12 +6,12 @@ import CareersPage from "./pages/Careers/CareersPage";
 import ServicesPage from "./pages/Services/ServicesPage";
 import ApplyRedirect from "./pages/Apply/ApplyRedirect";
 const LoginPage = lazy(() => import("./pages/Auth/LoginPage"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ProtectedAdmin = lazy(() => import("./components/ProtectedAdmin"));
 
 const ProtectedEmployee = lazy(() => import("./pages/Employee/components/ProtectedEmployee"));
 const EmployeeDocumentsPage = lazy(() => import("./pages/Employee/EmployeeDocumentsPage"));
 const EmployeeDashboard = lazy(() => import("./pages/Employee/EmployeeDashboard"));
-const EmployeeLogin = lazy(() => import("./pages/Employee/EmployeeLogin"));
 const EmployeeProfilePage = lazy(() => import("./pages/Employee/EmployeeProfilePage"));
 const EmployeeTimesheetsPage = lazy(() => import("./pages/Employee/EmployeeTimesheetsPage"));
 const ApplicationSubmittedPremiumSuccess = lazy(() =>
@@ -59,10 +59,12 @@ export default function App() {
   const isAdminRoute = location.pathname.startsWith("/admin");
   const isEmployeeRoute = location.pathname.startsWith("/employee");
   const isApplicantRoute = location.pathname.startsWith("/applicant");
+  const hideMarketingNavbar =
+    isAdminRoute || isEmployeeRoute || isApplicantRoute || location.pathname === "/forgot-password";
 
   return (
     <>
-      {!isAdminRoute && !isEmployeeRoute && !isApplicantRoute && <Navbar />}
+      {!hideMarketingNavbar && <Navbar />}
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -94,6 +96,7 @@ export default function App() {
           <Route path="/about" element={<HomePage />} />
 
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/admin/login" element={<Navigate to="/login" replace />} />
           <Route
             path="/admin/*"
@@ -121,7 +124,7 @@ export default function App() {
             <Route path="settings" element={<Settings />} />
           </Route>
 
-          <Route path="/employee/login" element={<EmployeeLogin />} />
+          <Route path="/employee/login" element={<Navigate to="/login" replace />} />
           <Route path="/employee/dashboard" element={<ProtectedEmployee><EmployeeDashboard /></ProtectedEmployee>} />
           <Route path="/employee/profile" element={<ProtectedEmployee><EmployeeProfilePage /></ProtectedEmployee>} />
           <Route path="/employee/timesheets" element={<ProtectedEmployee><EmployeeTimesheetsPage /></ProtectedEmployee>} />

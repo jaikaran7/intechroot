@@ -175,8 +175,11 @@ export default function ApplicationProfile() {
 
   const hireMutation = useMutation({
     mutationFn: () => applicationsService.hire(id),
-    onSuccess: () => {
-      setHireMessage("Applicant successfully hired and converted to employee.");
+    onSuccess: (data) => {
+      const email = data?.employeeAuth?.email || data?.employee?.email || applicationData?.email;
+      setHireMessage(
+        `Applicant hired and employee record created. They can sign in at /login with email ${email} and the default employee password (Employee@123 unless your org set DEFAULT_EMPLOYEE_PORTAL_PASSWORD).`,
+      );
       queryClient.invalidateQueries({ queryKey: ['applications'] });
       queryClient.invalidateQueries({ queryKey: ['application', id] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });

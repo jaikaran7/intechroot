@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "./success.css";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -62,17 +62,60 @@ export default function SuccessPage() {
   const [docErrors, setDocErrors] = useState({});
   const [pendingUploadKey, setPendingUploadKey] = useState(null);
   const [onboardingWelcomeDismissed, setOnboardingWelcomeDismissed] = useState(false);
+  const [statusToast, setStatusToast] = useState(null);
+  /** Only manual refresh should drive button disabled/spinner (auto-refresh stays non-blocking). */
+  const [manualStatusRefresh, setManualStatusRefresh] = useState(false);
+  const manualRefreshLockRef = useRef(false);
   const fileInputRef = useRef(null);
 
   const onboardingWelcomeDismissalKey =
     applicationId != null ? `intech_onboarding_welcome_dismissed_${applicationId}` : null;
 
-  const { data: application = null } = useQuery({
+  const {
+    data: application,
+    isLoading: isApplicationLoading,
+    isError: isApplicationError,
+    refetch: refetchApplication,
+  } = useQuery({
     queryKey: ['application', applicationId],
     queryFn: () => applicationsService.getById(applicationId),
     staleTime: 30_000,
     enabled: !!applicationId,
   });
+
+  const handleRefreshStatus = useCallback(async () => {
+    if (!applicationId || manualRefreshLockRef.current) return;
+    manualRefreshLockRef.current = true;
+    setManualStatusRefresh(true);
+    try {
+      const result = await refetchApplication();
+      if (result.error) {
+        setStatusToast({ kind: "error", message: "Failed to refresh. Try again." });
+      } else {
+        setStatusToast({ kind: "success", message: "Status updated" });
+      }
+    } catch {
+      setStatusToast({ kind: "error", message: "Failed to refresh. Try again." });
+    } finally {
+      manualRefreshLockRef.current = false;
+      setManualStatusRefresh(false);
+    }
+  }, [applicationId, refetchApplication]);
+
+  useEffect(() => {
+    if (!statusToast) return undefined;
+    const t = setTimeout(() => setStatusToast(null), 3200);
+    return () => clearTimeout(t);
+  }, [statusToast]);
+
+  /** Silent background sync (only after dashboard data exists — avoids extra calls on initial load). */
+  useEffect(() => {
+    if (!applicationId || application == null) return undefined;
+    const interval = window.setInterval(() => {
+      void queryClient.invalidateQueries({ queryKey: ["application", applicationId] });
+    }, 45_000);
+    return () => window.clearInterval(interval);
+  }, [applicationId, application, queryClient]);
 
   const uploadDocMutation = useMutation({
     mutationFn: ({ key, file, expiry, name }) => {
@@ -311,7 +354,16 @@ export default function SuccessPage() {
     return null;
   };
 
-  if (!application) {
+  /** First fetch: `data` is undefined — do not treat that as "not found" (was showing a false error until the API returned). */
+  if (applicationId && isApplicationLoading) {
+    return (
+      <div className="success-page bg-surface font-body text-on-surface min-h-screen flex flex-col items-center justify-center px-6">
+        <p className="text-on-surface-variant text-center">Loading your application…</p>
+      </div>
+    );
+  }
+
+  if (isApplicationError || application == null) {
     return (
       <div className="success-page bg-surface font-body text-on-surface min-h-screen flex flex-col items-center justify-center px-6">
         <p className="text-on-surface-variant mb-6 text-center">Application not found for this session.</p>
@@ -438,7 +490,23 @@ export default function SuccessPage() {
                 currently in the <span className="font-semibold text-primary">{currentStageName} Phase</span>.
               </p>
             </div>
-            <div className="flex flex-col items-end text-right">
+            <div className="flex flex-col items-end gap-3 text-right">
+              <button
+                type="button"
+                onClick={() => void handleRefreshStatus()}
+                disabled={manualStatusRefresh}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary/35 bg-white/90 px-4 py-2.5 font-headline text-xs font-bold uppercase tracking-wider text-primary shadow-sm transition hover:border-primary hover:bg-primary/[0.06] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 dark:border-secondary/45 dark:bg-[#0d1528]/60 dark:text-secondary dark:hover:bg-secondary/10"
+                aria-busy={manualStatusRefresh}
+              >
+                <span
+                  className={`material-symbols-outlined text-[1.125rem] leading-none ${manualStatusRefresh ? "animate-spin" : ""}`}
+                  style={manualStatusRefresh ? { fontVariationSettings: "'FILL' 0, 'wght' 500" } : undefined}
+                  aria-hidden
+                >
+                  {manualStatusRefresh ? "progress_activity" : "refresh"}
+                </span>
+                {manualStatusRefresh ? "Refreshing…" : "Refresh status"}
+              </button>
               <p className="mb-1 text-sm font-medium uppercase tracking-widest text-on-surface-variant">Current Status</p>
               <p className="font-headline text-3xl font-bold text-secondary">{currentStageName}</p>
               <div className="mt-4 flex flex-col items-end gap-2">
@@ -754,6 +822,19 @@ export default function SuccessPage() {
               Continue onboarding
             </button>
           </div>
+        </div>
+      ) : null}
+
+      {statusToast ? (
+        <div
+          className={`fixed bottom-8 left-1/2 z-[220] max-w-[min(100vw-2rem,24rem)] -translate-x-1/2 rounded-xl px-5 py-3 text-center text-sm font-semibold shadow-lg ${
+            statusToast.kind === "error"
+              ? "bg-red-700 text-white"
+              : "bg-[#000615] text-white dark:bg-secondary dark:text-[#000615]"
+          }`}
+          role="status"
+        >
+          {statusToast.message}
         </div>
       ) : null}
     </div>

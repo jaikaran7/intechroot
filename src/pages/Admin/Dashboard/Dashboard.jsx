@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { adminService } from "../../../services/admin.service";
@@ -7,6 +7,36 @@ import ErrorState from "../../../components/ErrorState";
 import EntityAvatar from "@/components/shared/EntityAvatar";
 import { useAuthStore } from "@/store/authStore";
 import { formatAppliedDateDisplay } from "@/utils/applicantDisplayHelpers";
+
+function formatCount(n) {
+  if (n == null || Number.isNaN(n)) return "0";
+  return Number(n).toLocaleString();
+}
+
+function formatRelativeSync(ts) {
+  if (!ts) return "—";
+  const sec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (sec < 45) return "Just now";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 48) return `${hr}h ago`;
+  return new Date(ts).toLocaleString();
+}
+
+/** Payroll module not shipped — treat missing/null payload as unavailable (never show placeholder currency). */
+function hasPayrollData(payroll) {
+  if (payroll == null) return false;
+  if (typeof payroll === "object" && !Array.isArray(payroll)) {
+    return Boolean(
+      payroll.pendingAmount != null ||
+        payroll.pendingFormatted != null ||
+        (Array.isArray(payroll.items) && payroll.items.length > 0),
+    );
+  }
+  if (Array.isArray(payroll)) return payroll.length > 0;
+  return false;
+}
 
 const LIFECYCLE_LABEL = {
   applied: "Applied",
@@ -21,77 +51,49 @@ const LIFECYCLE_LABEL = {
 export default function Dashboard() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const [selectedDepartment, setSelectedDepartment] = useState("All");
 
-  const { data: stats, isLoading, isError, refetch } = useQuery({
+  const { data: stats, isLoading, isError, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: adminService.getDashboardStats,
     staleTime: 60_000,
   });
 
   const pipeline = stats?.pipeline ?? {};
-  const deptMap = stats?.employees?.byDepartment ?? {};
-
-  const pipelineData = useMemo(() => {
-    const sourcedTotal = pipeline.total ?? 0;
-    const screeningTotal = (pipeline.screening ?? 0) + (pipeline.technical ?? 0) + (pipeline.client ?? 0) + (pipeline.offer ?? 0) + (pipeline.hired ?? 0);
-    const evaluationTotal = (pipeline.technical ?? 0) + (pipeline.client ?? 0) + (pipeline.offer ?? 0) + (pipeline.hired ?? 0);
-    const offerTotal = (pipeline.offer ?? 0) + (pipeline.hired ?? 0);
-    const hiredTotal = pipeline.hired ?? 0;
-
-    const itEngineeringDepts = ["Engineering", "Infrastructure", "Development", "Security", "Quality", "Analytics"];
-    const itCount = Object.entries(deptMap).filter(([d]) => itEngineeringDepts.includes(d)).reduce((s, [, c]) => s + c, 0);
-    const stratCount = deptMap["Strategy"] ?? 0;
-    const totalEmp = Object.values(deptMap).reduce((s, c) => s + c, 0);
-    const corpCount = Math.max(0, totalEmp - itCount - stratCount);
-
-    const weights = totalEmp === 0 ? [1 / 3, 1 / 3, 1 / 3] : [itCount / totalEmp, stratCount / totalEmp, corpCount / totalEmp];
-    const alloc = (total, w) => Math.round(total * w);
-
-    return [
-      { department: "IT & Engineering", sourced: alloc(sourcedTotal, weights[0]), screening: alloc(screeningTotal, weights[0]), evaluation: alloc(evaluationTotal, weights[0]), offer: alloc(offerTotal, weights[0]), hired: alloc(hiredTotal, weights[0]) },
-      { department: "Strategic Consulting", sourced: alloc(sourcedTotal, weights[1]), screening: alloc(screeningTotal, weights[1]), evaluation: alloc(evaluationTotal, weights[1]), offer: alloc(offerTotal, weights[1]), hired: alloc(hiredTotal, weights[1]) },
-      { department: "Corporate Operations", sourced: alloc(sourcedTotal, weights[2]), screening: alloc(screeningTotal, weights[2]), evaluation: alloc(evaluationTotal, weights[2]), offer: alloc(offerTotal, weights[2]), hired: alloc(hiredTotal, weights[2]) },
-    ];
-  }, [pipeline, deptMap]);
+  const totalApps = pipeline.total ?? 0;
+  const hiredCount = pipeline.hired ?? 0;
+  /** Applications still in hiring (excludes lifecycle `employee`). */
+  const activeApplicantsCount = Math.max(0, totalApps - hiredCount);
+  const workforceTotal = stats?.employees?.total ?? 0;
+  const pendingTimesheets = stats?.pendingTimesheets ?? 0;
+  const payrollPayload = stats?.payroll;
+  const payrollReady = hasPayrollData(payrollPayload);
+  const payrollEfficiencyLive = Boolean(payrollReady && payrollPayload?.efficiencyPercent != null);
 
   const recentApplications = stats?.recentApplications ?? [];
 
-  const pipelineDepartments = useMemo(
-    () => ["All", ...pipelineData.map((item) => item.department)],
-    [pipelineData],
-  );
-
+  /** Stage counts are mutually exclusive; each bar is % of all applications. */
   const pipelineMetrics = useMemo(() => {
-    const filteredData =
-      selectedDepartment === "All"
-        ? pipelineData
-        : pipelineData.filter((item) => item.department === selectedDepartment);
-
-    const totals = filteredData.reduce(
-      (acc, item) => {
-        acc.sourced += item.sourced;
-        acc.screening += item.screening;
-        acc.evaluation += item.evaluation;
-        acc.offer += item.offer;
-        acc.hired += item.hired;
-        return acc;
-      },
-      { sourced: 0, screening: 0, evaluation: 0, offer: 0, hired: 0 },
-    );
-
-    const sourcedBase = totals.sourced || 1;
+    const total = totalApps;
+    const pct = (n) => {
+      if (total <= 0) return 0;
+      return Math.min(100, Math.round(((n ?? 0) / total) * 100));
+    };
+    const applied = pipeline.applied ?? 0;
+    const screening = pipeline.screening ?? 0;
+    const evaluation = (pipeline.technical ?? 0) + (pipeline.client ?? 0);
+    const offer = (pipeline.offer ?? 0) + (pipeline.onboarding ?? 0);
+    const hired = pipeline.hired ?? 0;
     return {
-      totals,
+      totals: { applied, screening, evaluation, offer, hired },
       percentages: {
-        sourced: totals.sourced > 0 ? 100 : 0,
-        screening: Math.round((totals.screening / sourcedBase) * 100),
-        evaluation: Math.round((totals.evaluation / sourcedBase) * 100),
-        offer: Math.round((totals.offer / sourcedBase) * 100),
-        hired: Math.round((totals.hired / sourcedBase) * 100),
+        sourced: pct(applied),
+        screening: pct(screening),
+        evaluation: pct(evaluation),
+        offer: pct(offer),
+        hired: pct(hired),
       },
     };
-  }, [pipelineData, selectedDepartment]);
+  }, [pipeline, totalApps]);
 
   if (isLoading) return <PageSkeleton />;
   if (isError) return <ErrorState message="Failed to load dashboard." onRetry={refetch} />;
@@ -156,10 +158,10 @@ export default function Dashboard() {
       <span className="material-symbols-outlined text-on-secondary-container" style={{fontVariationSettings: "'FILL' 1"}}>person_search</span>
       </div>
       <p className="text-on-surface-variant font-medium text-sm">Active Applicants</p>
-      <h3 className="text-5xl font-extrabold font-headline text-primary my-2">1,284</h3>
-      <div className="flex items-center gap-2 text-emerald-600 text-sm font-bold mt-4">
-      <span className="material-symbols-outlined text-xs">trending_up</span>
-      <span>+12.4% this month</span>
+      <h3 className="text-5xl font-extrabold font-headline text-primary my-2">{formatCount(activeApplicantsCount)}</h3>
+      <div className="flex items-center gap-2 text-slate-500 text-sm font-bold mt-4">
+      <span className="material-symbols-outlined text-xs" aria-hidden>groups</span>
+      <span>{formatCount(hiredCount)} hired · {formatCount(totalApps)} total applications</span>
       </div>
       </div>
       </div>
@@ -173,10 +175,14 @@ export default function Dashboard() {
       <span className="material-symbols-outlined text-on-tertiary-fixed-variant" style={{fontVariationSettings: "'FILL' 1"}}>group</span>
       </div>
       <p className="text-on-surface-variant font-medium text-sm">Managed Workforce</p>
-      <h3 className="text-5xl font-extrabold font-headline text-primary my-2">4,902</h3>
+      <h3 className="text-5xl font-extrabold font-headline text-primary my-2">{formatCount(workforceTotal)}</h3>
       <div className="flex items-center gap-2 text-slate-500 text-sm font-bold mt-4">
-      <span className="material-symbols-outlined text-xs">remove</span>
-      <span>Stable utilization</span>
+      <span className="material-symbols-outlined text-xs" aria-hidden>badge</span>
+      <span>
+        {pendingTimesheets > 0
+          ? `${formatCount(pendingTimesheets)} pending timesheet${pendingTimesheets === 1 ? "" : "s"}`
+          : "Active employee headcount"}
+      </span>
       </div>
       </div>
       </div>
@@ -186,15 +192,44 @@ export default function Dashboard() {
       <span className="material-symbols-outlined text-8xl" style={{fontVariationSettings: "'FILL' 1"}}>account_balance_wallet</span>
       </div>
       <div className="relative z-10">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <span className="rounded-full border border-outline-variant/40 bg-surface-container-high/80 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
+      Coming soon
+      </span>
+      </div>
       <div className="w-12 h-12 bg-primary-fixed flex items-center justify-center rounded-lg mb-6">
       <span className="material-symbols-outlined text-on-primary-fixed-variant" style={{fontVariationSettings: "'FILL' 1"}}>account_balance_wallet</span>
       </div>
       <p className="text-on-surface-variant font-medium text-sm">Pending Payroll</p>
-      <h3 className="text-5xl font-extrabold font-headline text-primary my-2">$428K</h3>
-      <div className="flex items-center gap-2 text-error text-sm font-bold mt-4">
-      <span className="material-symbols-outlined text-xs">warning</span>
-      <span>Due in 48 hours</span>
+      {payrollReady ? (
+      <>
+      <h3 className="text-5xl font-extrabold font-headline text-primary my-2">
+      {typeof payrollPayload?.pendingFormatted === "string"
+        ? payrollPayload.pendingFormatted
+        : "—"}
+      </h3>
+      <div className="flex items-center gap-2 text-on-surface-variant text-sm font-bold mt-4">
+      <span className="material-symbols-outlined text-xs" aria-hidden>info</span>
+      <span>From payroll module</span>
       </div>
+      </>
+      ) : (
+      <>
+      <h3
+        className="text-5xl font-extrabold font-headline text-primary my-2 tracking-tight"
+        title="Payroll data will be available once the payroll module is activated."
+      >
+      —
+      </h3>
+      <div
+        className="flex items-center gap-2 text-slate-500 text-sm font-bold mt-4"
+        title="Payroll data will be available once the payroll module is activated."
+      >
+      <span className="material-symbols-outlined text-xs" aria-hidden>schedule</span>
+      <span>Coming soon</span>
+      </div>
+      </>
+      )}
       </div>
       </div>
       </div>
@@ -202,25 +237,21 @@ export default function Dashboard() {
       <div className="grid grid-cols-12 gap-8">
 
       <div className="col-span-12 lg:col-span-8 bg-surface-container-lowest rounded-xl p-8 border border-outline-variant/15 shadow-[0_40px_40px_-20px_rgba(0,6,21,0.04)]">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
+      <div>
       <h4 className="text-xl font-bold font-headline text-primary">Recruitment Pipeline</h4>
-      <select className="bg-surface-container border-none text-sm rounded-lg py-1 px-3 focus:ring-0" value={selectedDepartment} onChange={(event) => setSelectedDepartment(event.target.value)}>
-      {pipelineDepartments.map((department) => (
-        <option key={department} value={department}>
-          {department === "All" ? "All Departments" : department}
-        </option>
-      ))}
-      </select>
+      <p className="text-on-surface-variant mt-1 text-xs">Organization-wide lifecycle stages (live data).</p>
+      </div>
       </div>
       <div className="flex items-end gap-2 h-64">
 
       <div className="flex-1 flex flex-col justify-end gap-3 group h-full">
       <div className="bg-primary-container/10 w-full h-full rounded-t-lg relative flex flex-col justify-end items-center pb-4 transition-all group-hover:bg-primary-container/20">
-      <div className="bg-primary-container w-full h-[100%] rounded-t-lg flex items-center justify-center">
+      <div className="bg-primary-container flex w-full items-center justify-center rounded-t-lg" style={{ height: `${Math.max(pipelineMetrics.percentages.sourced, 0)}%` }}>
       <span className="text-white text-xs font-bold">{pipelineMetrics.percentages.sourced}%</span>
       </div>
       </div>
-      <p className="text-center text-[10px] uppercase font-bold text-slate-400 tracking-wider">Sourced</p>
+      <p className="text-center text-[10px] uppercase font-bold text-slate-400 tracking-wider">Applied</p>
       </div>
 
       <div className="flex-1 flex flex-col justify-end gap-3 group h-full">
@@ -247,7 +278,7 @@ export default function Dashboard() {
       <span className="text-primary-container text-xs font-bold">{pipelineMetrics.percentages.offer}%</span>
       </div>
       </div>
-      <p className="text-center text-[10px] uppercase font-bold text-slate-400 tracking-wider">Offer</p>
+      <p className="text-center text-[10px] uppercase font-bold text-slate-400 tracking-wider">Offer / Onboarding</p>
       </div>
 
       <div className="flex-1 flex flex-col justify-end gap-3 group h-full">
@@ -265,32 +296,41 @@ export default function Dashboard() {
 
       <div className="absolute top-0 right-0 w-64 h-64 bg-secondary/20 blur-[100px] -mr-32 -mt-32 rounded-full"></div>
       <div className="absolute bottom-0 left-0 w-48 h-48 bg-tertiary-fixed-dim/10 blur-[80px] -ml-24 -mb-24 rounded-full"></div>
-      <div className="relative z-10 h-full flex flex-col">
-      <h4 className="text-lg font-bold font-headline mb-1">Payroll Efficiency</h4>
-      <p className="text-on-primary-container text-xs mb-8">Operational overhead analysis</p>
-      <div className="flex-1 flex items-center justify-center">
-      <div className="relative w-40 h-40">
-      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-      <circle className="text-white/10" cx="50" cy="50" fill="transparent" r="40" stroke="currentColor" strokeWidth="12"></circle>
-      <circle className="text-tertiary-fixed-dim" cx="50" cy="50" fill="transparent" r="40" stroke="currentColor" strokeDasharray="251.2" strokeDashoffset="60" strokeLinecap="round" strokeWidth="12"></circle>
+      <div className="relative z-10 flex h-full flex-col">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+      <h4 className="text-lg font-bold font-headline mb-0">Payroll Efficiency</h4>
+      {!payrollEfficiencyLive ? (
+      <span className="rounded-full border border-white/25 bg-white/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white/90">
+      Coming soon
+      </span>
+      ) : null}
+      </div>
+      <p className="text-on-primary-container mb-6 text-xs">Operational overhead analysis</p>
+      <div
+        className="flex flex-1 flex-col items-center justify-center gap-3 py-6 text-center"
+        title="Payroll data will be available once the payroll module is activated."
+      >
+      {payrollEfficiencyLive ? (
+      <div className="relative h-40 w-40">
+      <svg className="h-full w-full -rotate-90 transform" viewBox="0 0 100 100">
+      <circle className="text-white/10" cx="50" cy="50" fill="transparent" r="40" stroke="currentColor" strokeWidth="12" />
+      <circle className="text-tertiary-fixed-dim" cx="50" cy="50" fill="transparent" r="40" stroke="currentColor" strokeDasharray="251.2" strokeLinecap="round" strokeWidth="12" style={{ strokeDashoffset: 251.2 * (1 - Number(payrollPayload.efficiencyPercent) / 100) }} />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-      <span className="text-3xl font-extrabold font-headline">76%</span>
-      <span className="text-[10px] uppercase tracking-tighter opacity-60">Optimized</span>
+      <span className="font-headline text-3xl font-extrabold">{Math.round(Number(payrollPayload.efficiencyPercent))}%</span>
       </div>
       </div>
+      ) : (
+      <>
+      <span className="material-symbols-outlined text-4xl text-white/50" aria-hidden>hourglass_empty</span>
+      <p className="font-headline text-2xl font-extrabold text-white">—</p>
+      <p className="max-w-[14rem] text-sm font-medium text-white/75">Payroll analytics will appear here when the module is connected.</p>
+      </>
+      )}
       </div>
-      <div className="mt-auto pt-6 space-y-3">
-      <div className="flex items-center justify-between text-sm">
-      <span className="opacity-70">Salaries &amp; Wages</span>
-      <span className="font-bold">$384,200</span>
-      </div>
-      <div className="flex items-center justify-between text-sm">
-      <span className="opacity-70">Contractor Fees</span>
-      <span className="font-bold">$112,900</span>
-      </div>
-      <div className="w-full h-[1px] bg-white/10 my-2"></div>
-      <button className="w-full py-2 bg-white/10 hover:bg-white/20 transition-all rounded-lg text-xs font-bold uppercase tracking-widest" onClick={() => navigate("/admin/reports")}>Open Analytics</button>
+      <div className="mt-auto space-y-3 pt-4">
+      <div className="h-[1px] w-full bg-white/10" />
+      <button type="button" className="w-full rounded-lg bg-white/10 py-2 text-xs font-bold uppercase tracking-widest transition-all hover:bg-white/20" onClick={() => navigate("/admin/reports")}>Open Analytics</button>
       </div>
       </div>
       </div>
@@ -371,10 +411,10 @@ export default function Dashboard() {
       </div>
       <div className="flex items-center gap-2">
       <span className="w-2 h-2 rounded-full bg-slate-300"></span>
-      <span className="text-xs text-slate-500 font-medium">Last Sync: 2m ago</span>
+      <span className="text-xs text-slate-500 font-medium">Last sync: {formatRelativeSync(dataUpdatedAt)}</span>
       </div>
       </div>
-      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">© 2024 InTechRoot Enterprise v4.2.0-Alpha</p>
+      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">© 2026 InTechRoot Enterprise</p>
       </footer>
       </main>
     </>

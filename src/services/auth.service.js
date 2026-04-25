@@ -19,7 +19,4 @@ export const authService = {
           : { email }
       )
       .then((r) => r.data.data),
-
-  employeeLogin: (email, password) =>
-    api.post('/auth/employee/login', { email, password }).then((r) => r.data.data),
 };

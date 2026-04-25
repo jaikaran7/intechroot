@@ -143,3 +143,101 @@ export function weekDayRows(weekStartISO) {
     return { key, label: labels[i], dateStr };
   });
 }
+
+const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** Human label for a Mon–Sun (or partial) range, e.g. "Apr 15 (Mon) – Apr 20 (Sat), 2026". */
+export function formatWeekRangeWithWeekdays(periodStartISO, periodEndISO) {
+  if (periodStartISO == null || periodEndISO == null || periodStartISO === "" || periodEndISO === "") return "—";
+  const a = parseYMD(periodStartISO);
+  const b = parseYMD(periodEndISO);
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return "—";
+  const y = b.getFullYear();
+  const sameYear = a.getFullYear() === y;
+  const startPart = `${a.toLocaleDateString("en-US", { month: "short", day: "numeric" })} (${WEEKDAY_SHORT[a.getDay()]})`;
+  const endPart = `${b.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  })} (${WEEKDAY_SHORT[b.getDay()]})${sameYear ? `, ${y}` : ""}`;
+  return `${startPart} – ${endPart}`;
+}
+
+/** Title line: "Week of Apr 20 – Apr 26, 2026" (calendar Monday–Sunday). */
+export function formatWeekOfCalendarRange(mondayISO, sundayISO) {
+  if (!mondayISO || !sundayISO) return "—";
+  const a = parseYMD(mondayISO);
+  const b = parseYMD(sundayISO);
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return "—";
+  const opts = { month: "short", day: "numeric" };
+  const y = a.getFullYear();
+  const sameYear = b.getFullYear() === y;
+  const left = a.toLocaleDateString("en-US", opts);
+  const right = b.toLocaleDateString("en-US", { ...opts, ...(sameYear ? {} : { year: "numeric" }) });
+  return `Week of ${left} – ${right}${sameYear ? `, ${y}` : ""}`;
+}
+
+/**
+ * Submission window for a chosen week: full Mon–Sun, except current calendar week uses end = min(Sunday, today).
+ */
+export function getPickerWeekBounds(mondayISO, today = new Date()) {
+  if (!mondayISO || !/^\d{4}-\d{2}-\d{2}$/.test(mondayISO)) return null;
+  const todayStr = toYMD(today);
+  const currentMonday = getWeekStartISO(today);
+  if (!currentMonday) return null;
+  const sunISO = addDaysISO(mondayISO, 6);
+  const isCurrentWeek = mondayISO === currentMonday;
+  const periodEnd = isCurrentWeek && sunISO > todayStr ? todayStr : sunISO;
+  if (periodEnd < mondayISO) return null;
+  return { mondayISO, periodStart: mondayISO, periodEnd, sunISO };
+}
+
+/**
+ * Weeks for "new timesheet" picker: current week through past weeks (no future weeks).
+ * Skips weeks that already have a timesheet (`weekStart` anchors).
+ * For the calendar week containing `today`, `periodEnd` is min(Sunday, today) so submissions never end in the future.
+ */
+export function buildSelectableWeekOptions(timesheets, today = new Date(), maxWeeksBack = 104) {
+  try {
+    if (!today || Number.isNaN(new Date(today).getTime())) return [];
+    const taken = new Set(
+      (Array.isArray(timesheets) ? timesheets : []).map((t) => weekMondayISOFromDb(t.weekStart)).filter(Boolean),
+    );
+    const todayStr = toYMD(today);
+    const currentMonday = getWeekStartISO(today);
+    if (!currentMonday) return [];
+    const options = [];
+    const mon = parseYMD(currentMonday);
+    if (Number.isNaN(mon.getTime())) return [];
+    for (let i = 0; i < maxWeeksBack; i++) {
+      const monISO = toYMD(mon);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(monISO)) break;
+      const sunISO = addDaysISO(monISO, 6);
+      const isCurrentWeek = monISO === currentMonday;
+      const periodEnd = isCurrentWeek && sunISO > todayStr ? todayStr : sunISO;
+      if (periodEnd < monISO) break;
+      if (!taken.has(monISO)) {
+        const start = parseYMD(monISO);
+        const end = parseYMD(periodEnd);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) break;
+        const sameYear = start.getFullYear() === end.getFullYear();
+        const labelCore = `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${end.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          ...(sameYear ? {} : { year: "numeric" }),
+        })}${sameYear ? `, ${start.getFullYear()}` : ""}`;
+        options.push({
+          mondayISO: monISO,
+          periodStart: monISO,
+          periodEnd,
+          label: `Week of ${labelCore}`,
+        });
+      }
+      mon.setDate(mon.getDate() - 7);
+      if (Number.isNaN(mon.getTime())) break;
+    }
+    return options;
+  } catch {
+    return [];
+  }
+}

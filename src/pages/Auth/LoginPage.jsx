@@ -29,7 +29,8 @@ export default function LoginPage() {
 
       } else if (user.role === "employee") {
         setAuth({ user, role: user.role, accessToken, employeeId: resolvedEmployeeId });
-        navigate("/employee/dashboard", { replace: true });
+        const from = location.state?.from?.pathname;
+        navigate(from && from.startsWith("/employee") ? from : "/employee/dashboard", { replace: true });
 
       } else {
         setError("You do not have access to this portal.");
@@ -143,9 +144,9 @@ export default function LoginPage() {
                   <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
                     Password
                   </label>
-                  <a href="#" className="text-xs font-bold text-secondary hover:text-primary transition-colors">
+                  <Link to="/forgot-password" className="text-xs font-bold text-secondary hover:text-primary transition-colors">
                     Forgot Password?
-                  </a>
+                  </Link>
                 </div>
                 <input
                   type="password"
