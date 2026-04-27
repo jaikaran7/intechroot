@@ -12,4 +12,7 @@ export const employeesService = {
 
   updateStatus: (id, status) =>
     api.patch(`/employees/${id}/status`, { status }).then((r) => r.data.data),
+
+  addExtraDocumentRequest: (id, name) =>
+    api.post(`/employees/${id}/extra-document-requests`, { name }).then((r) => r.data.data),
 };

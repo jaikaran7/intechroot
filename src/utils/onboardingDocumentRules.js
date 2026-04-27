@@ -40,6 +40,14 @@ export function resolveDocVerification(stored) {
 }
 
 /**
+ * For document tables: no verification row until a file exists (empty cell vs "Unapproved").
+ */
+export function resolveDocVerificationDisplay(stored) {
+  if (!stored || !hasUploadedFile(stored)) return null;
+  return resolveDocVerificationWhenUploaded(stored);
+}
+
+/**
  * Status column: not_uploaded | uploaded | expiring_soon | expired.
  * Does not use template row demo status — missing file is always not uploaded.
  * Verified rows show UPLOADED in status (avoids EXPIRED contradicting verified lock).

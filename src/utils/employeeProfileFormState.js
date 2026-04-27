@@ -4,6 +4,8 @@ export function buildProfileFormState(employee) {
     return {};
   }
   return {
+    phone: employee.phone || "",
+    email: employee.email || "",
     dateOfBirth: employee.personal?.dateOfBirth || employee.applicationProfile?.dateOfBirth || "",
     gender: employee.personal?.gender || employee.applicationProfile?.gender || "",
     address: employee.personal?.address || "",

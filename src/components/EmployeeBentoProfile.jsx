@@ -22,6 +22,8 @@ export function formatSalary(value) {
 function buildFields(employee, formData) {
   const fd = formData || {};
   return {
+    phone: fd.phone ?? employee.phone ?? "",
+    email: fd.email ?? employee.email ?? "",
     dateOfBirth:
       fd.dateOfBirth ??
       employee.personal?.dateOfBirth ??
@@ -57,7 +59,7 @@ export default function EmployeeBentoProfile({
   variant = "employee",
   formData = null,
   isEditMode = false,
-  /** When true (admin), Edit only unlocks Employee Details — not job/compensation/status. */
+  /** @deprecated When true, job/compensation/status stay read-only while personal fields edit. Prefer full admin edit (false). */
   adminEditsPersonalDetailsOnly = false,
   /** Employee portal: pen icon puts Employee Details in edit mode. */
   personalDetailsEditMode = false,
@@ -72,6 +74,11 @@ export default function EmployeeBentoProfile({
   const personalSectionEditable =
     (variant === "admin" && isEditMode) || (variant === "employee" && personalDetailsEditMode);
   const jobSectionEditable = variant === "admin" && isEditMode && !adminEditsPersonalDetailsOnly;
+  const dobGenderEditable = variant === "admin" && isEditMode;
+  const employmentTypeEditable = variant === "admin" && isEditMode;
+  const addressEditable = personalSectionEditable;
+  const contactFieldsEditable =
+    (variant === "employee" && personalDetailsEditMode) || (variant === "admin" && isEditMode);
   const portraitSrc = employee.performance?.panelImage;
   const quickNote =
     employee.quickNotes ||
@@ -127,15 +134,56 @@ export default function EmployeeBentoProfile({
               <div>
                 {heroBeforeName}
                 <h2 className="font-headline text-4xl font-extrabold tracking-tight text-primary">{employee.name}</h2>
-                <div className="mt-2 flex flex-wrap items-center gap-4">
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-3">
                   <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary-container px-3 py-1 text-xs font-bold text-on-primary-container">
                     <span className="material-symbols-outlined text-[14px]">badge</span>
                     {employee.id}
                   </span>
-                  <span className="flex items-center gap-1.5 text-sm font-medium text-on-surface-variant">
-                    <span className="material-symbols-outlined text-[18px] text-blue-600">call</span>
-                    {employee.phone || "—"}
-                  </span>
+                  {contactFieldsEditable ? (
+                    <>
+                      <label className="flex min-w-[10rem] flex-1 items-center gap-2 text-sm text-on-surface-variant sm:min-w-[12rem]">
+                        <span className="material-symbols-outlined shrink-0 text-[18px] text-blue-600">call</span>
+                        <input
+                          className="min-w-0 flex-1 border-b border-outline-variant bg-transparent py-1 text-sm font-medium text-primary focus:border-tertiary-fixed-dim focus:outline-none"
+                          type="tel"
+                          autoComplete="tel"
+                          value={fd.phone}
+                          onChange={(e) => updateField?.("phone", e.target.value)}
+                        />
+                      </label>
+                      <label className="flex min-w-[12rem] flex-1 items-center gap-2 text-sm text-on-surface-variant sm:min-w-[14rem]">
+                        <span className="material-symbols-outlined shrink-0 text-[18px] text-blue-600">mail</span>
+                        <input
+                          className="min-w-0 flex-1 border-b border-outline-variant bg-transparent py-1 text-sm font-medium text-primary focus:border-tertiary-fixed-dim focus:outline-none"
+                          type="email"
+                          autoComplete="email"
+                          value={fd.email}
+                          onChange={(e) => updateField?.("email", e.target.value)}
+                        />
+                      </label>
+                    </>
+                  ) : (
+                    <>
+                      <span className="flex items-center gap-1.5 text-sm font-medium text-on-surface-variant">
+                        <span className="material-symbols-outlined text-[18px] text-blue-600">call</span>
+                        {fd.phone?.trim() || "—"}
+                      </span>
+                      {fd.email ? (
+                        <a
+                          className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-secondary underline decoration-secondary/30 underline-offset-2 hover:opacity-90"
+                          href={`mailto:${fd.email}`}
+                        >
+                          <span className="material-symbols-outlined shrink-0 text-[18px] text-blue-600">mail</span>
+                          <span className="truncate">{fd.email}</span>
+                        </a>
+                      ) : (
+                        <span className="flex items-center gap-1.5 text-sm font-medium text-on-surface-variant">
+                          <span className="material-symbols-outlined text-[18px] text-blue-600">mail</span>
+                          —
+                        </span>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -172,7 +220,7 @@ export default function EmployeeBentoProfile({
                     <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-400">
                       Date of Birth
                     </label>
-                    {personalSectionEditable ? (
+                    {dobGenderEditable ? (
                       <input
                         className="w-full border-b border-outline-variant bg-transparent py-2 text-sm font-medium text-primary focus:border-tertiary-fixed-dim focus:outline-none"
                         type="date"
@@ -187,7 +235,7 @@ export default function EmployeeBentoProfile({
                     <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-400">
                       Gender
                     </label>
-                    {personalSectionEditable ? (
+                    {dobGenderEditable ? (
                       <select
                         className="w-full appearance-none border-b border-outline-variant bg-transparent py-2 text-sm font-medium text-primary focus:border-tertiary-fixed-dim focus:outline-none"
                         value={fd.gender}
@@ -206,7 +254,7 @@ export default function EmployeeBentoProfile({
                     <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-400">
                       Residential Address
                     </label>
-                    {personalSectionEditable ? (
+                    {addressEditable ? (
                       <input
                         className="w-full border-b border-outline-variant bg-transparent py-2 text-sm font-medium text-primary focus:border-tertiary-fixed-dim focus:outline-none"
                         type="text"
@@ -238,7 +286,7 @@ export default function EmployeeBentoProfile({
                     <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-400">
                       Employment Type
                     </label>
-                    {personalSectionEditable ? (
+                    {employmentTypeEditable ? (
                       <div className="mt-2 flex flex-wrap gap-2">
                         {["Full-Time", "Part-Time", "Contract"].map((opt) => (
                           <button

@@ -4,18 +4,18 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import EmployeeBentoProfile from "@/components/EmployeeBentoProfile";
 import { buildProfileFormState } from "@/utils/employeeProfileFormState";
 import { documentsService } from "@/services/documents.service";
-import { onboardingService } from "@/services/onboarding.service";
 import { REQUIRED_DOCUMENT_ROWS } from "@/constants/requiredDocumentTemplates";
 import { uploadStatusBadge, onboardingVerificationBadge } from "@/components/shared/requiredDocumentBadges";
 import { documentIconWrapClass, formatDocumentSubtitle } from "@/utils/applicantDocumentRows";
 import {
   getRowUploadStatusKey,
   hasUploadedFile,
-  resolveDocVerification,
+  resolveDocVerificationDisplay,
 } from "@/utils/onboardingDocumentRules";
 import { employeesService } from "../../../services/employees.service";
 import PageSkeleton from "../../../components/PageSkeleton";
 import ErrorState from "../../../components/ErrorState";
+import AdminDocumentPreviewModal from "@/components/admin/AdminDocumentPreviewModal";
 import EmployeeTimesheetHistoryPanel from "./EmployeeTimesheetHistoryPanel";
 
 function formatDateCell(iso) {
@@ -69,12 +69,26 @@ export default function EmployeeDetails() {
     },
   });
 
+  const [requestDocError, setRequestDocError] = useState("");
+
   const requestDocumentMutation = useMutation({
-    mutationFn: (name) => onboardingService.adminRequestDocument(employee.applicationId, name),
+    mutationFn: (name) => employeesService.addExtraDocumentRequest(id, name),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employee', id] });
+      queryClient.invalidateQueries({ queryKey: ['documents', id] });
       setNewDocNameDraft("");
+      setRequestDocError("");
       setIsDocRequestModalOpen(false);
+    },
+    onError: (err) => {
+      setRequestDocError(err?.response?.data?.error?.message || "Could not add document request.");
+    },
+  });
+
+  const verifyDocumentMutation = useMutation({
+    mutationFn: ({ documentId, verification }) => documentsService.verify(documentId, verification),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents', id] });
     },
   });
 
@@ -83,6 +97,7 @@ export default function EmployeeDetails() {
   const [showSavePopup, setShowSavePopup] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [previewingId, setPreviewingId] = useState(null);
+  const [documentPreview, setDocumentPreview] = useState(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [isDocRequestModalOpen, setIsDocRequestModalOpen] = useState(false);
@@ -149,14 +164,20 @@ export default function EmployeeDetails() {
   );
 
   const requestedRows = useMemo(() => {
-    const requested = employee.applicationProfile?.adminDocRequests || [];
-    return requested.map((request) => ({
+    const fromApplication = (employee.applicationProfile?.adminDocRequests || []).map((request) => ({
       key: `adminreq_${request.id}`,
       label: request.name,
       required: true,
       icon: "assignment_add",
     }));
-  }, [employee.applicationProfile?.adminDocRequests]);
+    const fromEmployee = (employee.extraDocumentRequests || []).map((request) => ({
+      key: `empreq_${request.id}`,
+      label: request.name,
+      required: true,
+      icon: "assignment_add",
+    }));
+    return [...fromApplication, ...fromEmployee];
+  }, [employee.applicationProfile?.adminDocRequests, employee.extraDocumentRequests]);
 
   const allDocRows = useMemo(
     () => [...requiredRows, ...requestedRows],
@@ -196,12 +217,22 @@ export default function EmployeeDetails() {
     [requiredRows, docsByKey],
   );
 
-  const handlePreview = async (docId) => {
+  const handlePreview = async (docId, stored, documentLabel) => {
     if (!docId) return;
     setPreviewingId(docId);
     try {
       const data = await documentsService.getDownloadUrl(docId);
-      if (data?.signedUrl) window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      if (data?.signedUrl) {
+        setDocumentPreview({
+          url: data.signedUrl,
+          title: stored?.fileName || stored?.name || documentLabel || "Document",
+          downloadFileName: stored?.fileName || undefined,
+        });
+      } else {
+        window.alert("No preview URL available for this file.");
+      }
+    } catch {
+      window.alert("Could not load document preview. Try again.");
     } finally {
       setPreviewingId(null);
     }
@@ -249,7 +280,6 @@ export default function EmployeeDetails() {
               employee={employee}
               formData={formData}
               isEditMode={isEditMode}
-              adminEditsPersonalDetailsOnly
               updateField={updateField}
               handleSalaryChange={handleSalaryChange}
               formatDateValue={formatDateValue}
@@ -303,16 +333,13 @@ export default function EmployeeDetails() {
             <button
               type="button"
               className="bg-primary-container text-on-primary px-6 py-3 rounded flex items-center gap-2 hover:translate-y-[-2px] transition-all shadow-lg shadow-primary-container/20 border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!employee.applicationId || requestDocumentMutation.isPending}
+              disabled={requestDocumentMutation.isPending}
               onClick={() => {
                 setNewDocNameDraft("");
+                setRequestDocError("");
                 setIsDocRequestModalOpen(true);
               }}
-              title={
-                employee.applicationId
-                  ? "Request an additional document from this employee"
-                  : "This employee is not linked to onboarding; document requests are unavailable"
-              }
+              title="Add a document row for this employee (they see it on their Documents page)"
             >
               <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
                 add
@@ -384,13 +411,16 @@ export default function EmployeeDetails() {
                     const stored = docsByKey.get(row.key);
                     const expiryValue = (stored?.expiryDate || "").slice(0, 10);
                     const uploadStatus = getRowUploadStatusKey(stored, row, expiryValue);
-                    const verification = resolveDocVerification(stored);
+                    const verificationDisplay = resolveDocVerificationDisplay(stored);
                     const upload = formatDateCell(stored?.uploadedAt || stored?.uploadDate);
                     const expiry = formatDateCell(expiryValue);
                     const rowCls = uploadStatus === "expiring_soon"
                       ? "bg-amber-50/30 hover:bg-amber-50/50 transition-colors"
                       : "hover:bg-surface-container-low transition-colors";
                     const hasFile = hasUploadedFile(stored);
+                    const verifyBusy =
+                      verifyDocumentMutation.isPending &&
+                      verifyDocumentMutation.variables?.documentId === stored?.id;
 
                     return (
                       <tr className={rowCls} key={row.key}>
@@ -414,13 +444,46 @@ export default function EmployeeDetails() {
                         <td className={`px-6 py-5 text-sm text-on-surface-variant ${expiry.italic ? "text-slate-400 italic" : ""}`}>
                           {expiry.text}
                         </td>
-                        <td className="px-6 py-5">{onboardingVerificationBadge(verification)}</td>
+                        <td className="px-6 py-5 align-middle">
+                          {verificationDisplay == null ? (
+                            <span className="inline-block min-h-[1.5rem] min-w-[1px]" aria-hidden />
+                          ) : verificationDisplay === "verified" || verificationDisplay === "rejected" ? (
+                            onboardingVerificationBadge(verificationDisplay, { verifiedText: "Approved" })
+                          ) : (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                className="rounded-md bg-emerald-600 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled={!stored?.id || verifyDocumentMutation.isPending}
+                                onClick={() =>
+                                  verifyDocumentMutation.mutate({ documentId: stored.id, verification: "verified" })
+                                }
+                              >
+                                {verifyBusy && verifyDocumentMutation.variables?.verification === "verified"
+                                  ? "…"
+                                  : "Approve"}
+                              </button>
+                              <button
+                                type="button"
+                                className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled={!stored?.id || verifyDocumentMutation.isPending}
+                                onClick={() =>
+                                  verifyDocumentMutation.mutate({ documentId: stored.id, verification: "rejected" })
+                                }
+                              >
+                                {verifyBusy && verifyDocumentMutation.variables?.verification === "rejected"
+                                  ? "…"
+                                  : "Reject"}
+                              </button>
+                            </div>
+                          )}
+                        </td>
                         <td className="px-6 py-5 text-right">
                           <button
                             type="button"
                             className="px-3 py-1.5 text-[10px] font-bold rounded bg-primary-container text-white hover:bg-primary transition-colors border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled={!hasFile || previewingId === stored?.id}
-                            onClick={() => handlePreview(stored?.id)}
+                            onClick={() => handlePreview(stored?.id, stored, row.label)}
                           >
                             {previewingId === stored?.id ? "Opening..." : "Preview"}
                           </button>
@@ -456,6 +519,11 @@ export default function EmployeeDetails() {
                 <p className="text-xs text-on-surface-variant mb-3">
                   Enter the document name. It appears in this table and becomes uploadable by the employee.
                 </p>
+                {requestDocError ? (
+                  <p className="mb-3 text-xs font-medium text-red-600" role="alert">
+                    {requestDocError}
+                  </p>
+                ) : null}
                 <input
                   type="text"
                   className="w-full bg-white border border-slate-200 rounded p-3 text-sm focus:ring-0 focus:outline-none focus:ring-2 focus:ring-tertiary-fixed-dim/30"
@@ -468,7 +536,10 @@ export default function EmployeeDetails() {
                   <button
                     type="button"
                     className="px-4 py-2 text-xs font-bold border border-slate-200 rounded-lg"
-                    onClick={() => setIsDocRequestModalOpen(false)}
+                    onClick={() => {
+                      setRequestDocError("");
+                      setIsDocRequestModalOpen(false);
+                    }}
                   >
                     Cancel
                   </button>
@@ -509,6 +580,15 @@ export default function EmployeeDetails() {
       </div>
       </div>
       )}
+
+      <AdminDocumentPreviewModal
+        open={documentPreview != null}
+        onClose={() => setDocumentPreview(null)}
+        url={documentPreview?.url || ""}
+        title={documentPreview?.title || "Document preview"}
+        downloadFileName={documentPreview?.downloadFileName}
+        requireInterestForDownload
+      />
     </>
   );
 }

@@ -12,19 +12,11 @@ import {
   formatDocumentSubtitle,
   getAllDocumentTemplateRows,
 } from "@/utils/applicantDocumentRows";
-import { getExpiryBucket, getRowUploadStatusKey, hasUploadedFile, resolveDocVerification } from "@/utils/onboardingDocumentRules";
+import { getRowUploadStatusKey, resolveDocVerification } from "@/utils/onboardingDocumentRules";
+import AdminDocumentPreviewModal from "@/components/admin/AdminDocumentPreviewModal";
+import ApplicantDocumentActionButtons from "@/components/applicant/ApplicantDocumentActionButtons";
 
 const DUMMY_FILE_URL = "/sample.pdf";
-
-function triggerDownload(url, name) {
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name || "sample.pdf";
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-}
 
 const ALL_STAGE_NAMES = [
   "Application Submitted",
@@ -63,10 +55,14 @@ export default function SuccessPage() {
   const [pendingUploadKey, setPendingUploadKey] = useState(null);
   const [onboardingWelcomeDismissed, setOnboardingWelcomeDismissed] = useState(false);
   const [statusToast, setStatusToast] = useState(null);
+  const [applicantDocPreview, setApplicantDocPreview] = useState(null);
   /** Only manual refresh should drive button disabled/spinner (auto-refresh stays non-blocking). */
   const [manualStatusRefresh, setManualStatusRefresh] = useState(false);
   const manualRefreshLockRef = useRef(false);
   const fileInputRef = useRef(null);
+  /** null = newest message; set when applicant steps through history */
+  const [messageViewIndex, setMessageViewIndex] = useState(null);
+  const prevMessageCountRef = useRef(0);
 
   const onboardingWelcomeDismissalKey =
     applicationId != null ? `intech_onboarding_welcome_dismissed_${applicationId}` : null;
@@ -271,88 +267,37 @@ export default function SuccessPage() {
   };
 
   const messages = application?.messages?.length ? application.messages : [];
-  const latestMessage = messages.length ? messages[messages.length - 1] : null;
-  const latestWhen = latestMessage ? latestMessage.date || latestMessage.timestamp : null;
-  const renderApplicantDocumentActions = (row, stored, expiryValue) => {
-    const v = resolveDocVerification(stored);
-    const hasFile = hasUploadedFile(stored);
-    const exp = getExpiryBucket((expiryValue || "").slice(0, 10));
+  const newestMessageIdx = messages.length > 0 ? messages.length - 1 : -1;
 
-    const uploadPrimaryClass =
-      "rounded bg-primary px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-white transition-colors hover:bg-secondary";
-    const viewLinkClass = "text-xs font-bold text-secondary hover:underline";
-    const downloadOutlineClass =
-      "rounded border border-primary px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-primary transition-all hover:bg-primary hover:text-white";
+  useEffect(() => {
+    setMessageViewIndex(null);
+    prevMessageCountRef.current = 0;
+  }, [applicationId]);
 
-    if (!hasFile) {
-      return (
-        <button type="button" onClick={() => handleUploadClick(row.key)} className={uploadPrimaryClass}>
-          Upload
-        </button>
-      );
+  useEffect(() => {
+    const n = messages.length;
+    if (n > prevMessageCountRef.current) {
+      setMessageViewIndex(n - 1);
     }
+    prevMessageCountRef.current = n;
+  }, [messages.length]);
 
-    if (v === "verified") {
-      const href = (stored?.fileUrl && String(stored.fileUrl).trim()) || DUMMY_FILE_URL;
-      const dlName = stored?.fileName || "document.pdf";
-      return (
-        <div className="flex flex-col items-end gap-2">
-          <button
-            type="button"
-            onClick={() => window.open(href, "_blank", "noopener,noreferrer")}
-            className={viewLinkClass}
-          >
-            View
-          </button>
-          <button
-            type="button"
-            onClick={() => triggerDownload(href, dlName)}
-            className={downloadOutlineClass}
-          >
-            Download
-          </button>
-        </div>
-      );
-    }
+  const activeMessageIdx =
+    newestMessageIdx < 0
+      ? -1
+      : Math.min(messageViewIndex != null ? messageViewIndex : newestMessageIdx, newestMessageIdx);
+  const viewedMessage = activeMessageIdx >= 0 ? messages[activeMessageIdx] : null;
+  const viewedWhen = viewedMessage ? viewedMessage.date || viewedMessage.timestamp : null;
 
-    if (exp === "expired" || exp === "expiring_soon") {
-      return (
-        <button type="button" onClick={() => handleUploadClick(row.key)} className={uploadPrimaryClass}>
-          Replace
-        </button>
-      );
-    }
-
-    if (v === "rejected") {
-      return (
-        <button type="button" onClick={() => handleUploadClick(row.key)} className={uploadPrimaryClass}>
-          Re-upload
-        </button>
-      );
-    }
-
-    if (v === "waiting") {
-      return (
-        <button type="button" onClick={() => handleUploadClick(row.key)} className={uploadPrimaryClass}>
-          Replace
-        </button>
-      );
-    }
-
-    if (v === "unapproved") {
-      return (
-        <button
-          type="button"
-          onClick={() => console.info("Submit for verification:", row.key)}
-          className={uploadPrimaryClass}
-        >
-          Submit for Verification
-        </button>
-      );
-    }
-
-    return null;
-  };
+  const openApplicantDocPreview = useCallback((stored, row) => {
+    const href = (stored?.fileUrl && String(stored.fileUrl).trim()) || DUMMY_FILE_URL;
+    if (!href) return;
+    setApplicantDocPreview({
+      url: href,
+      title: stored?.fileName || row?.label || "Document",
+      downloadFileName: stored?.fileName || "document.pdf",
+    });
+  }, []);
 
   /** First fetch: `data` is undefined — do not treat that as "not found" (was showing a false error until the API returned). */
   if (applicationId && isApplicationLoading) {
@@ -672,7 +617,15 @@ export default function SuccessPage() {
                         {err ? <p className="mt-1 text-[10px] font-medium text-red-600">{err}</p> : null}
                       </td>
                       <td className="px-8 py-6">{onboardingVerificationBadge(resolveDocVerification(stored))}</td>
-                      <td className="px-8 py-6 text-right">{renderApplicantDocumentActions(row, stored, expiryValue)}</td>
+                      <td className="px-8 py-6 text-right">
+                        <ApplicantDocumentActionButtons
+                          row={row}
+                          stored={stored}
+                          expiryValue={expiryValue}
+                          onOpenPreview={openApplicantDocPreview}
+                          onUploadClick={handleUploadClick}
+                        />
+                      </td>
                     </tr>
                   );
                   })}
@@ -737,28 +690,62 @@ export default function SuccessPage() {
             <div className="absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-secondary/5 blur-3xl"></div>
           </div>
 
-          <UpcomingInterviews application={application} />
+          <UpcomingInterviews application={application} applicationId={applicationId} />
 
-          <div className="flex h-full flex-col rounded-xl border-2 border-secondary/20 p-10 glass-card md:col-span-3">
+          <div className="flex h-full min-h-0 flex-col rounded-xl border-2 border-secondary/20 p-10 glass-card md:col-span-3">
             <h4 className="mb-1 font-headline text-2xl font-bold text-primary">Messages</h4>
             <p className="mb-6 text-sm text-on-surface-variant">Updates from your hiring team</p>
             <div className="flex min-h-[8rem] flex-1 flex-col rounded-xl border border-outline-variant/15 bg-white p-8 shadow-[0_8px_24px_rgba(0,6,21,0.06)]">
-              {messages.length === 0 || !latestMessage?.text?.trim() ? (
+              {messages.length === 0 || !viewedMessage?.text?.trim() ? (
                 <p className="text-sm leading-relaxed text-on-surface-variant">
                   No messages yet. We will post updates here.
                 </p>
               ) : (
-                <div className="flex flex-1 flex-col">
-                  <p className="text-sm leading-relaxed text-on-surface">{latestMessage.text.trim()}</p>
-                  {latestWhen ? (
-                    <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                      {new Date(latestWhen).toLocaleString()}
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="min-h-0 flex-1 overflow-y-auto">
+                    <p className="text-sm leading-relaxed text-on-surface whitespace-pre-wrap break-words">
+                      {viewedMessage.text.trim()}
                     </p>
-                  ) : null}
+                    {viewedWhen ? (
+                      <p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                        {new Date(viewedWhen).toLocaleString()}
+                      </p>
+                    ) : null}
+                  </div>
                   {messages.length > 1 ? (
-                    <p className="mt-auto pt-6 text-xs text-on-surface-variant/80">
-                      Showing your most recent of {messages.length} updates.
-                    </p>
+                    <div className="mt-3 flex shrink-0 items-center justify-center gap-1 border-t border-outline-variant/10 pt-2">
+                      <button
+                        type="button"
+                        aria-label="Older update"
+                        disabled={activeMessageIdx <= 0}
+                        onClick={() =>
+                          setMessageViewIndex((i) => Math.max(0, (i != null ? i : newestMessageIdx) - 1))
+                        }
+                        className="inline-flex h-7 w-7 items-center justify-center rounded text-on-surface-variant transition-colors hover:bg-surface-container disabled:pointer-events-none disabled:opacity-30"
+                      >
+                        <span className="material-symbols-outlined text-[18px]" data-icon="chevron_left">
+                          chevron_left
+                        </span>
+                      </button>
+                      <span className="min-w-[2.75rem] text-center text-[10px] font-medium tabular-nums text-on-surface-variant/90">
+                        {activeMessageIdx + 1} / {messages.length}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="Newer update"
+                        disabled={activeMessageIdx >= newestMessageIdx}
+                        onClick={() =>
+                          setMessageViewIndex((i) =>
+                            Math.min(newestMessageIdx, (i != null ? i : newestMessageIdx) + 1),
+                          )
+                        }
+                        className="inline-flex h-7 w-7 items-center justify-center rounded text-on-surface-variant transition-colors hover:bg-surface-container disabled:pointer-events-none disabled:opacity-30"
+                      >
+                        <span className="material-symbols-outlined text-[18px]" data-icon="chevron_right">
+                          chevron_right
+                        </span>
+                      </button>
+                    </div>
                   ) : null}
                 </div>
               )}
@@ -837,6 +824,15 @@ export default function SuccessPage() {
           {statusToast.message}
         </div>
       ) : null}
+
+      <AdminDocumentPreviewModal
+        open={applicantDocPreview != null}
+        onClose={() => setApplicantDocPreview(null)}
+        url={applicantDocPreview?.url || ""}
+        title={applicantDocPreview?.title || "Document preview"}
+        downloadFileName={applicantDocPreview?.downloadFileName}
+        requireInterestForDownload
+      />
     </div>
   );
 }

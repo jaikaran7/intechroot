@@ -1,6 +1,6 @@
 /** Admin STAGE 2 — Document Approval. Verify uploads, request new docs, save BGV link for the applicant. */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { documentsService } from "@/services/documents.service";
 import { onboardingService } from "@/services/onboarding.service";
@@ -26,6 +26,27 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
   const adminRequested = app.adminRequestedDocuments || [];
   const allDocRows = getAllDocumentTemplateRows(app);
   const totalDocRows = allDocRows.length;
+
+  const verificationStats = useMemo(() => {
+    const rows = getAllDocumentTemplateRows(app);
+    let approved = 0;
+    let pendingReview = 0;
+    let rejections = 0;
+    let missingRequired = 0;
+    for (const row of rows) {
+      const { stored } = getApplicantDocumentRowState(app, row);
+      const file = hasUploadedFile(stored);
+      if (row.required && !file) missingRequired += 1;
+      if (!file) continue;
+      const v = resolveDocVerification(stored);
+      if (v === "verified") approved += 1;
+      else if (v === "rejected") rejections += 1;
+      else pendingReview += 1;
+    }
+    const total = rows.length;
+    const progressPct = total === 0 ? 0 : Math.min(100, Math.round((approved / total) * 100));
+    return { approved, pendingReview, rejections, total, progressPct, missingRequired };
+  }, [app]);
 
   const invalidateApp = () => {
     if (app.id) queryClient.invalidateQueries({ queryKey: ['application', app.id] });
@@ -376,21 +397,26 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
         <div className="col-span-12 lg:col-span-3 flex flex-col gap-6">
           <div className="bg-surface-container-lowest/70 backdrop-blur-md p-6 border border-outline-variant/15 shadow-[0_40px_40px_-15px_rgba(11,31,58,0.04)]">
             <h3 className="text-xs font-extrabold uppercase tracking-widest text-secondary mb-4">Verification Health</h3>
-            <div className="relative h-2 w-full bg-surface-container rounded-full mb-6 overflow-hidden">
-              <div className="absolute left-0 top-0 h-full bg-gradient-to-r from-secondary to-tertiary-fixed-dim w-1/4" />
+            <div className="relative mb-6 h-2 w-full overflow-hidden rounded-full bg-surface-container">
+              <div
+                className="absolute left-0 top-0 h-full bg-gradient-to-r from-secondary to-tertiary-fixed-dim transition-[width] duration-300"
+                style={{ width: `${verificationStats.progressPct}%` }}
+              />
             </div>
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-on-surface-variant">Approved</span>
-                <span className="text-xs font-bold text-primary">1 / 4</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-on-surface-variant">Verified</span>
+                <span className="text-xs font-bold text-primary">
+                  {verificationStats.approved} / {verificationStats.total}
+                </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-on-surface-variant">Pending Review</span>
-                <span className="text-xs font-bold text-primary">2</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-on-surface-variant">Pending review</span>
+                <span className="text-xs font-bold text-primary">{verificationStats.pendingReview}</span>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex items-center justify-between">
                 <span className="text-xs text-on-surface-variant">Rejections</span>
-                <span className="text-xs font-bold text-error">1</span>
+                <span className="text-xs font-bold text-error">{verificationStats.rejections}</span>
               </div>
             </div>
             <button
@@ -413,19 +439,32 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
               </div>
             </div>
           </div>
-          <div className="bg-error-container/20 p-5 border-l-4 border-error">
-            <div className="flex gap-3">
-              <span className="material-symbols-outlined text-error" style={{ fontVariationSettings: "'FILL' 1" }}>
-                warning
-              </span>
-              <div>
-                <p className="text-xs font-bold text-on-error-container">Incomplete Vetting</p>
-                <p className="text-[10px] text-on-error-container/80 mt-1 leading-normal">
-                  Review outstanding items before completing this step.
-                </p>
+          {verificationStats.missingRequired +
+            verificationStats.pendingReview +
+            verificationStats.rejections >
+          0 ? (
+            <div className="border-l-4 border-error bg-error-container/20 p-5">
+              <div className="flex gap-3">
+                <span className="material-symbols-outlined text-error" style={{ fontVariationSettings: "'FILL' 1" }}>
+                  warning
+                </span>
+                <div>
+                  <p className="text-xs font-bold text-on-error-container">Incomplete vetting</p>
+                  <p className="mt-1 text-[10px] leading-normal text-on-error-container/80">
+                    {verificationStats.missingRequired > 0
+                      ? `${verificationStats.missingRequired} required document(s) not uploaded. `
+                      : null}
+                    {verificationStats.pendingReview > 0
+                      ? `${verificationStats.pendingReview} uploaded awaiting verification. `
+                      : null}
+                    {verificationStats.rejections > 0
+                      ? `${verificationStats.rejections} rejected — applicant may re-upload.`
+                      : null}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          ) : null}
         </div>
       </div>
       <div className="mt-16">

@@ -14,8 +14,10 @@ import {
   getPickerWeekBounds,
   getWeekStartISO,
   parseYMD,
+  sanitizeTimesheetDayInput,
   toYMD,
   toYmdFromAny,
+  weekDataPayloadFromInput,
   weekMondayISOFromDb,
 } from "./timesheetUtils";
 
@@ -45,8 +47,8 @@ function projectSubtext(sheet, employee) {
 }
 
 function canEmployeeEditTimesheet(status) {
-  // Only drafts and rejected rows are editable in the grid (pending = awaiting review, read-only).
-  return status === "Draft" || status === "Rejected";
+  // Editable until admin approves; pending rows can still be corrected and re-saved.
+  return status === "Draft" || status === "Rejected" || status === "Pending";
 }
 
 function formatRejectionTimestamp(iso) {
@@ -62,19 +64,6 @@ function weekDataInputFromSheet(sheet) {
     const v = sheet.weekData?.[k];
     if (v === null || v === undefined || v === "") o[k] = "";
     else o[k] = String(v);
-  });
-  return o;
-}
-
-function weekDataPayloadFromInput(input) {
-  const o = {};
-  TIMESHEET_DAY_KEYS.forEach((k) => {
-    const t = String(input[k] ?? "").trim();
-    if (t === "") o[k] = null;
-    else {
-      const n = Number(t);
-      o[k] = Number.isNaN(n) ? null : Math.min(24, Math.max(0, n));
-    }
   });
   return o;
 }
@@ -102,8 +91,8 @@ export default function EmployeeTimesheetsPage() {
         old.meta && idx < 0 ? { ...old.meta, total: (old.meta.total ?? list.length) + 1 } : old.meta;
       return { ...old, data: nextList, meta };
     });
-    queryClient.invalidateQueries({ queryKey: ['timesheets', employeeId] });
-    queryClient.invalidateQueries({ queryKey: ['timesheets'] });
+    // Only refresh the admin list query — avoid invalidating ['timesheets', employeeId] or a refetch can clear edit state mid-save.
+    queryClient.invalidateQueries({ queryKey: ['timesheets'], exact: true });
   };
 
   const saveDraftMutation = useMutation({
@@ -113,6 +102,15 @@ export default function EmployeeTimesheetsPage() {
       setDraftEdit((prev) =>
         prev?.id === newSheet.id ? { id: newSheet.id, weekData: weekDataInputFromSheet(newSheet) } : prev,
       );
+    },
+    onError: (err) => {
+      const body = err?.response?.data;
+      const msg =
+        body?.error?.message ||
+        (Array.isArray(body?.error?.details) ? body.error.details.map((d) => d.message).join(" ") : null) ||
+        err.message ||
+        "Could not save draft.";
+      window.alert(msg);
     },
   });
 
@@ -133,7 +131,7 @@ export default function EmployeeTimesheetsPage() {
   /** @type {null | { sheetId: string; weekLabel: string; note: string; rejectedAt: string | null }} */
   const [rejectionFeedback, setRejectionFeedback] = useState(null);
   const [viewRowId, setViewRowId] = useState(null);
-  /** Local hour strings while editing a draft/rejected row `{ id, weekData }`. */
+  /** Local hour strings while editing `{ id, weekData }` (draft, rejected, or pending). */
   const [draftEdit, setDraftEdit] = useState(null);
 
   const timesheets = useMemo(() => {
@@ -261,7 +259,7 @@ export default function EmployeeTimesheetsPage() {
   const handleDayChange = (day, value) => {
     setDraftEdit((prev) => {
       if (!prev) return prev;
-      return { ...prev, weekData: { ...prev.weekData, [day]: value } };
+      return { ...prev, weekData: { ...prev.weekData, [day]: sanitizeTimesheetDayInput(value) } };
     });
   };
 
@@ -518,17 +516,19 @@ export default function EmployeeTimesheetsPage() {
                                     Save draft
                                   </button>
                                 )}
-                                <button
-                                  type="button"
-                                  className="px-3 py-2 text-xs font-semibold rounded-lg bg-primary-container text-white shadow-sm hover:bg-primary hover:-translate-y-0.5 transition-all disabled:opacity-50"
-                                  disabled={submitApprovalMutation.isPending || saveDraftMutation.isPending}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    sendRowForApproval(sheet);
-                                  }}
-                                >
-                                  Send for approval
-                                </button>
+                                {(sheet.status === "Draft" || sheet.status === "Rejected") && (
+                                  <button
+                                    type="button"
+                                    className="px-3 py-2 text-xs font-semibold rounded-lg bg-primary-container text-white shadow-sm hover:bg-primary hover:-translate-y-0.5 transition-all disabled:opacity-50"
+                                    disabled={submitApprovalMutation.isPending || saveDraftMutation.isPending}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      sendRowForApproval(sheet);
+                                    }}
+                                  >
+                                    Send for approval
+                                  </button>
+                                )}
                               </>
                             )}
                             {sheet.status === "Pending" && (

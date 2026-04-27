@@ -63,18 +63,13 @@ export default function EmployeeProfilePage() {
   const handleSave = () => {
     if (!personalDetailsEditMode) return;
     saveMutation.mutate({
+      phone: formData.phone,
+      email: formData.email,
       personal: {
-        dateOfBirth: formData.dateOfBirth,
-        gender: formData.gender,
         address: formData.address,
-      },
-      employment: {
-        employmentType: formData.employmentType,
       },
     });
   };
-
-  const handlePenClick = () => setPersonalDetailsEditMode(true);
 
   if (!employee) return null;
 
@@ -89,32 +84,37 @@ export default function EmployeeProfilePage() {
           formData={formData}
           isEditMode={false}
           personalDetailsEditMode={personalDetailsEditMode}
-          onPersonalDetailsPenClick={handlePenClick}
           updateField={updateField}
           handleSalaryChange={() => {}}
           formatDateValue={formatDateValue}
           heroActions={
-            <>
+            personalDetailsEditMode ? (
+              <>
+                <button
+                  type="button"
+                  className="rounded-lg border border-outline-variant px-6 py-2.5 text-sm font-semibold text-on-surface-variant transition-all hover:bg-surface-container active:scale-95"
+                  onClick={handleCancel}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={saveMutation.isPending}
+                  className="rounded-lg bg-primary-container px-8 py-2.5 text-sm font-semibold text-on-primary shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={handleSave}
+                >
+                  {saveMutation.isPending ? "Saving…" : "Save Changes"}
+                </button>
+              </>
+            ) : (
               <button
                 type="button"
-                className="rounded-lg border border-outline-variant px-6 py-2.5 text-sm font-semibold text-on-surface-variant transition-all hover:bg-surface-container active:scale-95"
-                onClick={handleCancel}
+                className="rounded-lg bg-primary-container px-8 py-2.5 text-sm font-semibold text-on-primary shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 active:scale-95"
+                onClick={() => setPersonalDetailsEditMode(true)}
               >
-                Cancel
+                Edit Profile
               </button>
-              <button
-                type="button"
-                disabled={!personalDetailsEditMode}
-                className={`rounded-lg px-8 py-2.5 text-sm font-semibold shadow-lg transition-all active:scale-95 ${
-                  personalDetailsEditMode
-                    ? "bg-primary-container text-on-primary shadow-primary/20 hover:-translate-y-0.5"
-                    : "cursor-not-allowed bg-primary-container text-on-primary opacity-50"
-                }`}
-                onClick={handleSave}
-              >
-                Save Changes
-              </button>
-            </>
+            )
           }
         />
       </main>

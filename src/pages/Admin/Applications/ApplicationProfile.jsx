@@ -207,6 +207,10 @@ export default function ApplicationProfile() {
     mutationFn: ({ iid, data }) => applicationsService.updateInterview(id, iid, data),
   });
 
+  const deleteInterviewMutation = useMutation({
+    mutationFn: (iid) => applicationsService.deleteInterview(id, iid),
+  });
+
   const verifyDocumentMutation = useMutation({
     mutationFn: ({ documentId, verification }) => documentsService.verify(documentId, verification),
     onSuccess: () => {
@@ -371,6 +375,20 @@ export default function ApplicationProfile() {
     setRescheduleTarget(null);
     setIsInterviewModalOpen(false);
     setInterviewForm({ type: INTERVIEW_TYPES[0], date: "", time: "", link: "", notes: "" });
+  };
+
+  const handleDeleteInterview = () => {
+    if (!rescheduleTarget?.id) return;
+    if (!window.confirm("Delete this interview? It will be removed for you and the applicant.")) return;
+    setInterviewModalError("");
+    deleteInterviewMutation.mutate(rescheduleTarget.id, {
+      onSuccess: () => {
+        invalidate();
+        closeInterviewModal();
+      },
+      onError: (err) =>
+        setInterviewModalError(err?.response?.data?.error?.message || "Unable to delete interview."),
+    });
   };
 
   const handleScheduleInterviewSubmit = () => {
@@ -1202,7 +1220,20 @@ export default function ApplicationProfile() {
       {interviewModalError ? (
       <p className="mt-3 text-xs text-error font-medium" role="alert">{interviewModalError}</p>
       ) : null}
-      <div className="mt-4 flex justify-end gap-2">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+      <div className="flex min-h-[2.5rem] items-center">
+      {rescheduleTarget?.id ? (
+      <button
+      className="px-4 py-2 text-xs font-bold rounded-lg bg-red-600 text-white shadow-sm transition-colors hover:bg-red-700 disabled:opacity-50"
+      onClick={handleDeleteInterview}
+      type="button"
+      disabled={deleteInterviewMutation.isPending || addInterviewMutation.isPending || updateInterviewMutation.isPending}
+      >
+      Delete
+      </button>
+      ) : null}
+      </div>
+      <div className="flex gap-2">
       <button className="px-4 py-2 text-xs font-bold border border-slate-200 rounded-lg" onClick={closeInterviewModal} type="button">Cancel</button>
       <button
       className="px-4 py-2 text-xs font-bold bg-primary-container text-white rounded-lg disabled:opacity-60"
@@ -1210,6 +1241,7 @@ export default function ApplicationProfile() {
       type="button"
       disabled={addInterviewMutation.isPending || updateInterviewMutation.isPending}
       >{rescheduleTarget ? "Save schedule" : "Schedule Interview"}</button>
+      </div>
       </div>
       </div>
       </div>

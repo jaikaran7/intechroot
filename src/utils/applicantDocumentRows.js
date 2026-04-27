@@ -58,10 +58,10 @@ export function getApplicantDocumentActionLabel(row, stored, expiryValue) {
   const exp = getExpiryBucket((expiryValue || "").slice(0, 10));
   if (!file) return "Upload";
   if (v === "verified") return "View / Download";
-  if (exp === "expired" || exp === "expiring_soon") return "Replace";
-  if (v === "rejected") return "Re-upload";
-  if (v === "waiting") return "Replace";
-  if (v === "unapproved") return "Submit for Verification";
+  if (exp === "expired" || exp === "expiring_soon") return "View / Replace";
+  if (v === "rejected") return "View / Re-upload";
+  if (v === "waiting") return "View / Replace";
+  if (v === "unapproved") return "View / Replace";
   return "—";
 }
 

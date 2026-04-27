@@ -56,16 +56,46 @@ export const calculateTotal = (weekData) =>
   TIMESHEET_DAY_KEYS.reduce((sum, key) => {
     const v = weekData?.[key];
     if (v === null || v === undefined || v === "") return sum;
+    if (v === "L" || v === "O") return sum;
     const n = Number(v);
     return sum + (Number.isNaN(n) ? 0 : n);
   }, 0);
 
-/** Display cell: null / empty → em dash. */
+/** Display cell: null / empty → em dash; L/O leave-off markers as-is. */
 export function formatHourCell(raw) {
   if (raw === null || raw === undefined || raw === "") return "—";
+  if (raw === "L" || raw === "O") return String(raw);
   const n = Number(raw);
   if (Number.isNaN(n)) return "—";
   return n.toFixed(1);
+}
+
+/** While typing: allow digits/one dot, or a single L/l/O/o. */
+export function sanitizeTimesheetDayInput(raw) {
+  const t = String(raw ?? "");
+  if (t === "") return "";
+  const trimmed = t.trim();
+  if (trimmed.length === 1 && /^[lLoO]$/i.test(trimmed)) return trimmed.toUpperCase();
+  return trimmed.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1");
+}
+
+/** Value sent to API: hours 0–24, "L" (leave), "O" (off), or null. */
+export function normalizeTimesheetCellForPayload(raw) {
+  const t = String(raw ?? "").trim();
+  if (t === "") return null;
+  const u = t.toUpperCase();
+  if (u === "L" || u === "O") return u;
+  const n = Number(t);
+  if (Number.isNaN(n)) return null;
+  return Math.min(24, Math.max(0, n));
+}
+
+export function weekDataPayloadFromInput(input) {
+  const o = {};
+  TIMESHEET_DAY_KEYS.forEach((k) => {
+    o[k] = normalizeTimesheetCellForPayload(input[k]);
+  });
+  return o;
 }
 
 /** Inclusive number of calendar days from start ISO to end ISO. */

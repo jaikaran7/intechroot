@@ -12,7 +12,7 @@ import {
 import {
   getRowUploadStatusKey,
   hasUploadedFile,
-  resolveDocVerification,
+  resolveDocVerificationDisplay,
 } from "../../utils/onboardingDocumentRules";
 
 function formatDateCell(iso) {
@@ -24,6 +24,12 @@ function formatDateCell(iso) {
     text: d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
     italic: false,
   };
+}
+
+/** YYYY-MM-DD from draft or saved document — required before employee upload/replace. */
+function effectiveExpiryForRow(rowKey, stored, expiryDraft) {
+  const raw = (expiryDraft[rowKey] || stored?.expiryDate || "").trim();
+  return raw.slice(0, 10);
 }
 
 export default function EmployeeDocumentsPage() {
@@ -51,6 +57,9 @@ export default function EmployeeDocumentsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [expiryDraft, setExpiryDraft] = useState({});
+  const [addDocModalOpen, setAddDocModalOpen] = useState(false);
+  const [addDocNameDraft, setAddDocNameDraft] = useState("");
+  const [addDocModalError, setAddDocModalError] = useState("");
 
   const upsertMutation = useMutation({
     mutationFn: (formData) => documentsService.upsert(formData),
@@ -67,6 +76,22 @@ export default function EmployeeDocumentsPage() {
     }
   });
 
+  const addComplianceDocMutation = useMutation({
+    mutationFn: (name) => employeesService.addExtraDocumentRequest(employeeId, name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employee", employeeId] });
+      queryClient.invalidateQueries({ queryKey: ["documents", employeeId] });
+      setAddDocModalOpen(false);
+      setAddDocNameDraft("");
+      setAddDocModalError("");
+    },
+    onError: (err) => {
+      setAddDocModalError(
+        err?.response?.data?.error?.message || "Could not add the document. Try again or contact HR.",
+      );
+    },
+  });
+
   const requiredRows = useMemo(() => {
     const baseRequired = REQUIRED_DOCUMENT_ROWS.filter((row) => row.required);
     const adminRequested = (employee?.applicationProfile?.adminDocRequests || []).map((request) => ({
@@ -78,8 +103,17 @@ export default function EmployeeDocumentsPage() {
       action: "upload",
       icon: "assignment_add",
     }));
-    return [...baseRequired, ...adminRequested];
-  }, [employee?.applicationProfile?.adminDocRequests]);
+    const employeeRequested = (employee?.extraDocumentRequests || []).map((request) => ({
+      key: `empreq_${request.id}`,
+      label: request.name,
+      required: true,
+      status: "not_uploaded",
+      expiry: "",
+      action: "upload",
+      icon: "assignment_add",
+    }));
+    return [...baseRequired, ...adminRequested, ...employeeRequested];
+  }, [employee?.applicationProfile?.adminDocRequests, employee?.extraDocumentRequests]);
 
   const docsByKey = useMemo(() => {
     const map = new Map();
@@ -90,6 +124,15 @@ export default function EmployeeDocumentsPage() {
   }, [docs]);
 
   function handleUploadClick(templateKey) {
+    const stored = docsByKey.get(templateKey);
+    const expiry = effectiveExpiryForRow(templateKey, stored, expiryDraft);
+    if (!expiry) {
+      setRowErrors((prev) => ({
+        ...prev,
+        [templateKey]: "Select an expiry date before uploading or replacing a file.",
+      }));
+      return;
+    }
     setPendingUploadKey(templateKey);
     setRowErrors((prev) => ({ ...prev, [templateKey]: "" }));
     fileInputRef.current?.click();
@@ -107,14 +150,23 @@ export default function EmployeeDocumentsPage() {
       return;
     }
 
+    const stored = docsByKey.get(templateKey);
+    const expiry = effectiveExpiryForRow(templateKey, stored, expiryDraft);
+    if (!expiry) {
+      setRowErrors((prev) => ({
+        ...prev,
+        [templateKey]: "Expiry date is required. Choose a date and try again.",
+      }));
+      return;
+    }
+
     const row = requiredRows.find((r) => r.key === templateKey);
     const fd = new FormData();
     fd.append("file", file);
     fd.append("employeeId", employeeId);
     fd.append("templateKey", templateKey);
     fd.append("name", row?.label || templateKey);
-    const expiry = (expiryDraft[templateKey] || "").trim();
-    if (expiry) fd.append("expiryDate", expiry);
+    fd.append("expiryDate", expiry);
     upsertMutation.mutate(fd);
   }
 
@@ -169,21 +221,26 @@ export default function EmployeeDocumentsPage() {
           <div>
             <h1 className="text-4xl font-extrabold text-primary-container tracking-tight mb-2 font-headline">Employee Documents</h1>
             <p className="text-on-surface-variant max-w-md font-body">
-              Upload required compliance documents. Missing documents need upload; uploaded ones can be previewed.
+              Upload required compliance documents. An <strong className="text-primary">expiry date</strong> is required
+              for every upload or replacement. Use <strong className="text-primary">Add document</strong> to add a new row
+              with a name you choose (no application link required).
             </p>
           </div>
           <button
             type="button"
-            className="bg-primary-container text-on-primary px-6 py-3 rounded flex items-center gap-2 hover:translate-y-[-2px] transition-all shadow-lg shadow-primary-container/20 border-none cursor-pointer"
+            className="bg-primary-container text-on-primary px-6 py-3 rounded flex items-center gap-2 hover:translate-y-[-2px] transition-all shadow-lg shadow-primary-container/20 border-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!employeeId || addComplianceDocMutation.isPending}
+            title="Add a new document row with a name you choose"
             onClick={() => {
-              const firstMissing = requiredRows.find((row) => !hasUploadedFile(docsByKey.get(row.key)));
-              handleUploadClick(firstMissing?.key || requiredRows[0]?.key);
+              setAddDocNameDraft("");
+              setAddDocModalError("");
+              setAddDocModalOpen(true);
             }}
           >
             <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
               add
             </span>
-            <span className="font-bold text-sm">Upload Required Document</span>
+            <span className="font-bold text-sm">Add document</span>
           </button>
         </div>
 
@@ -231,7 +288,9 @@ export default function EmployeeDocumentsPage() {
                 <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Document Name</th>
                 <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Upload Status</th>
                 <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Upload Date</th>
-                <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Expiry Date</th>
+                <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                  Expiry Date <span className="text-red-600">*</span>
+                </th>
                 <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Verification</th>
                 <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500 text-right">Actions</th>
               </tr>
@@ -248,9 +307,8 @@ export default function EmployeeDocumentsPage() {
                   const stored = docsByKey.get(row.key);
                   const expiryValue = (stored?.expiryDate || expiryDraft[row.key] || "").slice(0, 10);
                   const uploadStatus = getRowUploadStatusKey(stored, row, expiryValue);
-                  const verification = resolveDocVerification(stored);
+                  const verificationDisplay = resolveDocVerificationDisplay(stored);
                   const upload = formatDateCell(stored?.uploadedAt || stored?.uploadDate);
-                  const expiry = formatDateCell(expiryValue);
                   const rowCls = uploadStatus === "expiring_soon"
                     ? "bg-amber-50/30 hover:bg-amber-50/50 transition-colors"
                     : "hover:bg-surface-container-low transition-colors";
@@ -274,10 +332,23 @@ export default function EmployeeDocumentsPage() {
                       </td>
                       <td className="px-6 py-5">{uploadStatusBadge(uploadStatus)}</td>
                       <td className={`px-6 py-5 text-sm text-on-surface-variant ${upload.italic ? "italic text-slate-400" : ""}`}>{upload.text}</td>
-                      <td className={`px-6 py-5 text-sm text-on-surface-variant ${expiry.italic ? "text-slate-400 italic" : ""}`}>
-                        {expiry.text}
+                      <td className="px-6 py-5">
+                        <input
+                          type="date"
+                          required
+                          aria-label={`Expiry date for ${row.label}`}
+                          value={expiryValue}
+                          onChange={(e) => setExpiryDraft((prev) => ({ ...prev, [row.key]: e.target.value }))}
+                          className="max-w-full rounded border border-outline-variant/20 bg-white px-2 py-1.5 text-xs text-primary"
+                        />
                       </td>
-                      <td className="px-6 py-5">{onboardingVerificationBadge(verification)}</td>
+                      <td className="px-6 py-5 align-middle">
+                        {verificationDisplay == null ? (
+                          <span className="inline-block min-h-[1.5rem] min-w-[1px]" aria-hidden />
+                        ) : (
+                          onboardingVerificationBadge(verificationDisplay, { verifiedText: "Approved" })
+                        )}
+                      </td>
                       <td className="px-6 py-5 text-right">
                         <div className="flex flex-col items-end gap-1.5">
                           <div className="flex justify-end gap-2">
@@ -309,14 +380,6 @@ export default function EmployeeDocumentsPage() {
                               </button>
                             )}
                           </div>
-                          {!hasFile && (
-                            <input
-                              type="date"
-                              value={expiryValue}
-                              onChange={(e) => setExpiryDraft((prev) => ({ ...prev, [row.key]: e.target.value }))}
-                              className="w-36 rounded border border-outline-variant/20 bg-white px-2 py-1 text-xs"
-                            />
-                          )}
                           {rowError ? <p className="text-[10px] font-medium text-error">{rowError}</p> : null}
                         </div>
                       </td>
@@ -390,6 +453,51 @@ export default function EmployeeDocumentsPage() {
             </div>
           </div>
         </div>
+
+        {addDocModalOpen ? (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/20 backdrop-blur-md">
+            <div className="glass-card rounded-xl border border-white/30 p-6 shadow-2xl w-[min(92vw,32rem)]">
+              <h4 className="mb-2 text-lg font-bold text-primary">Add a document</h4>
+              <p className="mb-3 text-xs text-on-surface-variant">
+                Enter the document name. A new row is added to this table so you can choose an expiry date and upload or
+                replace the file like any other requirement.
+              </p>
+              {addDocModalError ? (
+                <p className="mb-3 text-xs font-medium text-red-600" role="alert">
+                  {addDocModalError}
+                </p>
+              ) : null}
+              <input
+                type="text"
+                className="w-full rounded border border-slate-200 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-tertiary-fixed-dim/30"
+                placeholder="e.g. State professional license"
+                value={addDocNameDraft}
+                onChange={(e) => setAddDocNameDraft(e.target.value)}
+                autoFocus
+              />
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-bold"
+                  onClick={() => {
+                    setAddDocModalError("");
+                    setAddDocModalOpen(false);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg bg-primary-container px-4 py-2 text-xs font-bold text-white disabled:opacity-40"
+                  disabled={!addDocNameDraft.trim() || addComplianceDocMutation.isPending}
+                  onClick={() => addComplianceDocMutation.mutate(addDocNameDraft.trim())}
+                >
+                  {addComplianceDocMutation.isPending ? "Adding…" : "Add to table"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <footer className="mt-auto px-8 py-4 bg-surface-container-low/30 border-t border-outline-variant/10 text-center">
           <p className="text-[10px] text-slate-400 font-medium tracking-widest uppercase font-body">

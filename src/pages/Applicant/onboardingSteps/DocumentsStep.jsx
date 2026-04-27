@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import OnboardingShell from "./OnboardingShell";
@@ -8,9 +8,10 @@ import { applicationsService } from "@/services/applications.service";
 import {
   getAllDocumentTemplateRows,
   getApplicantDocumentRowState,
-  getApplicantDocumentActionLabel,
   documentIconWrapClass,
 } from "@/utils/applicantDocumentRows";
+import AdminDocumentPreviewModal from "@/components/admin/AdminDocumentPreviewModal";
+import ApplicantDocumentActionButtons from "@/components/applicant/ApplicantDocumentActionButtons";
 import {
   uploadStatusBadge,
   onboardingVerificationBadge,
@@ -26,6 +27,7 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
   const [rowErrors, setRowErrors] = useState({});
   const [filter, setFilter] = useState("");
   const [submitError, setSubmitError] = useState("");
+  const [docPreview, setDocPreview] = useState(null);
 
   const { data: application } = useQuery({
     queryKey: ['application', applicationId],
@@ -93,6 +95,16 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
     setPendingUploadKey(rowKey);
     fileInputRef.current?.click();
   }
+
+  const openDocPreview = useCallback((stored, row) => {
+    const href = (stored?.fileUrl && String(stored.fileUrl).trim()) || "";
+    if (!href) return;
+    setDocPreview({
+      url: href,
+      title: stored?.fileName || row?.label || "Document",
+      downloadFileName: stored?.fileName || "document.pdf",
+    });
+  }, []);
 
   function onFileSelected(event) {
     const file = event.target.files?.[0];
@@ -188,9 +200,7 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
                   const state = getApplicantDocumentRowState(application, row, expiryDraft);
                   const statusForBadge =
                     state.displayStatus === "not_uploaded_neutral" ? "not_uploaded" : state.displayStatus;
-                  const hasFile = hasUploadedFile(state.stored);
                   const err = rowErrors[row.key];
-                  const label = getApplicantDocumentActionLabel(row, state.stored, state.expiryValue);
                   return (
                     <tr key={row.key} className="hover:bg-surface-container-lowest/60">
                       <td className="px-6 py-5">
@@ -227,18 +237,14 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
                       <td className="px-6 py-5">{onboardingVerificationBadge(state.verification)}</td>
                       <td className="px-6 py-5 text-right">
                         <div className="flex flex-col items-end gap-1">
-                          <button
-                            type="button"
+                          <ApplicantDocumentActionButtons
+                            row={row}
+                            stored={state.stored}
+                            expiryValue={state.expiryValue}
+                            onOpenPreview={openDocPreview}
+                            onUploadClick={handleUploadClick}
                             disabled={finalSubmitted || uploadMutation.isPending}
-                            onClick={() => handleUploadClick(row.key)}
-                            className={`rounded px-4 py-2 text-[10px] font-bold uppercase tracking-wider transition disabled:opacity-50 ${
-                              hasFile
-                                ? "border border-primary text-primary hover:bg-primary hover:text-white"
-                                : "bg-primary text-white hover:bg-secondary"
-                            }`}
-                          >
-                            {label}
-                          </button>
+                          />
                           {err ? <p className="text-[10px] font-medium text-red-600">{err}</p> : null}
                         </div>
                       </td>
@@ -287,6 +293,14 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
           </button>
         </div>
       </div>
+      <AdminDocumentPreviewModal
+        open={docPreview != null}
+        onClose={() => setDocPreview(null)}
+        url={docPreview?.url || ""}
+        title={docPreview?.title || "Document preview"}
+        downloadFileName={docPreview?.downloadFileName}
+        requireInterestForDownload
+      />
     </OnboardingShell>
   );
 }

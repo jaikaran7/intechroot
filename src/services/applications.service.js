@@ -60,6 +60,9 @@ export const applicationsService = {
   updateInterview: (id, iid, data) =>
     api.patch(`/applications/${id}/interviews/${iid}`, data).then((r) => r.data.data),
 
+  deleteInterview: (id, iid) =>
+    api.delete(`/applications/${id}/interviews/${iid}`).then((r) => r.data.data),
+
   createMessage: (id, text) =>
     api.post(`/applications/${id}/messages`, { text }).then((r) => r.data.data),
 };
