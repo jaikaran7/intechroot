@@ -2,6 +2,7 @@
 
 export const ADMIN_NAV_ITEMS = [
   { to: "/admin", label: "Dashboard", icon: "dashboard" },
+  { to: "/admin/admins", label: "Admins", icon: "admin_panel_settings" },
   { to: "/admin/applications", label: "Applications", icon: "description" },
   { to: "/admin/employees", label: "Employees", icon: "group" },
   { to: "/admin/timesheets", label: "Timesheets", icon: "schedule" },

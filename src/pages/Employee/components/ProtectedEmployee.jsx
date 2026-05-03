@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../../store/authStore";
 import { useAuthHydration } from "../../../hooks/useAuthHydration";
+import { ADMIN_PANEL_DASHBOARD_PATH } from "../../../constants/adminAccess";
 import EmployeeHeader from "./EmployeeHeader";
 import EmployeeProfileChromeHeader from "./EmployeeProfileChromeHeader";
 import EmployeeSidebar from "./EmployeeSidebar";
@@ -30,6 +31,9 @@ export default function ProtectedEmployee({ children }) {
   }
 
   if (!isAuthed) {
+    if (accessToken && role === "admin") {
+      return <Navigate to={ADMIN_PANEL_DASHBOARD_PATH} replace />;
+    }
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
   const profileChrome = pathname === "/employee/profile";

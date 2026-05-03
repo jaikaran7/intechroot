@@ -47,8 +47,7 @@ function projectSubtext(sheet, employee) {
 }
 
 function canEmployeeEditTimesheet(status) {
-  // Editable until admin approves; pending rows can still be corrected and re-saved.
-  return status === "Draft" || status === "Rejected" || status === "Pending";
+  return status === "Draft" || status === "Rejected";
 }
 
 function formatRejectionTimestamp(iso) {
@@ -278,7 +277,12 @@ export default function EmployeeTimesheetsPage() {
   };
 
   const saveRowDraft = (sheet) => {
-    saveDraftMutation.mutate(buildSaveDraftBody(sheet));
+    saveDraftMutation.mutate(buildSaveDraftBody(sheet), {
+      onSuccess: () => {
+        setEditingRowId((prev) => (prev === sheet.id ? null : prev));
+        setDraftEdit((prev) => (prev?.id === sheet.id ? null : prev));
+      },
+    });
   };
 
   const sendRowForApproval = async (sheet) => {
@@ -462,23 +466,23 @@ export default function EmployeeTimesheetsPage() {
                           {isRowEditing ? (
                             <button
                               type="button"
-                              className="w-7 h-7 inline-flex items-center justify-center rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-100 hover:text-error transition-all"
-                              title="Close without saving"
+                              className="w-7 h-7 inline-flex items-center justify-center rounded-lg border border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={saveDraftMutation.isPending}
+                              title="Save draft"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setEditingRowId(null);
-                                setDraftEdit(null);
+                                saveRowDraft(sheet);
                               }}
                             >
                               <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 0" }}>
-                                close
+                                check
                               </span>
                             </button>
                           ) : (
                             <button
                               type="button"
                               className={`w-7 h-7 inline-flex items-center justify-center rounded-lg border text-slate-500 transition-all ${
-                                sheet.status === "Approved"
+                                !canEdit
                                   ? "border-slate-100 opacity-40 cursor-not-allowed"
                                   : isRejected
                                     ? "border-slate-200 hover:text-primary hover:bg-slate-50"
@@ -486,11 +490,19 @@ export default function EmployeeTimesheetsPage() {
                                       ? "border-slate-200 hover:text-primary hover:bg-slate-50"
                                       : "border-slate-100 opacity-40 cursor-not-allowed"
                               }`}
-                              disabled={sheet.status === "Approved"}
-                              title={isRejected ? "Edit hours" : "Edit"}
+                              disabled={!canEdit}
+                              title={
+                                canEdit
+                                  ? isRejected
+                                    ? "Edit hours"
+                                    : "Edit"
+                                  : sheet.status === "Pending"
+                                    ? "Locked while awaiting admin review"
+                                    : "Locked"
+                              }
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (sheet.status === "Approved") return;
+                                if (!canEdit) return;
                                 setDraftEdit({ id: sheet.id, weekData: weekDataInputFromSheet(sheet) });
                                 setEditingRowId(sheet.id);
                               }}

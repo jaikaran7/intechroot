@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import Navbar from "./components/Navbar";
+import AdminRouteEnforcement from "./components/AdminRouteEnforcement";
 import HomePage from "./pages/Home/HomePage";
 import CareersPage from "./pages/Careers/CareersPage";
 import ServicesPage from "./pages/Services/ServicesPage";
@@ -8,6 +9,7 @@ import ApplyRedirect from "./pages/Apply/ApplyRedirect";
 const LoginPage = lazy(() => import("./pages/Auth/LoginPage"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ProtectedAdmin = lazy(() => import("./components/ProtectedAdmin"));
+const ProtectedAdminPanel = lazy(() => import("./components/ProtectedAdminPanel"));
 
 const ProtectedEmployee = lazy(() => import("./pages/Employee/components/ProtectedEmployee"));
 const EmployeeDocumentsPage = lazy(() => import("./pages/Employee/EmployeeDocumentsPage"));
@@ -24,7 +26,11 @@ const ApplicantOnboardingPage = lazy(() => import("./pages/Applicant/ApplicantOn
 const ProtectedApplicant = lazy(() => import("./pages/Applicant/components/ProtectedApplicant"));
 
 const AdminLayout = lazy(() => import("./pages/Admin/components/AdminLayout"));
+const AdminLockedDashboard = lazy(() => import("./pages/Admin/AdminLockedDashboard"));
+const AdminPanelTimesheets = lazy(() => import("./pages/Admin/AdminPanelTimesheets"));
 const Dashboard = lazy(() => import("./pages/Admin/Dashboard/Dashboard"));
+const Admins = lazy(() => import("./pages/Admin/Admins/Admins"));
+const AdminDetails = lazy(() => import("./pages/Admin/Admins/AdminDetails"));
 const Employees = lazy(() => import("./pages/Admin/Employees/Employees"));
 const EmployeeDetails = lazy(() => import("./pages/Admin/Employees/EmployeeDetails"));
 const EmployeeOnboarding = lazy(() => import("./pages/Admin/Employees/EmployeeOnboarding"));
@@ -57,13 +63,15 @@ function RouteFallback() {
 export default function App() {
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith("/admin");
+  const isAdminPanelRoute = location.pathname.startsWith("/admin-panel");
   const isEmployeeRoute = location.pathname.startsWith("/employee");
   const isApplicantRoute = location.pathname.startsWith("/applicant");
   const hideMarketingNavbar =
-    isAdminRoute || isEmployeeRoute || isApplicantRoute || location.pathname === "/forgot-password";
+    isAdminRoute || isAdminPanelRoute || isEmployeeRoute || isApplicantRoute || location.pathname === "/forgot-password";
 
   return (
     <>
+      <AdminRouteEnforcement />
       {!hideMarketingNavbar && <Navbar />}
       <Suspense fallback={<RouteFallback />}>
         <Routes>
@@ -98,6 +106,23 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/admin/login" element={<Navigate to="/login" replace />} />
+          <Route path="/admin-dashboard.html" element={<Navigate to="/admin-panel/dashboard" replace />} />
+          <Route
+            path="/admin-panel/dashboard"
+            element={
+              <ProtectedAdminPanel>
+                <AdminLockedDashboard />
+              </ProtectedAdminPanel>
+            }
+          />
+          <Route
+            path="/admin-panel/timesheets"
+            element={
+              <ProtectedAdminPanel>
+                <AdminPanelTimesheets />
+              </ProtectedAdminPanel>
+            }
+          />
           <Route
             path="/admin/*"
             element={
@@ -107,6 +132,8 @@ export default function App() {
             }
           >
             <Route index element={<Dashboard />} />
+            <Route path="admins" element={<Admins />} />
+            <Route path="admins/:id" element={<AdminDetails />} />
             <Route path="employees/onboarding/review" element={<OnboardingReview />} />
             <Route path="employees/onboarding" element={<EmployeeOnboarding />} />
             <Route path="employees/:id/timesheets" element={<EmployeeDetails />} />

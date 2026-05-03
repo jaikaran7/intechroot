@@ -9,7 +9,11 @@ export function useAuthHydration() {
   const [hydrated, setHydrated] = useState(() => useAuthStore.persist.hasHydrated());
 
   useEffect(() => {
-    const unsub = useAuthStore.persist.onFinishHydration(() => setHydrated(true));
+    const unsub = useAuthStore.persist.onFinishHydration(() => {
+      setHydrated(true);
+      const r = useAuthStore.getState().role;
+      if (r) localStorage.setItem("role", r);
+    });
     if (!useAuthStore.persist.hasHydrated()) {
       void useAuthStore.persist.rehydrate();
     }
