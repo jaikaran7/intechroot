@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../../store/authStore";
 import { employeesService } from "../../services/employees.service";
 import { timesheetsService } from "../../services/timesheets.service";
+import { adminPanelService } from "../../services/adminPanel.service";
 import { calculateTotal, formatHourCell, formatTimesheetRangeLabel } from "../Employee/timesheetUtils";
 import PageSkeleton from "../../components/PageSkeleton";
 import ErrorState from "../../components/ErrorState";
@@ -46,7 +47,21 @@ export default function AdminPanelTimesheets() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [approvingRowId, setApprovingRowId] = useState(null);
+  const [approvalNote, setApprovalNote] = useState("");
+  const [rejectingRowId, setRejectingRowId] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [activeNote, setActiveNote] = useState("");
   const usesAdminPanelApi = role === "ADMIN";
+  const dashboardQuery = useQuery({
+    queryKey: ["admin-panel-dashboard"],
+    queryFn: adminPanelService.getDashboard,
+    enabled: usesAdminPanelApi,
+    staleTime: 30_000,
+  });
+  const permissions = dashboardQuery.data?.permissions || {};
+  const canApprove = !usesAdminPanelApi || Boolean(permissions.approveTimesheets);
+  const canReject = !usesAdminPanelApi || Boolean(permissions.rejectTimesheets);
 
   const employeesQuery = useQuery({
     queryKey: ["employees-admin-panel"],
@@ -65,18 +80,26 @@ export default function AdminPanelTimesheets() {
   });
 
   const approveMutation = useMutation({
-    mutationFn: (id) =>
+    mutationFn: ({ id, approvalNote: note }) =>
       usesAdminPanelApi
-        ? timesheetsService.approveAdminPanel(id)
-        : timesheetsService.approve(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["timesheets-admin-panel"] }),
+        ? timesheetsService.approveAdminPanel(id, note)
+        : timesheetsService.approve(id, note),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["timesheets-admin-panel"] });
+      setApprovingRowId(null);
+      setApprovalNote("");
+    },
   });
   const rejectMutation = useMutation({
-    mutationFn: (id) =>
+    mutationFn: ({ id, rejectionNote }) =>
       usesAdminPanelApi
-        ? timesheetsService.rejectAdminPanel(id, "Rejected by admin")
-        : timesheetsService.reject(id, "Rejected by admin"),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["timesheets-admin-panel"] }),
+        ? timesheetsService.rejectAdminPanel(id, rejectionNote)
+        : timesheetsService.reject(id, rejectionNote),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["timesheets-admin-panel"] });
+      setRejectingRowId(null);
+      setRejectionReason("");
+    },
   });
 
   const employees = useMemo(() => (Array.isArray(employeesQuery.data?.data) ? employeesQuery.data.data : []), [employeesQuery.data]);
@@ -96,18 +119,19 @@ export default function AdminPanelTimesheets() {
       .map((sheet) => ({
         id: sheet.id,
         employeeName: sheet?.employee?.name || "Unknown Employee",
-        employeeEmail: sheet?.employee?.email || "—",
+        employeeRole: sheet?.employee?.role || "—",
         dateLabel: formatTimesheetRangeLabel(sheet),
         hours: calculateTotal(sheet?.weekData || {}),
         weekData: sheet?.weekData || {},
         status: sheet?.status || "Pending",
+        rejectionNote: sheet?.rejectionNote || "",
       }))
       .filter((row) => {
         const q = search.trim().toLowerCase();
         const matchesSearch =
           q.length === 0 ||
           row.employeeName.toLowerCase().includes(q) ||
-          row.employeeEmail.toLowerCase().includes(q) ||
+          row.employeeRole.toLowerCase().includes(q) ||
           row.dateLabel.toLowerCase().includes(q);
         const matchesStatus = statusFilter === "All" || row.status === statusFilter;
         return matchesSearch && matchesStatus;
@@ -127,8 +151,29 @@ export default function AdminPanelTimesheets() {
     window.location.assign("/login");
   }
 
-  if ((!usesAdminPanelApi && employeesQuery.isLoading) || timesheetsQuery.isLoading) return <PageSkeleton />;
-  if ((!usesAdminPanelApi && employeesQuery.isError) || timesheetsQuery.isError) {
+  function openApprove(rowId) {
+    setApprovingRowId(rowId);
+    setApprovalNote("");
+  }
+
+  function submitApprove() {
+    if (!approvingRowId) return;
+    approveMutation.mutate({ id: approvingRowId, approvalNote: approvalNote.trim() });
+  }
+
+  function openReject(rowId) {
+    setRejectingRowId(rowId);
+    setRejectionReason("");
+  }
+
+  function submitReject() {
+    const reason = rejectionReason.trim();
+    if (!rejectingRowId || !reason) return;
+    rejectMutation.mutate({ id: rejectingRowId, rejectionNote: reason });
+  }
+
+  if ((!usesAdminPanelApi && employeesQuery.isLoading) || timesheetsQuery.isLoading || (usesAdminPanelApi && dashboardQuery.isLoading)) return <PageSkeleton />;
+  if ((!usesAdminPanelApi && employeesQuery.isError) || timesheetsQuery.isError || (usesAdminPanelApi && dashboardQuery.isError)) {
     return <ErrorState message="Failed to load admin timesheets." onRetry={() => { employeesQuery.refetch(); timesheetsQuery.refetch(); }} />;
   }
 
@@ -156,6 +201,16 @@ export default function AdminPanelTimesheets() {
             <span>Timesheets</span>
           </Link>
         </nav>
+        <div className="mt-auto px-4">
+          <button
+            className="w-full text-white/70 hover:text-white px-4 py-3 transition-all hover:bg-white/10 rounded-lg flex items-center gap-3 font-['Manrope'] tracking-tight text-sm uppercase font-bold"
+            type="button"
+            onClick={handleLogout}
+          >
+            <span className="material-symbols-outlined">logout</span>
+            <span>Logout</span>
+          </button>
+        </div>
       </aside>
 
       <header className="fixed top-0 right-0 left-64 z-50 bg-white/60 dark:bg-[#0B1F3A]/60 backdrop-blur-[24px] border-b border-[#c4c6ce]/15 flex justify-between items-center h-16 px-8 transition-all duration-300">
@@ -166,13 +221,6 @@ export default function AdminPanelTimesheets() {
           </div>
         </div>
         <div className="flex items-center gap-6">
-          <button type="button" className="hover:bg-slate-100/50 dark:hover:bg-white/10 rounded-full p-2 transition-all relative">
-            <span className="material-symbols-outlined text-slate-500">notifications</span>
-            <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
-          </button>
-          <button type="button" className="hover:bg-slate-100/50 dark:hover:bg-white/10 rounded-full p-2 transition-all" onClick={handleLogout}>
-            <span className="material-symbols-outlined text-slate-500">settings</span>
-          </button>
           <div className="flex items-center gap-3 pl-4 border-l border-outline-variant/30">
             <div className="text-right">
               <p className="text-sm font-semibold text-[#0B1F3A] font-headline">{user?.name || "Administrator"}</p>
@@ -269,7 +317,7 @@ export default function AdminPanelTimesheets() {
                     <td className="px-8 py-5">
                       <div>
                         <p className="text-sm font-bold text-primary">{row.employeeName}</p>
-                        <p className="text-[11px] text-slate-400">{row.employeeEmail}</p>
+                        <p className="text-[11px] text-slate-400">{row.employeeRole}</p>
                       </div>
                     </td>
                     <td className="px-6 py-5 text-sm font-semibold text-primary">{row.dateLabel}</td>
@@ -287,14 +335,28 @@ export default function AdminPanelTimesheets() {
                       </span>
                     </td>
                     <td className="px-8 py-5 text-right">
-                      {row.status === "Pending" ? (
+                      {row.status === "Rejected" ? (
+                        <button
+                          type="button"
+                          className="px-3 py-1.5 text-[10px] font-bold text-secondary uppercase hover:bg-secondary/10 rounded transition-all"
+                          onClick={() => setActiveNote(row.rejectionNote || "No notes available.")}
+                        >
+                          View Notes
+                        </button>
+                      ) : row.status === "Approved" ? (
+                        <span className="text-[10px] text-slate-400">—</span>
+                      ) : row.status === "Pending" && (canApprove || canReject) ? (
                         <div className="inline-flex gap-2">
-                          <button type="button" className="w-8 h-8 flex items-center justify-center rounded-lg border border-error-container text-error hover:bg-error-container/20 transition-all" onClick={() => rejectMutation.mutate(row.id)} title="Reject">
-                            <span className="material-symbols-outlined text-lg">close</span>
-                          </button>
-                          <button type="button" className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary-container text-tertiary-fixed hover:shadow-md transition-all" onClick={() => approveMutation.mutate(row.id)} title="Approve">
-                            <span className="material-symbols-outlined text-lg">check</span>
-                          </button>
+                          {canReject && (
+                            <button type="button" className="w-8 h-8 flex items-center justify-center rounded-lg border border-error-container text-error hover:bg-error-container/20 transition-all" onClick={() => openReject(row.id)} title="Reject">
+                              <span className="material-symbols-outlined text-lg">close</span>
+                            </button>
+                          )}
+                          {canApprove && (
+                            <button type="button" className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary-container text-tertiary-fixed hover:shadow-md transition-all" onClick={() => openApprove(row.id)} title="Approve">
+                              <span className="material-symbols-outlined text-lg">check</span>
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <span className="text-[10px] text-slate-400">—</span>
@@ -304,7 +366,7 @@ export default function AdminPanelTimesheets() {
                 ))}
                 {visibleRows.length === 0 && (
                   <tr>
-                    <td className="px-8 py-8 text-sm text-slate-500" colSpan={13}>
+                    <td className="px-8 py-8 text-sm text-slate-500" colSpan={12}>
                       No assigned employee timesheets found.
                     </td>
                   </tr>
@@ -314,6 +376,133 @@ export default function AdminPanelTimesheets() {
           </div>
         </section>
       </main>
+
+      {approvingRowId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/20 backdrop-blur-md p-4">
+          <div className="relative bg-white rounded-xl shadow-xl shadow-slate-900/10 w-full max-w-md p-8 border border-slate-100">
+            <button
+              type="button"
+              className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors"
+              aria-label="Dismiss"
+              onClick={() => {
+                setApprovingRowId(null);
+                setApprovalNote("");
+              }}
+            >
+              <span className="material-symbols-outlined text-xl">close</span>
+            </button>
+            <div className="flex flex-col items-center text-center pt-2">
+              <div className="w-14 h-14 rounded-full bg-emerald-500 flex items-center justify-center mb-5 shadow-md shadow-emerald-500/20">
+                <span className="material-symbols-outlined text-3xl text-white font-bold">check</span>
+              </div>
+              <h4 className="text-xl font-extrabold text-[#0B1F3A] font-headline tracking-tight">Approve timesheet</h4>
+              <p className="text-sm text-slate-500 mt-2 max-w-sm leading-relaxed">
+                Add an optional approval note before approving this timesheet.
+              </p>
+            </div>
+            <textarea
+              className="mt-6 w-full min-h-[110px] rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm focus:border-secondary focus:ring-2 focus:ring-secondary/10"
+              placeholder="Approval note (optional)"
+              value={approvalNote}
+              onChange={(event) => setApprovalNote(event.target.value)}
+            />
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                className="px-5 py-2.5 rounded-lg border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                onClick={() => {
+                  setApprovingRowId(null);
+                  setApprovalNote("");
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-5 py-2.5 rounded-lg bg-primary-container text-tertiary-fixed text-sm font-bold hover:shadow-md disabled:opacity-50"
+                disabled={approveMutation.isPending}
+                onClick={submitApprove}
+              >
+                {approveMutation.isPending ? "Approving..." : "Approve"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rejectingRowId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/20 backdrop-blur-md p-4">
+          <div className="relative bg-white rounded-xl shadow-xl shadow-slate-900/10 w-full max-w-md p-8 border border-slate-100">
+            <button
+              type="button"
+              className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors"
+              aria-label="Dismiss"
+              onClick={() => {
+                setRejectingRowId(null);
+                setRejectionReason("");
+              }}
+            >
+              <span className="material-symbols-outlined text-xl">close</span>
+            </button>
+            <div className="flex flex-col items-center text-center pt-2">
+              <div className="w-14 h-14 rounded-full bg-red-500 flex items-center justify-center mb-5 shadow-md shadow-red-500/20">
+                <span className="material-symbols-outlined text-3xl text-white font-bold">priority_high</span>
+              </div>
+              <h4 className="text-xl font-extrabold text-[#0B1F3A] font-headline tracking-tight">Reject timesheet</h4>
+              <p className="text-sm text-slate-500 mt-2 max-w-sm leading-relaxed">
+                Add a rejection note so the employee knows what needs to be corrected.
+              </p>
+            </div>
+            <textarea
+              className="mt-6 w-full min-h-[110px] rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm focus:border-error focus:ring-2 focus:ring-error/10"
+              placeholder="Reason for rejection"
+              value={rejectionReason}
+              onChange={(event) => setRejectionReason(event.target.value)}
+            />
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                className="px-5 py-2.5 rounded-lg border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                onClick={() => {
+                  setRejectingRowId(null);
+                  setRejectionReason("");
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-5 py-2.5 rounded-lg bg-error text-white text-sm font-bold hover:shadow-md disabled:opacity-50"
+                disabled={!rejectionReason.trim() || rejectMutation.isPending}
+                onClick={submitReject}
+              >
+                {rejectMutation.isPending ? "Rejecting..." : "Reject"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeNote && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/20 backdrop-blur-md p-4">
+          <div className="bg-white rounded-xl shadow-xl shadow-slate-900/10 w-full max-w-sm p-7 border border-slate-100">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-secondary mb-2">Timesheet Notes</p>
+                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{activeNote}</p>
+              </div>
+              <button
+                type="button"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors"
+                onClick={() => setActiveNote("")}
+                aria-label="Close notes"
+              >
+                <span className="material-symbols-outlined text-xl">close</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

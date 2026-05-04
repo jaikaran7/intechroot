@@ -16,7 +16,7 @@ function formatDate(value) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export default function AdminProfileReview({ application, onApproveProfile }) {
+export default function AdminProfileReview({ application, onApproveProfile, maxStep, canAccessAll, onNavigateStage }) {
   const app = application || {};
   const skills = Array.isArray(app.skills) ? app.skills : [];
   const tagSkills = skills.length ? skills.slice(0, 3) : [];
@@ -36,7 +36,12 @@ export default function AdminProfileReview({ application, onApproveProfile }) {
 
   return (
     <div className="p-8 max-w-7xl mx-auto w-full">
-      <OnboardingAdminStepper activeStep={1} />
+      <OnboardingAdminStepper
+        activeStep={1}
+        maxStep={maxStep}
+        canAccessAll={canAccessAll}
+        onNavigate={onNavigateStage}
+      />
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6">
         <div>
           <nav className="flex items-center gap-2 text-sm text-slate-500 mb-2">

@@ -8,7 +8,15 @@ import FormSection from "./FormSection";
 export default function ApplyTalentPipeline() {
   const navigate = useNavigate();
   const location = useLocation();
-  const incoming = location.state || {};
+  const searchParams = new URLSearchParams(location.search);
+  const incoming = {
+    ...(location.state || {}),
+    jobId: location.state?.jobId || searchParams.get("jobId") || "",
+    jobTitle: location.state?.jobTitle || searchParams.get("jobTitle") || "",
+    discipline: location.state?.discipline || searchParams.get("discipline") || "",
+    experience: location.state?.experience || searchParams.get("experience") || "",
+    company: location.state?.company || searchParams.get("company") || "",
+  };
 
   const { data: jobsApi, isLoading: jobsLoading } = useQuery({
     queryKey: ["jobs", { status: "Active" }],
@@ -32,7 +40,7 @@ export default function ApplyTalentPipeline() {
     resume: null,
     jobId: incoming.jobId || "",
     discipline: incoming.jobTitle || incoming.discipline || "",
-    experience: "",
+    experience: incoming.experience || "",
   });
 
   useEffect(() => {
@@ -164,8 +172,8 @@ export default function ApplyTalentPipeline() {
     fd.append("discipline", form.discipline || "");
     fd.append("experience", experience);
     fd.append("location", form.location || "");
-    fd.append("linkedIn", form.linkedIn || "");
-    fd.append("portfolio", form.portfolio || "");
+    fd.append("linkedIn", normalizeExternalUrl(form.linkedIn));
+    fd.append("portfolio", normalizeExternalUrl(form.portfolio));
     fd.append("skills", JSON.stringify(form.skills || []));
     if (form.jobId) fd.append("jobId", form.jobId);
     if (form.resume) fd.append("resume", form.resume);
@@ -247,4 +255,11 @@ export default function ApplyTalentPipeline() {
       </div>
     </div>
   );
+}
+
+function normalizeExternalUrl(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
 }

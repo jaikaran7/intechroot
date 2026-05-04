@@ -337,40 +337,14 @@ export default function SuccessPage() {
           <Link to="/" className="font-headline text-2xl font-black tracking-tighter text-[#000615] dark:text-white">
             INTECHROOT
           </Link>
-          <div className="hidden items-center gap-8 md:flex">
-            <Link
-              to="/services"
-              className="font-['Manrope'] text-sm font-bold uppercase tracking-tight text-[#7587a7] transition-colors hover:text-[#000615]"
-            >
-              Solutions
-            </Link>
-            <Link
-              to="/careers"
-              className="border-b-2 border-[#4059aa] pb-1 font-['Manrope'] text-sm font-bold uppercase tracking-tight text-[#4059aa]"
-            >
-              Careers
-            </Link>
-            <Link
-              to="/careers#apply"
-              className="font-['Manrope'] text-sm font-bold uppercase tracking-tight text-[#7587a7] transition-colors hover:text-[#000615]"
-            >
-              Apply
-            </Link>
-          </div>
           <div className="flex items-center gap-6">
             <button
               type="button"
               onClick={handleLogout}
-              className="font-['Manrope'] text-sm font-bold uppercase tracking-tight text-[#7587a7] transition-colors hover:text-[#000615]"
+              className="rounded-lg bg-primary-container px-6 py-2.5 font-headline text-sm font-bold tracking-tight text-white transition-transform hover:-translate-y-0.5 active:scale-95"
             >
               Sign out
             </button>
-            <Link
-              to="/"
-              className="rounded-lg bg-primary-container px-6 py-2.5 font-headline text-sm font-bold tracking-tight text-white transition-transform hover:-translate-y-0.5 active:scale-95"
-            >
-              Partner With Us
-            </Link>
             <div className="h-10 w-10 overflow-hidden rounded-full border border-outline-variant/30">
               <img alt="" className="h-full w-full object-cover" src={TALENT_AVATAR} />
             </div>

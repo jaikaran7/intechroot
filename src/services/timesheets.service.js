@@ -23,14 +23,14 @@ export const timesheetsService = {
       .patch(`/employees/${employeeId}/timesheets/${timesheetId}/submit-for-approval`, {}, { headers: noCacheHeaders })
       .then((r) => r.data.data),
 
-  approve: (id) =>
-    api.patch(`/timesheets/${id}/approve`).then((r) => r.data.data),
+  approve: (id, approvalNote) =>
+    api.patch(`/timesheets/${id}/approve`, approvalNote ? { approvalNote } : undefined).then((r) => r.data.data),
 
   reject: (id, rejectionNote) =>
     api.patch(`/timesheets/${id}/reject`, { rejectionNote }).then((r) => r.data.data),
 
-  approveAdminPanel: (id) =>
-    api.patch(`/admin-panel/timesheets/${id}/approve`).then((r) => r.data.data),
+  approveAdminPanel: (id, approvalNote) =>
+    api.patch(`/admin-panel/timesheets/${id}/approve`, approvalNote ? { approvalNote } : undefined).then((r) => r.data.data),
 
   rejectAdminPanel: (id, rejectionNote) =>
     api.patch(`/admin-panel/timesheets/${id}/reject`, { rejectionNote }).then((r) => r.data.data),

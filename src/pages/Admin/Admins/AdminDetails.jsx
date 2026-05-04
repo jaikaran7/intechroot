@@ -20,7 +20,14 @@ export default function AdminDetails() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [selectedEmployees, setSelectedEmployees] = useState([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", company: "", status: "Active", password: "" });
+  const [permissions, setPermissions] = useState({
+    approveTimesheets: false,
+    rejectTimesheets: false,
+    editTimesheets: false,
+  });
 
   const adminQuery = useQuery({
     queryKey: ["admin-panel-admin", id],
@@ -41,11 +48,24 @@ export default function AdminDetails() {
   });
 
   const updateAdminMutation = useMutation({
-    mutationFn: () => adminPanelService.updateAdmin(id, form.password ? form : { ...form, password: undefined }),
+    mutationFn: () =>
+      adminPanelService.updateAdmin(id, {
+        ...(form.password ? form : { ...form, password: undefined }),
+        permissions,
+      }),
     onSuccess: (admin) => {
       queryClient.setQueryData(["admin-panel-admin", id], admin);
       queryClient.invalidateQueries({ queryKey: ["admin-panel-admins"] });
       setForm((prev) => ({ ...prev, password: "" }));
+      setIsEditing(false);
+    },
+  });
+
+  const updatePermissionsMutation = useMutation({
+    mutationFn: (nextPermissions) => adminPanelService.updateAdmin(id, { permissions: nextPermissions }),
+    onSuccess: (admin) => {
+      queryClient.setQueryData(["admin-panel-admin", id], admin);
+      queryClient.invalidateQueries({ queryKey: ["admin-panel-admins"] });
     },
   });
 
@@ -75,6 +95,9 @@ export default function AdminDetails() {
     role: "Enterprise Admin",
     employeesManaged: 0,
   };
+  const activity = admin.activity || { approvalsDone: 0, rejections: 0, pending: 0, pulse: [] };
+  const pulse = Array.isArray(activity.pulse) ? activity.pulse : [];
+  const maxPulseCount = Math.max(1, ...pulse.map((entry) => Number(entry.count) || 0));
 
   const employees = useMemo(() => {
     const list = employeesQuery.data?.data;
@@ -91,6 +114,11 @@ export default function AdminDetails() {
       company: adminQuery.data.company || "",
       status: adminQuery.data.status || "Active",
       password: "",
+    });
+    setPermissions({
+      approveTimesheets: Boolean(adminQuery.data.permissions?.approveTimesheets),
+      rejectTimesheets: Boolean(adminQuery.data.permissions?.rejectTimesheets),
+      editTimesheets: false,
     });
   }, [adminQuery.data]);
 
@@ -114,6 +142,29 @@ export default function AdminDetails() {
 
   function updateForm(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function togglePermission(key) {
+    if (key === "editTimesheets") return;
+    setPermissions((prev) => {
+      const next = { ...prev, [key]: !prev[key], editTimesheets: false };
+      updatePermissionsMutation.mutate(next);
+      return next;
+    });
+  }
+
+  function cancelEdit() {
+    if (adminQuery.data) {
+      setForm({
+        name: adminQuery.data.name || "",
+        email: adminQuery.data.email || "",
+        company: adminQuery.data.company || "",
+        status: adminQuery.data.status || "Active",
+        password: "",
+      });
+    }
+    setIsEditing(false);
+    setShowPassword(false);
   }
 
   function toggleEmployeeSelection(employeeId) {
@@ -171,13 +222,33 @@ export default function AdminDetails() {
               >
                 Delete Admin
               </button>
-              <button
-                className="px-5 py-2.5 bg-primary-container text-on-primary font-bold text-sm rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-50"
-                disabled={updateAdminMutation.isPending}
-                onClick={() => updateAdminMutation.mutate()}
-              >
-                {updateAdminMutation.isPending ? "Saving..." : "Save Changes"}
-              </button>
+              {isEditing ? (
+                <>
+                  <button
+                    className="px-5 py-2.5 border border-outline-variant text-primary font-bold text-sm rounded-lg hover:bg-surface-container transition-all"
+                    type="button"
+                    onClick={cancelEdit}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="px-5 py-2.5 bg-primary-container text-on-primary font-bold text-sm rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-50"
+                    disabled={updateAdminMutation.isPending}
+                    onClick={() => updateAdminMutation.mutate()}
+                  >
+                    {updateAdminMutation.isPending ? "Saving..." : "Save Changes"}
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="px-5 py-2.5 bg-primary-container text-on-primary font-bold text-sm rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center gap-2"
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                >
+                  <span className="material-symbols-outlined text-base">edit</span>
+                  Edit
+                </button>
+              )}
             </div>
           </div>
 
@@ -195,53 +266,93 @@ export default function AdminDetails() {
             <div className="flex-1 grid grid-cols-2 gap-y-6 gap-x-12">
               <div>
                 <label className="block text-[10px] uppercase tracking-widest text-on-primary-container font-bold mb-1">Name</label>
-                <input
-                  className="bg-surface-container-low rounded px-3 py-2 text-lg font-bold text-primary w-full"
-                  value={form.name}
-                  onChange={(event) => updateForm("name", event.target.value)}
-                />
+                {isEditing ? (
+                  <input
+                    className="bg-surface-container-low rounded px-3 py-2 text-lg font-bold text-primary w-full"
+                    value={form.name}
+                    onChange={(event) => updateForm("name", event.target.value)}
+                  />
+                ) : (
+                  <p className="text-lg font-bold text-primary">{admin.name}</p>
+                )}
               </div>
               <div>
                 <label className="block text-[10px] uppercase tracking-widest text-on-primary-container font-bold mb-1">Status</label>
                 <div className="flex items-center gap-2">
                   <span className={`w-2.5 h-2.5 rounded-full ${form.status === "Active" ? "bg-green-500" : "bg-slate-400"}`}></span>
-                  <select
-                    className="bg-surface-container-low rounded px-3 py-2 text-sm font-semibold text-primary"
-                    value={form.status}
-                    onChange={(event) => updateForm("status", event.target.value)}
-                  >
-                    <option>Active</option>
-                    <option>Inactive</option>
-                  </select>
+                  {isEditing ? (
+                    <select
+                      className="bg-surface-container-low rounded px-3 py-2 text-sm font-semibold text-primary"
+                      value={form.status}
+                      onChange={(event) => updateForm("status", event.target.value)}
+                    >
+                      <option>Active</option>
+                      <option>Inactive</option>
+                    </select>
+                  ) : (
+                    <span className="text-sm font-semibold text-primary">{admin.status}</span>
+                  )}
                 </div>
               </div>
               <div>
                 <label className="block text-[10px] uppercase tracking-widest text-on-primary-container font-bold mb-1">Email Address</label>
-                <input
-                  className="bg-surface-container-low rounded px-3 py-2 text-sm font-medium text-secondary w-full"
-                  value={form.email}
-                  onChange={(event) => updateForm("email", event.target.value)}
-                />
+                {isEditing ? (
+                  <input
+                    className="bg-surface-container-low rounded px-3 py-2 text-sm font-medium text-secondary w-full"
+                    value={form.email}
+                    onChange={(event) => updateForm("email", event.target.value)}
+                  />
+                ) : (
+                  <p className="text-sm font-medium text-secondary">{admin.email}</p>
+                )}
               </div>
               <div>
                 <label className="block text-[10px] uppercase tracking-widest text-on-primary-container font-bold mb-1">Password</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    className="bg-surface-container-low rounded px-3 py-2 text-sm text-on-primary-container w-full"
-                    placeholder="Leave blank to keep current password"
-                    type="password"
-                    value={form.password}
-                    onChange={(event) => updateForm("password", event.target.value)}
-                  />
-                </div>
+                {isEditing ? (
+                  <div className="relative">
+                    <input
+                      className="bg-surface-container-low rounded px-3 py-2 pr-10 text-sm text-on-primary-container w-full"
+                      placeholder="Leave blank to keep current password"
+                      type={showPassword ? "text" : "password"}
+                      value={form.password}
+                      onChange={(event) => updateForm("password", event.target.value)}
+                    />
+                    <button
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-on-primary-container hover:text-primary"
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      <span className="material-symbols-outlined text-base">{showPassword ? "visibility_off" : "visibility"}</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <p className={`bg-surface-container-low rounded px-3 py-2 pr-10 text-sm text-on-primary-container w-full ${showPassword ? "tracking-normal" : "tracking-widest"}`}>
+                      {showPassword ? "Password is encrypted. Use Edit to set a new password." : "************"}
+                    </p>
+                    <button
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-on-primary-container hover:text-primary"
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      <span className="material-symbols-outlined text-base">{showPassword ? "visibility_off" : "visibility"}</span>
+                    </button>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-[10px] uppercase tracking-widest text-on-primary-container font-bold mb-1">Company</label>
-                <input
-                  className="bg-surface-container-low rounded px-3 py-2 text-sm font-bold text-primary w-full"
-                  value={form.company}
-                  onChange={(event) => updateForm("company", event.target.value)}
-                />
+                {isEditing ? (
+                  <input
+                    className="bg-surface-container-low rounded px-3 py-2 text-sm font-bold text-primary w-full"
+                    value={form.company}
+                    onChange={(event) => updateForm("company", event.target.value)}
+                  />
+                ) : (
+                  <p className="text-sm font-bold text-primary">{admin.company || "—"}</p>
+                )}
               </div>
               <div>
                 <label className="block text-[10px] uppercase tracking-widest text-on-primary-container font-bold mb-1">Role</label>
@@ -275,7 +386,7 @@ export default function AdminDetails() {
                 onClick={() => setShowAssignModal(true)}
               >
                 <span className="material-symbols-outlined text-sm">add</span>
-                + Assign Employees
+                Assign Employees
               </button>
             </div>
             <table className="w-full border-collapse">
@@ -338,22 +449,27 @@ export default function AdminDetails() {
             <h3 className="text-sm font-black text-primary uppercase tracking-widest mb-6">Capabilities</h3>
             <div className="space-y-6">
               {[
-                ["Approve Timesheets", "Authorize employee hours for payroll processing", true],
-                ["Reject Timesheets", "Send back entries for clarification", true],
-                ["Edit Timesheets", "Directly modify employee submitted hours", false],
-              ].map(([title, subtitle, enabled]) => (
-                <div key={title} className="flex items-center justify-between">
+                ["approveTimesheets", "Approve Timesheets", "Authorize employee hours for payroll processing", false],
+                ["rejectTimesheets", "Reject Timesheets", "Send back entries for clarification", false],
+                ["editTimesheets", "Edit Timesheets", "Coming soon", true],
+              ].map(([key, title, subtitle, disabled]) => {
+                const enabled = Boolean(permissions[key]);
+                return (
+                <div key={key} className={`flex items-center justify-between ${disabled ? "opacity-45" : ""}`}>
                   <div>
                     <p className="text-sm font-bold text-primary">{title}</p>
                     <p className="text-[10px] text-on-primary-container leading-tight">{subtitle}</p>
                   </div>
-                  <div
-                    className={`relative inline-flex h-5 w-10 flex-shrink-0 rounded-full border-2 border-transparent ${enabled ? "bg-secondary" : "bg-surface-container-high"}`}
+                  <button
+                    type="button"
+                    disabled={disabled || updatePermissionsMutation.isPending}
+                    onClick={() => togglePermission(key)}
+                    className={`relative inline-flex h-5 w-10 flex-shrink-0 rounded-full border-2 border-transparent transition ${enabled ? "bg-secondary" : "bg-surface-container-high"} ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
                   >
                     <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition ${enabled ? "translate-x-5" : "translate-x-0"}`}></span>
-                  </div>
+                  </button>
                 </div>
-              ))}
+              );})}
             </div>
           </section>
 
@@ -366,11 +482,11 @@ export default function AdminDetails() {
               </div>
               <div className="flex justify-between items-end border-b border-outline-variant/10 pb-2">
                 <p className="text-xs text-on-primary-container font-medium">Approvals Done</p>
-                <p className="text-lg font-bold text-primary">1,024</p>
+                <p className="text-lg font-bold text-primary">{activity.approvalsDone || 0}</p>
               </div>
               <div className="flex justify-between items-end border-b border-outline-variant/10 pb-2">
                 <p className="text-xs text-on-primary-container font-medium">Rejections</p>
-                <p className="text-lg font-bold text-primary">42</p>
+                <p className="text-lg font-bold text-primary">{activity.rejections || 0}</p>
               </div>
             </div>
           </section>
@@ -381,30 +497,20 @@ export default function AdminDetails() {
               <span className="text-[10px] text-secondary font-bold">L7D</span>
             </h3>
             <div className="flex items-end justify-between h-24 gap-1 px-2">
-              <div className="w-full bg-primary-container rounded-t-sm" style={{ height: "60%" }}></div>
-              <div className="w-full bg-secondary rounded-t-sm" style={{ height: "40%" }}></div>
-              <div className="w-full bg-primary-container rounded-t-sm" style={{ height: "85%" }}></div>
-              <div className="w-full bg-tertiary-fixed-dim rounded-t-sm" style={{ height: "30%" }}></div>
-              <div className="w-full bg-primary-container rounded-t-sm" style={{ height: "70%" }}></div>
-              <div className="w-full bg-secondary rounded-t-sm" style={{ height: "55%" }}></div>
-              <div className="w-full bg-primary-container rounded-t-sm" style={{ height: "95%" }}></div>
+              {(pulse.length ? pulse : Array.from({ length: 7 }, (_, index) => ({ label: ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"][index], count: 0 }))).map((entry, index) => (
+                <div
+                  key={`${entry.label}-${index}`}
+                  className={index % 3 === 1 ? "w-full bg-secondary rounded-t-sm" : index % 3 === 2 ? "w-full bg-tertiary-fixed-dim rounded-t-sm" : "w-full bg-primary-container rounded-t-sm"}
+                  style={{ height: `${Math.max(8, ((Number(entry.count) || 0) / maxPulseCount) * 95)}%` }}
+                  title={`${entry.label}: ${entry.count}`}
+                ></div>
+              ))}
             </div>
             <div className="flex justify-between mt-2 px-1">
-              <span className="text-[8px] text-on-primary-container font-bold">MON</span>
-              <span className="text-[8px] text-on-primary-container font-bold">SUN</span>
+              <span className="text-[8px] text-on-primary-container font-bold">{pulse[0]?.label || "MON"}</span>
+              <span className="text-[8px] text-on-primary-container font-bold">{pulse[pulse.length - 1]?.label || "SUN"}</span>
             </div>
           </section>
-
-          <div className="p-6 bg-tertiary-container rounded-full text-on-tertiary-fixed">
-            <div className="flex items-center gap-3 mb-2">
-              <span className="material-symbols-outlined text-tertiary-fixed">insights</span>
-              <p className="text-xs font-black uppercase tracking-tighter">Efficiency Tip</p>
-            </div>
-            <p className="text-xs opacity-80 leading-relaxed font-medium">
-              {admin.name.split(" ")[0]}'s approval turnaround time is 12% faster than the departmental average. Consider
-              elevating to Lead Admin.
-            </p>
-          </div>
         </aside>
       </main>
 

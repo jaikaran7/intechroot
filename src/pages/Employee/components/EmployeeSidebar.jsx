@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { useAuthStore } from "../../../store/authStore";
 
 function navClass(isActive) {
   return isActive
@@ -8,6 +9,12 @@ function navClass(isActive) {
 
 export default function EmployeeSidebar() {
   const { pathname } = useLocation();
+  const clearAuth = useAuthStore((s) => s.clearAuth);
+
+  function handleLogout() {
+    clearAuth();
+    window.location.assign("/login");
+  }
 
   return (
     <aside className="h-screen w-64 fixed left-0 top-0 border-r border-white/10 bg-[#000615] flex flex-col py-8 px-4 z-50 shadow-[40px_0_40px_rgba(0,6,21,0.04)]">
@@ -34,10 +41,14 @@ export default function EmployeeSidebar() {
         </Link>
       </nav>
       <div className="mt-auto pt-6 border-t border-white/5">
-        <span className="flex items-center gap-3 px-4 py-3 text-slate-400 cursor-default">
-          <span className="material-symbols-outlined">settings</span>
-          <span className="font-['Manrope'] tracking-tight">Settings</span>
-        </span>
+        <button
+          type="button"
+          className="flex w-full items-center gap-3 px-4 py-3 text-left text-slate-400 hover:text-white hover:bg-white/10 transition-all duration-200"
+          onClick={handleLogout}
+        >
+          <span className="material-symbols-outlined">logout</span>
+          <span className="font-['Manrope'] tracking-tight">Logout</span>
+        </button>
       </div>
     </aside>
   );

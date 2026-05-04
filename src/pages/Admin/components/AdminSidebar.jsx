@@ -1,8 +1,15 @@
 import { Link, useLocation } from "react-router-dom";
+import { useAuthStore } from "../../../store/authStore";
 import { ADMIN_NAV_ITEMS, isNavActive } from "./navConfig";
 
 export default function AdminSidebar() {
   const { pathname } = useLocation();
+  const clearAuth = useAuthStore((s) => s.clearAuth);
+
+  function handleLogout() {
+    clearAuth();
+    window.location.assign("/login");
+  }
 
   return (
     <aside className="fixed left-0 top-0 z-50 flex h-full w-64 flex-col gap-y-2 border-r border-white/5 bg-[#000615] py-8">
@@ -34,6 +41,16 @@ export default function AdminSidebar() {
           );
         })}
       </nav>
+      <div className="mt-auto px-4">
+        <button
+          type="button"
+          className="group flex w-full items-center gap-4 rounded-lg border-l-4 border-transparent px-4 py-3 font-headline text-sm font-semibold tracking-wide text-white/70 transition-all duration-200 hover:bg-white/10 hover:text-white"
+          onClick={handleLogout}
+        >
+          <span className="material-symbols-outlined shrink-0 text-white/70 group-hover:text-white">logout</span>
+          <span>Logout</span>
+        </button>
+      </div>
     </aside>
   );
 }

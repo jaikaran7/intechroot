@@ -17,15 +17,18 @@ import AdminDocumentPreviewModal from "@/components/admin/AdminDocumentPreviewMo
 import EntityAvatar from "@/components/shared/EntityAvatar";
 import OnboardingAdminStepper from "./OnboardingAdminStepper";
 
+const MIN_ACTION_MS = 600;
+
 const candidateIdLabel = (app) => (app?.id != null ? `#ITR-${String(app.id).padStart(5, "0")}` : "#ITR-—");
 
-export default function AdminDocumentApproval({ application, onApproveDocuments }) {
+export default function AdminDocumentApproval({ application, onApproveDocuments, maxStep, canAccessAll, onNavigateStage }) {
   const queryClient = useQueryClient();
   const app = application || {};
   const ob = app.onboarding || {};
   const adminRequested = app.adminRequestedDocuments || [];
   const allDocRows = getAllDocumentTemplateRows(app);
   const totalDocRows = allDocRows.length;
+  const [docActionStates, setDocActionStates] = useState({});
 
   const verificationStats = useMemo(() => {
     const rows = getAllDocumentTemplateRows(app);
@@ -52,9 +55,54 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
     if (app.id) queryClient.invalidateQueries({ queryKey: ['application', app.id] });
   };
 
+  function setDocAction(documentId, phase, message) {
+    setDocActionStates((prev) => ({
+      ...prev,
+      [documentId]: { phase, message },
+    }));
+  }
+
+  function clearDocAction(documentId) {
+    window.setTimeout(() => {
+      setDocActionStates((prev) => {
+        const next = { ...prev };
+        delete next[documentId];
+        return next;
+      });
+    }, MIN_ACTION_MS);
+  }
+
   const verifyDocumentMutation = useMutation({
     mutationFn: ({ documentId, verification }) => documentsService.verify(documentId, verification),
-    onSuccess: invalidateApp,
+    onMutate: async ({ documentId, verification }) => {
+      await queryClient.cancelQueries({ queryKey: ['application', app.id] });
+      const previousApplication = queryClient.getQueryData(['application', app.id]);
+      setDocAction(documentId, "processing", verification === "verified" ? "Approving…" : "Rejecting…");
+      queryClient.setQueryData(['application', app.id], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          onboardingDocuments: (old.onboardingDocuments || []).map((doc) =>
+            doc.id === documentId ? { ...doc, verification } : doc,
+          ),
+        };
+      });
+      return { previousApplication, documentId, verification };
+    },
+    onSuccess: (_data, vars) => {
+      setDocAction(vars.documentId, vars.verification === "verified" ? "approved" : "rejected", "Synced");
+      clearDocAction(vars.documentId);
+      invalidateApp();
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousApplication) {
+        queryClient.setQueryData(['application', app.id], context.previousApplication);
+      }
+      if (context?.documentId) {
+        setDocAction(context.documentId, "error", "Could not sync. Try again.");
+        clearDocAction(context.documentId);
+      }
+    },
   });
 
   const saveBgvMutation = useMutation({
@@ -134,7 +182,12 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
           {actionMessage.text}
         </div>
       ) : null}
-      <OnboardingAdminStepper activeStep={2} />
+      <OnboardingAdminStepper
+        activeStep={2}
+        maxStep={maxStep}
+        canAccessAll={canAccessAll}
+        onNavigate={onNavigateStage}
+      />
       <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-8">
         <div className="max-w-xl">
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-secondary mb-2 block">Application ID: {candidateIdLabel(app)}</span>
@@ -194,6 +247,7 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
                   const hasFile = hasUploadedFile(stored);
                   const v = verification;
                   const canApprove = hasFile && v !== "verified";
+                  const docAction = stored?.id ? docActionStates[stored.id] : null;
                   const previewUrl = stored?.fileData?.trim()
                     ? stored.fileData
                     : stored?.fileUrl?.trim() || "/sample.pdf";
@@ -235,7 +289,17 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
                           {expStr}
                         </span>
                       </td>
-                      <td className="px-6 py-5">{onboardingVerificationBadge(resolveDocVerification(stored))}</td>
+                      <td className="px-6 py-5">
+                        <div className="flex flex-col gap-1">
+                          {onboardingVerificationBadge(resolveDocVerification(stored))}
+                          {docAction?.message ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700">
+                              <span className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-700" />
+                              {docAction.message}
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
                       <td className="px-8 py-5 text-right">
                         <div className="flex justify-end gap-1">
                           <button
@@ -256,7 +320,7 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
                           </button>
                           <button
                             type="button"
-                            disabled={!canApprove || !stored?.id || verifyDocumentMutation.isPending}
+                            disabled={!canApprove || !stored?.id || Boolean(docAction)}
                             onClick={() => {
                               if (!stored?.id || !canApprove) return;
                               verifyDocumentMutation.mutate({ documentId: stored.id, verification: "verified" });
@@ -270,7 +334,7 @@ export default function AdminDocumentApproval({ application, onApproveDocuments 
                           </button>
                           <button
                             type="button"
-                            disabled={!hasFile || v === "verified" || !stored?.id || verifyDocumentMutation.isPending}
+                            disabled={!hasFile || v === "verified" || !stored?.id || Boolean(docAction)}
                             onClick={() => {
                               if (!stored?.id || !hasFile || v === "verified") return;
                               if (!window.confirm("Reject this document? The applicant can upload a new version.")) return;

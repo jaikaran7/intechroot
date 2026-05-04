@@ -149,9 +149,10 @@ export default function ApplicationProfile() {
   const [onboardingNote, setOnboardingNote] = useState("");
   const [onboardingGateBusy, setOnboardingGateBusy] = useState(false);
   const [documentPreview, setDocumentPreview] = useState(null);
+  const [documentActionStates, setDocumentActionStates] = useState({});
   // Admin may freely move between stages via the stage switcher — null falls back to derived step.
   const [forcedOnboardingStep, setForcedOnboardingStep] = useState(null);
-  const { user } = useAuthStore();
+  const { role, user } = useAuthStore();
 
   // ── API data ──────────────────────────────────────────────
   const { data: applicationData, isLoading, isError, refetch } = useQuery({
@@ -213,11 +214,57 @@ export default function ApplicationProfile() {
 
   const verifyDocumentMutation = useMutation({
     mutationFn: ({ documentId, verification }) => documentsService.verify(documentId, verification),
-    onSuccess: () => {
+    onMutate: async ({ documentId, verification }) => {
+      await queryClient.cancelQueries({ queryKey: ['application', id] });
+      const previousApplication = queryClient.getQueryData(['application', id]);
       setDocumentVerifyError("");
+      setDocumentActionStates((prev) => ({
+        ...prev,
+        [documentId]: {
+          phase: "processing",
+          message: verification === "verified" ? "Approving…" : "Rejecting…",
+        },
+      }));
+      queryClient.setQueryData(['application', id], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          onboardingDocuments: (old.onboardingDocuments || []).map((doc) =>
+            doc.id === documentId ? { ...doc, verification } : doc,
+          ),
+        };
+      });
+      return { previousApplication, documentId, verification };
+    },
+    onSuccess: (_data, vars) => {
+      setDocumentVerifyError("");
+      setDocumentActionStates((prev) => ({
+        ...prev,
+        [vars.documentId]: {
+          phase: vars.verification === "verified" ? "approved" : "rejected",
+          message: "Synced",
+        },
+      }));
+      window.setTimeout(() => {
+        setDocumentActionStates((prev) => {
+          const next = { ...prev };
+          delete next[vars.documentId];
+          return next;
+        });
+      }, 600);
       queryClient.invalidateQueries({ queryKey: ['application', id] });
     },
-    onError: (err) => {
+    onError: (err, _vars, context) => {
+      if (context?.previousApplication) {
+        queryClient.setQueryData(['application', id], context.previousApplication);
+      }
+      if (context?.documentId) {
+        setDocumentActionStates((prev) => {
+          const next = { ...prev };
+          delete next[context.documentId];
+          return next;
+        });
+      }
       setDocumentVerifyError(err?.response?.data?.error?.message || "Could not update document verification.");
     },
   });
@@ -429,13 +476,15 @@ export default function ApplicationProfile() {
     return list.slice(0, 12);
   }, [applicationData?.messages]);
 
+  const isSuperAdmin = role === "super_admin" || user?.role === "super_admin";
   const derivedOnboardingStep = getOnboardingAdminStep(applicationData?.onboarding);
   useEffect(() => {
     if (forcedOnboardingStep == null) return;
+    if (isSuperAdmin) return;
     if (forcedOnboardingStep > derivedOnboardingStep) {
       setForcedOnboardingStep(derivedOnboardingStep);
     }
-  }, [forcedOnboardingStep, derivedOnboardingStep]);
+  }, [forcedOnboardingStep, derivedOnboardingStep, isSuperAdmin]);
 
   if (isLoading) return <main className="ml-64 pt-24 px-12"><PageSkeleton rows={8} /></main>;
   if (isError) return <main className="ml-64 pt-24 px-12"><ErrorState message="Failed to load application." onRetry={refetch} /></main>;
@@ -556,7 +605,7 @@ export default function ApplicationProfile() {
                 { step: 3, label: "Final" },
               ].map((stage, idx) => {
                 const active = onboardingAdminStep === stage.step;
-                const enabled = stage.step <= derivedOnboardingStep;
+                const enabled = isSuperAdmin || stage.step <= derivedOnboardingStep;
                 return (
                   <button
                     key={stage.step}
@@ -589,10 +638,22 @@ export default function ApplicationProfile() {
             </Link>
           </div>
           {onboardingAdminStep === 1 && (
-            <AdminProfileReview application={applicationData} onApproveProfile={handleAdminApproveProfile} />
+            <AdminProfileReview
+              application={applicationData}
+              onApproveProfile={handleAdminApproveProfile}
+              maxStep={derivedOnboardingStep}
+              canAccessAll={isSuperAdmin}
+              onNavigateStage={setForcedOnboardingStep}
+            />
           )}
           {onboardingAdminStep === 2 && (
-            <AdminDocumentApproval application={applicationData} onApproveDocuments={handleAdminApproveDocuments} />
+            <AdminDocumentApproval
+              application={applicationData}
+              onApproveDocuments={handleAdminApproveDocuments}
+              maxStep={derivedOnboardingStep}
+              canAccessAll={isSuperAdmin}
+              onNavigateStage={setForcedOnboardingStep}
+            />
           )}
           {onboardingAdminStep === 3 && (
             <AdminFinalApproval
@@ -601,6 +662,9 @@ export default function ApplicationProfile() {
               onReject={() => rejectMutation.mutate()}
               rejectPending={rejectMutation.isPending}
               hireMessage={hireMessage}
+              maxStep={derivedOnboardingStep}
+              canAccessAll={isSuperAdmin}
+              onNavigateStage={setForcedOnboardingStep}
             />
           )}
         </div>
@@ -904,6 +968,7 @@ export default function ApplicationProfile() {
       const previewUrl =
         stored?.fileData?.trim() || stored?.fileUrl?.trim() || "/sample.pdf";
       const canApprove = hasFile && v !== "verified";
+      const documentAction = stored?.id ? documentActionStates[stored.id] : null;
       const expStr = formatExpiryForDisplay(expiryValue, v);
       return (
       <tr key={row.key} className="transition-colors hover:bg-surface-container-low/30">
@@ -937,7 +1002,17 @@ export default function ApplicationProfile() {
       {expStr}
       </span>
       </td>
-      <td className="px-6 py-4">{onboardingVerificationBadge(v)}</td>
+      <td className="px-6 py-4">
+      <div className="flex flex-col gap-1">
+      {onboardingVerificationBadge(v)}
+      {documentAction?.message ? (
+      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700">
+      <span className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-700" />
+      {documentAction.message}
+      </span>
+      ) : null}
+      </div>
+      </td>
       <td className="px-6 py-4 text-right">
       <div className="flex flex-wrap items-center justify-end gap-2">
       <button
@@ -957,7 +1032,7 @@ export default function ApplicationProfile() {
       </button>
       <button
       type="button"
-      disabled={!canApprove || !stored?.id || verifyDocumentMutation.isPending}
+      disabled={!canApprove || !stored?.id || Boolean(documentAction)}
       className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-green-50 text-green-800 border border-green-200 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed"
       onClick={() => {
       if (!stored?.id || !canApprove) return;
@@ -969,7 +1044,7 @@ export default function ApplicationProfile() {
       </button>
       <button
       type="button"
-      disabled={!hasFile || v === "verified" || !stored?.id || verifyDocumentMutation.isPending}
+      disabled={!hasFile || v === "verified" || !stored?.id || Boolean(documentAction)}
       className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-red-50 text-red-800 border border-red-200 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed"
       onClick={() => {
       if (!stored?.id || !hasFile || v === "verified") return;

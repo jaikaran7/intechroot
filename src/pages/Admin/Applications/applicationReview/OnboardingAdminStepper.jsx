@@ -1,4 +1,4 @@
-export default function OnboardingAdminStepper({ activeStep = 1 }) {
+export default function OnboardingAdminStepper({ activeStep = 1, maxStep = activeStep, canAccessAll = false, onNavigate }) {
   const steps = [
     { key: 1, label: "Review", icon: "person_search" },
     { key: 2, label: "Documents", icon: "description" },
@@ -11,6 +11,7 @@ export default function OnboardingAdminStepper({ activeStep = 1 }) {
         {steps.map((step, index) => {
           const isComplete = step.key < activeStep;
           const isActive = step.key === activeStep;
+          const canNavigate = canAccessAll || step.key <= maxStep;
           const nodeClass = isComplete
             ? "bg-primary-container text-on-primary"
             : isActive
@@ -19,7 +20,14 @@ export default function OnboardingAdminStepper({ activeStep = 1 }) {
 
           return (
             <div key={step.key} className="contents">
-              <div className="flex flex-col items-center z-10">
+              <button
+                type="button"
+                disabled={!canNavigate || isActive}
+                onClick={() => canNavigate && onNavigate?.(step.key)}
+                className={`flex flex-col items-center z-10 border-0 bg-transparent p-0 transition-opacity ${
+                  canNavigate && !isActive ? "cursor-pointer hover:opacity-80" : "cursor-default"
+                } ${!canNavigate ? "opacity-50" : ""}`}
+              >
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-lg ${nodeClass}`}>
                   {isComplete ? (
                     <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
@@ -36,7 +44,7 @@ export default function OnboardingAdminStepper({ activeStep = 1 }) {
                 >
                   {step.label}
                 </span>
-              </div>
+              </button>
               {index < steps.length - 1 ? (
                 <div className={`flex-1 h-0.5 -mt-6 ${step.key < activeStep ? "bg-primary" : "bg-slate-200"}`} />
               ) : null}

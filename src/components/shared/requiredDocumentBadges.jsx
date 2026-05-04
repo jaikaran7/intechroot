@@ -10,6 +10,24 @@ function normalizeVerificationForBadge(raw) {
 
 export function uploadStatusBadge(status) {
   switch (status) {
+    case "uploading":
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold uppercase text-blue-700">
+          <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600"></span> Uploading
+        </span>
+      );
+    case "processing":
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-bold uppercase text-indigo-700">
+          <span className="h-3 w-3 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600"></span> Processing
+        </span>
+      );
+    case "approved":
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-[10px] font-bold uppercase text-green-700">
+          <span className="h-1.5 w-1.5 rounded-full bg-green-500"></span> Approved
+        </span>
+      );
     case "not_uploaded":
       return (
         <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-bold uppercase text-red-700">

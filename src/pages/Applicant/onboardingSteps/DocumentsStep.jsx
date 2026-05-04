@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import OnboardingShell from "./OnboardingShell";
@@ -18,16 +18,31 @@ import {
 } from "@/components/shared/requiredDocumentBadges";
 import { hasUploadedFile } from "@/utils/onboardingDocumentRules";
 
+const MIN_ACTION_MS = 600;
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isPastExpiryDate(value) {
+  if (!value) return false;
+  return String(value).slice(0, 10) < todayISO();
+}
+
 export default function DocumentsStep({ applicationId, onboarding, maxAllowed }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const fileInputRef = useRef(null);
+  const pendingExpiryConfirmRef = useRef(null);
+  const actionTimersRef = useRef([]);
   const [pendingUploadKey, setPendingUploadKey] = useState(null);
   const [expiryDraft, setExpiryDraft] = useState({});
   const [rowErrors, setRowErrors] = useState({});
   const [filter, setFilter] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [docPreview, setDocPreview] = useState(null);
+  const [expiryConfirm, setExpiryConfirm] = useState(null);
+  const [rowActionStates, setRowActionStates] = useState({});
 
   const { data: application } = useQuery({
     queryKey: ['application', applicationId],
@@ -61,6 +76,58 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
   const allMandatoryUploaded = mandatoryKeys.every((k) => uploadedMandatorySet.has(k));
   const finalSubmitted = Boolean(onboarding?.finalSubmitted);
 
+  useEffect(() => {
+    return () => {
+      actionTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, []);
+
+  function queueActionTimer(callback, delay) {
+    const timer = window.setTimeout(callback, delay);
+    actionTimersRef.current.push(timer);
+    return timer;
+  }
+
+  function startRowAction(key, phase, message, extra = {}) {
+    setRowActionStates((prev) => ({
+      ...prev,
+      [key]: { phase, message, startedAt: Date.now(), ...extra },
+    }));
+  }
+
+  function updateRowAction(key, phase, message) {
+    setRowActionStates((prev) => {
+      const current = prev[key];
+      if (!current) return prev;
+      return { ...prev, [key]: { ...current, phase, message } };
+    });
+  }
+
+  function finishRowAction(key, phase, message) {
+    setRowActionStates((prev) => {
+      const current = prev[key];
+      if (!current) return prev;
+      return { ...prev, [key]: { ...current, phase, message } };
+    });
+    const startedAt = rowActionStates[key]?.startedAt || Date.now();
+    const remaining = Math.max(0, MIN_ACTION_MS - (Date.now() - startedAt));
+    queueActionTimer(() => {
+      setRowActionStates((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }, remaining);
+  }
+
+  function removeRowAction(key) {
+    setRowActionStates((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
+
   const uploadMutation = useMutation({
     mutationFn: ({ key, file, expiry, name }) => {
       const fd = new FormData();
@@ -71,11 +138,72 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
       if (expiry) fd.append("expiryDate", expiry);
       return documentsService.upsert(fd);
     },
-    onSuccess: () => {
+    onMutate: async (vars) => {
+      await queryClient.cancelQueries({ queryKey: ['application', applicationId] });
+      const previousApplication = queryClient.getQueryData(['application', applicationId]);
+      startRowAction(vars.key, "uploading", "Uploading document…", { fileName: vars.file?.name });
+      queueActionTimer(() => updateRowAction(vars.key, "processing", "Processing upload…"), 250);
+      queryClient.setQueryData(['application', applicationId], (old) => {
+        if (!old) return old;
+        const optimisticDoc = {
+          id: `optimistic-${vars.key}`,
+          templateKey: vars.key,
+          name: vars.name,
+          fileName: vars.file?.name || "Document",
+          fileUrl: "",
+          storagePath: "",
+          expiryDate: vars.expiry,
+          status: "uploaded",
+          verification: "unapproved",
+          uploadedAt: new Date().toISOString(),
+        };
+        const docs = old.onboardingDocuments || [];
+        return {
+          ...old,
+          onboardingDocuments: [
+            ...docs.filter((doc) => doc.templateKey !== vars.key),
+            optimisticDoc,
+          ],
+        };
+      });
+      return { previousApplication };
+    },
+    onSuccess: (doc, vars) => {
+      updateRowAction(vars.key, "processing", "Finalizing document…");
+      queryClient.setQueryData(['application', applicationId], (old) => {
+        if (!old || !doc) return old;
+        const docs = old.onboardingDocuments || [];
+        return {
+          ...old,
+          onboardingDocuments: [...docs.filter((item) => item.templateKey !== vars.key), doc],
+        };
+      });
+      finishRowAction(vars.key, "uploaded", "Upload complete");
       queryClient.invalidateQueries({ queryKey: ['application', applicationId] });
     },
-    onError: (err, vars) => {
+    onError: (err, vars, context) => {
+      if (context?.previousApplication) {
+        queryClient.setQueryData(['application', applicationId], context.previousApplication);
+      }
+      removeRowAction(vars.key);
       setRowErrors((e) => ({ ...e, [vars.key]: err?.response?.data?.error?.message || "Upload failed. Try again." }));
+    },
+  });
+
+  const clearDocumentMutation = useMutation({
+    mutationFn: ({ id }) => documentsService.delete(id),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['application', applicationId] });
+      setRowErrors((e) => ({
+        ...e,
+        [vars.key]: "Changing expiry date requires re-uploading the document.",
+      }));
+    },
+    onError: (err, vars) => {
+      setRowErrors((e) => ({
+        ...e,
+        [vars.key]: err?.response?.data?.error?.message || "Could not clear this document. Please try again.",
+      }));
     },
   });
 
@@ -92,8 +220,58 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
 
   function handleUploadClick(rowKey) {
     setRowErrors((e) => ({ ...e, [rowKey]: "" }));
+    const row = allRows.find((r) => r.key === rowKey);
+    const stored = application?.onboardingDocuments?.find((d) => d.templateKey === rowKey);
+    const expiry = (expiryDraft[rowKey] || stored?.expiryDate || "").slice(0, 10);
+    if (!expiry) {
+      setRowErrors((e) => ({ ...e, [rowKey]: "Select an expiry date before uploading a document." }));
+      return;
+    }
+    if (isPastExpiryDate(expiry)) {
+      setRowErrors((e) => ({ ...e, [rowKey]: "Expiry date must be in the future" }));
+      return;
+    }
+    if (stored?.verification === "verified") {
+      setRowErrors((e) => ({ ...e, [rowKey]: "Document approved. Changes are not allowed" }));
+      return;
+    }
+    if (!row) return;
     setPendingUploadKey(rowKey);
     fileInputRef.current?.click();
+  }
+
+  function handleExpiryChange(row, stored, nextValue) {
+    const key = row.key;
+    const previousValue = (expiryDraft[key] || stored?.expiryDate || "").slice(0, 10);
+    pendingExpiryConfirmRef.current = null;
+    if (stored?.verification === "verified") {
+      setRowErrors((e) => ({ ...e, [key]: "Document approved. Changes are not allowed" }));
+      return;
+    }
+    if (isPastExpiryDate(nextValue)) {
+      setRowErrors((e) => ({ ...e, [key]: "Expiry date must be in the future" }));
+      setExpiryDraft((d) => ({ ...d, [key]: previousValue }));
+      return;
+    }
+    if (hasUploadedFile(stored) && nextValue !== previousValue) {
+      pendingExpiryConfirmRef.current = {
+        key,
+        documentId: stored.id,
+        previousValue,
+        nextValue,
+        label: row.label,
+      };
+      return;
+    }
+    setExpiryDraft((d) => ({ ...d, [key]: nextValue }));
+    setRowErrors((e) => ({ ...e, [key]: "" }));
+  }
+
+  function openPendingExpiryConfirm(rowKey) {
+    const pending = pendingExpiryConfirmRef.current;
+    if (!pending || pending.key !== rowKey) return;
+    pendingExpiryConfirmRef.current = null;
+    setExpiryConfirm(pending);
   }
 
   const openDocPreview = useCallback((stored, row) => {
@@ -118,7 +296,15 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
     }
     const row = allRows.find((r) => r.key === key);
     const stored = application.onboardingDocuments?.find((d) => d.templateKey === key);
-    const expiry = (stored?.expiryDate || expiryDraft[key] || "").trim();
+    const expiry = (expiryDraft[key] || stored?.expiryDate || "").trim();
+    if (!expiry) {
+      setRowErrors((e) => ({ ...e, [key]: "Select an expiry date before uploading a document." }));
+      return;
+    }
+    if (isPastExpiryDate(expiry)) {
+      setRowErrors((e) => ({ ...e, [key]: "Expiry date must be in the future" }));
+      return;
+    }
     uploadMutation.mutate({ key, file, expiry, name: row?.label || key });
   }
 
@@ -198,9 +384,24 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
               ) : (
                 visibleRows.map((row) => {
                   const state = getApplicantDocumentRowState(application, row, expiryDraft);
+                  const rowAction = rowActionStates[row.key];
                   const statusForBadge =
-                    state.displayStatus === "not_uploaded_neutral" ? "not_uploaded" : state.displayStatus;
+                    rowAction?.phase === "uploading"
+                      ? "uploading"
+                      : rowAction?.phase === "processing"
+                        ? "processing"
+                        : rowAction?.phase === "uploaded"
+                          ? "uploaded"
+                          : state.displayStatus === "not_uploaded_neutral" ? "not_uploaded" : state.displayStatus;
                   const err = rowErrors[row.key];
+                  const approved = state.verification === "verified";
+                  const uploadDisabled =
+                    finalSubmitted ||
+                    Boolean(rowAction) ||
+                    clearDocumentMutation.isPending ||
+                    approved ||
+                    !state.expiryValue ||
+                    isPastExpiryDate(state.expiryValue);
                   return (
                     <tr key={row.key} className="hover:bg-surface-container-lowest/60">
                       <td className="px-6 py-5">
@@ -218,7 +419,9 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
                               {row.label}
                               {row.required ? <span className="ml-1 text-red-500">*</span> : null}
                             </p>
-                            <p className="text-xs text-on-surface-variant truncate">{state.subtitle}</p>
+                            <p className="text-xs text-on-surface-variant truncate">
+                              {rowAction?.fileName ? `${rowAction.fileName} • ${rowAction.message}` : state.subtitle}
+                            </p>
                           </div>
                         </div>
                       </td>
@@ -226,11 +429,11 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
                       <td className="px-6 py-5">
                         <input
                           type="date"
+                          min={todayISO()}
                           value={state.expiryValue}
-                          disabled={finalSubmitted || state.verification === "verified"}
-                          onChange={(e) =>
-                            setExpiryDraft((d) => ({ ...d, [row.key]: e.target.value }))
-                          }
+                          disabled={finalSubmitted || approved}
+                          onChange={(e) => handleExpiryChange(row, state.stored, e.target.value)}
+                          onBlur={() => openPendingExpiryConfirm(row.key)}
                           className="w-36 rounded border border-outline-variant/20 bg-white px-2 py-1 text-xs"
                         />
                       </td>
@@ -243,8 +446,20 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
                             expiryValue={state.expiryValue}
                             onOpenPreview={openDocPreview}
                             onUploadClick={handleUploadClick}
-                            disabled={finalSubmitted || uploadMutation.isPending}
+                            disabled={uploadDisabled}
+                            approved={approved}
                           />
+                          {approved ? (
+                            <p className="text-[10px] font-medium text-on-surface-variant">
+                              Document approved. Changes are not allowed
+                            </p>
+                          ) : null}
+                          {rowAction?.message ? (
+                            <p className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700">
+                              <span className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-700" />
+                              {rowAction.message}
+                            </p>
+                          ) : null}
                           {err ? <p className="text-[10px] font-medium text-red-600">{err}</p> : null}
                         </div>
                       </td>
@@ -301,6 +516,48 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
         downloadFileName={docPreview?.downloadFileName}
         requireInterestForDownload
       />
+      {expiryConfirm ? (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#000615]/35 p-4 backdrop-blur-md">
+          <div className="w-full max-w-md rounded-2xl border border-white/30 bg-white p-6 shadow-2xl">
+            <div className="mb-5 flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+                <span className="material-symbols-outlined">warning</span>
+              </div>
+              <div>
+                <h4 className="text-lg font-extrabold text-primary">Re-upload required</h4>
+                <p className="mt-1 text-sm leading-6 text-on-surface-variant">
+                  Changing expiry date requires re-uploading the document
+                  {expiryConfirm.label ? ` for ${expiryConfirm.label}` : ""}.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-bold text-primary hover:bg-slate-50"
+                onClick={() => {
+                  setExpiryDraft((d) => ({ ...d, [expiryConfirm.key]: expiryConfirm.previousValue }));
+                  setExpiryConfirm(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-secondary"
+                onClick={() => {
+                  setExpiryDraft((d) => ({ ...d, [expiryConfirm.key]: expiryConfirm.nextValue }));
+                  setRowErrors((e) => ({ ...e, [expiryConfirm.key]: "" }));
+                  clearDocumentMutation.mutate({ id: expiryConfirm.documentId, key: expiryConfirm.key });
+                  setExpiryConfirm(null);
+                }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </OnboardingShell>
   );
 }

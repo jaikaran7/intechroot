@@ -18,7 +18,7 @@ export default function Admins() {
   const [formError, setFormError] = useState("");
   const [permissions, setPermissions] = useState({
     approveTimesheets: false,
-    managePayroll: false,
+    rejectTimesheets: false,
     editEmployeeRecords: false,
     systemLogsAccess: false,
   });
@@ -301,10 +301,10 @@ export default function Admins() {
                     <input
                       className="w-4 h-4 rounded-sm border-outline-variant text-primary focus:ring-tertiary-fixed-dim"
                       type="checkbox"
-                      checked={permissions.managePayroll}
-                      onChange={(event) => setPermissions((prev) => ({ ...prev, managePayroll: event.target.checked }))}
+                      checked={permissions.rejectTimesheets}
+                      onChange={(event) => setPermissions((prev) => ({ ...prev, rejectTimesheets: event.target.checked }))}
                     />
-                    <span className="text-sm font-medium text-on-surface">Manage Payroll</span>
+                    <span className="text-sm font-medium text-on-surface">Reject Timesheets</span>
                   </label>
                   <label className="flex items-center gap-3 p-3 bg-white/40 hover:bg-white/80 transition-colors rounded-lg cursor-pointer border border-transparent hover:border-outline-variant/20">
                     <input

@@ -23,6 +23,7 @@ export default function ApplicantDocumentActionButtons({
   onOpenPreview,
   onUploadClick,
   disabled = false,
+  approved = false,
 }) {
   const v = resolveDocVerification(stored);
   const hasFile = hasUploadedFile(stored);
@@ -48,15 +49,17 @@ export default function ApplicantDocumentActionButtons({
     const dlName = stored?.fileName || "document.pdf";
     return (
       <div className="flex flex-col items-end gap-2">
-        <button type="button" disabled={disabled} onClick={openPreview} className={downloadOutlineClass}>
+        <button type="button" onClick={openPreview} className={downloadOutlineClass}>
           View
         </button>
-        <button type="button" disabled={disabled} onClick={() => triggerDownload(href, dlName)} className={downloadOutlineClass}>
+        <button type="button" onClick={() => triggerDownload(href, dlName)} className={downloadOutlineClass}>
           Download
         </button>
       </div>
     );
   }
+
+  if (approved) return null;
 
   if (exp === "expired" || exp === "expiring_soon") {
     return (

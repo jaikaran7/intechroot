@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { applicationsService } from "@/services/applications.service";
 
 function isPastInterviewDate(isoDate) {
   if (!isoDate || typeof isoDate !== "string") return false;
@@ -30,34 +28,12 @@ function readOnlyFieldClass() {
 }
 
 export default function UpcomingInterviews({ application, applicationId }) {
-  const queryClient = useQueryClient();
   const interviews = application?.interviews || [];
   const upcoming = interviews.filter((i) => effectiveInterviewStatus(i) === "scheduled");
   const [detailInterview, setDetailInterview] = useState(null);
-  const [detailError, setDetailError] = useState("");
-
-  const deleteMutation = useMutation({
-    mutationFn: (iid) => applicationsService.deleteInterview(applicationId, iid),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['application', applicationId] });
-      setDetailInterview(null);
-      setDetailError("");
-    },
-    onError: (err) => {
-      setDetailError(err?.response?.data?.error?.message || "Unable to delete this interview.");
-    },
-  });
 
   const closeDetail = () => {
     setDetailInterview(null);
-    setDetailError("");
-  };
-
-  const handleDelete = () => {
-    if (!detailInterview?.id || !applicationId) return;
-    if (!window.confirm("Delete this interview? It will be removed from your dashboard.")) return;
-    setDetailError("");
-    deleteMutation.mutate(detailInterview.id);
   };
 
   return (
@@ -79,14 +55,12 @@ export default function UpcomingInterviews({ application, applicationId }) {
                   title="View interview details"
                   onClick={() => {
                     if (!applicationId) return;
-                    setDetailError("");
                     setDetailInterview(iv);
                   }}
                   onKeyDown={(e) => {
                     if (!applicationId) return;
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      setDetailError("");
                       setDetailInterview(iv);
                     }
                   }}
@@ -178,20 +152,7 @@ export default function UpcomingInterviews({ application, applicationId }) {
                 </div>
               </div>
             </div>
-            {detailError ? (
-              <p className="mt-3 text-xs font-medium text-error" role="alert">
-                {detailError}
-              </p>
-            ) : null}
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-              <button
-                type="button"
-                className="rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-red-700 disabled:opacity-50"
-                disabled={deleteMutation.isPending}
-                onClick={handleDelete}
-              >
-                Delete
-              </button>
+            <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
               <button
                 type="button"
                 className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-bold"

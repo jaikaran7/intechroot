@@ -1,4 +1,5 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import AdminDocumentPreviewModal from "../../../components/admin/AdminDocumentPreviewModal";
 import Input from "../../../components/Form/Input";
 import Button from "../../../components/Form/Button";
 
@@ -18,10 +19,12 @@ export default function ApplicationProcessStep({
   onSkillRemove,
 }) {
   const resumeInputRef = useRef(null);
+  const [resumePreviewOpen, setResumePreviewOpen] = useState(false);
   const jobKnown = jobs.some((j) => j.id === form.jobId);
   const showOrphanOption = Boolean(form.jobId && !jobKnown && form.discipline);
 
   const clearResumeFile = () => {
+    setResumePreviewOpen(false);
     onRemoveResume();
     if (resumeInputRef.current) resumeInputRef.current.value = "";
   };
@@ -43,6 +46,7 @@ export default function ApplicationProcessStep({
           name="firstName"
           placeholder=" "
           type="text"
+          required
           value={form.firstName}
           onChange={onChange}
         />
@@ -59,6 +63,7 @@ export default function ApplicationProcessStep({
           name="lastName"
           placeholder=" "
           type="text"
+          required
           value={form.lastName}
           onChange={onChange}
         />
@@ -75,6 +80,7 @@ export default function ApplicationProcessStep({
           name="email"
           placeholder=" "
           type="email"
+          required
           value={form.email}
           onChange={onChange}
         />
@@ -91,6 +97,7 @@ export default function ApplicationProcessStep({
           name="phone"
           placeholder=" "
           type="tel"
+          required
           value={form.phone}
           onChange={onChange}
         />
@@ -126,6 +133,7 @@ export default function ApplicationProcessStep({
           min={0}
           max={80}
           step={1}
+          required
           value={form.experience}
           onChange={onChange}
         />
@@ -141,7 +149,8 @@ export default function ApplicationProcessStep({
           id="linkedIn"
           name="linkedIn"
           placeholder=" "
-          type="url"
+          type="text"
+          inputMode="url"
           value={form.linkedIn}
           onChange={onChange}
         />
@@ -156,7 +165,8 @@ export default function ApplicationProcessStep({
           id="portfolio"
           name="portfolio"
           placeholder=" "
-          type="url"
+          type="text"
+          inputMode="url"
           value={form.portfolio}
           onChange={onChange}
         />
@@ -172,6 +182,7 @@ export default function ApplicationProcessStep({
             className="discipline-select-clean w-full cursor-pointer border-0 border-b border-outline-variant bg-transparent py-3 pl-0 pr-9 text-sm font-medium leading-normal text-on-surface focus:border-tertiary-fixed-dim focus:ring-0 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
             name="jobId"
             value={form.jobId || ""}
+            required
             disabled={jobsLoading}
             onChange={onJobChange}
           >
@@ -272,19 +283,18 @@ export default function ApplicationProcessStep({
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {resumePreviewUrl ? (
-                  <a
+                  <button
+                    type="button"
                     className="inline-flex items-center gap-1 rounded-lg border border-outline-variant/30 bg-white px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-secondary transition-colors hover:bg-surface-container-low"
-                    href={resumePreviewUrl}
-                    rel="noopener noreferrer"
-                    target="_blank"
+                    onClick={() => setResumePreviewOpen(true)}
                   >
                     <span className="material-symbols-outlined text-[16px]" data-icon="visibility">
                       visibility
                     </span>
                     Preview
-                  </a>
+                  </button>
                 ) : (
-                  <span className="text-[11px] text-on-surface-variant">Preview opens in a new tab for PDF files.</span>
+                  <span className="text-[11px] text-on-surface-variant">Preview is available for PDF files.</span>
                 )}
                 <button
                   type="button"
@@ -321,6 +331,14 @@ export default function ApplicationProcessStep({
           </Button>
         </div>
       </div>
+      <AdminDocumentPreviewModal
+        open={resumePreviewOpen && Boolean(resumePreviewUrl)}
+        onClose={() => setResumePreviewOpen(false)}
+        url={resumePreviewUrl || ""}
+        title={form.resume?.name || "Resume preview"}
+        downloadFileName={form.resume?.name || "resume.pdf"}
+        requireInterestForDownload={false}
+      />
     </section>
   );
 }

@@ -71,17 +71,22 @@ export function FeaturedRolesSection({ jobs = [], onViewDetails }) {
                   className={role.buttonClass}
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate({
-                      pathname: "/careers",
-                      hash: "#apply",
-                      state: {
+                    navigate(
+                      {
+                        pathname: "/careers",
+                        search: `?jobId=${encodeURIComponent(role.id)}&jobTitle=${encodeURIComponent(role.title)}`,
+                        hash: "#apply",
+                      },
+                      {
+                        state: {
                         jobId: role.id,
                         jobTitle: role.title,
                         company: "InTechRoot",
                         discipline: role.title,
                         experience: role.experience,
                       },
-                    });
+                      },
+                    );
                   }}
                 >
                   Apply Position
@@ -188,17 +193,22 @@ export default function JobListSection({ jobs = [], searchTerm, setSearchTerm, i
                 className="w-full rounded-full bg-primary py-4 text-[10px] font-black uppercase tracking-widest text-white shadow-lg transition-all duration-500 hover:bg-secondary md:min-w-[9rem]"
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate({
-                    pathname: "/careers",
-                    hash: "#apply",
-                    state: {
+                  navigate(
+                    {
+                      pathname: "/careers",
+                      search: `?jobId=${encodeURIComponent(job.id)}&jobTitle=${encodeURIComponent(job.title)}`,
+                      hash: "#apply",
+                    },
+                    {
+                      state: {
                       jobId: job.id,
                       jobTitle: job.title,
                       company: "InTechRoot",
                       discipline: job.title,
                       experience: job.experience || "",
                     },
-                  });
+                    },
+                  );
                 }}
                 type="button"
               >

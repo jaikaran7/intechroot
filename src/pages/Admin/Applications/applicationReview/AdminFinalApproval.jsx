@@ -6,7 +6,16 @@ import EntityAvatar from "@/components/shared/EntityAvatar";
 import { resolveApplicationResumeUrl } from "@/utils/resolveApplicationResumeUrl";
 import OnboardingAdminStepper from "./OnboardingAdminStepper";
 
-export default function AdminFinalApproval({ application, onFinalHire, onReject, hireMessage, rejectPending }) {
+export default function AdminFinalApproval({
+  application,
+  onFinalHire,
+  onReject,
+  hireMessage,
+  rejectPending,
+  maxStep,
+  canAccessAll,
+  onNavigateStage,
+}) {
   const app = application || {};
   const ob = app.onboarding || {};
   const dossierUrl = resolveApplicationResumeUrl(app);
@@ -20,7 +29,12 @@ export default function AdminFinalApproval({ application, onFinalHire, onReject,
   return (
     <main className="flex-1 px-8 py-12 bg-surface w-full max-w-full">
       <div className="max-w-4xl mx-auto">
-        <OnboardingAdminStepper activeStep={3} />
+        <OnboardingAdminStepper
+          activeStep={3}
+          maxStep={maxStep}
+          canAccessAll={canAccessAll}
+          onNavigate={onNavigateStage}
+        />
       </div>
       <div className="max-w-6xl mx-auto mb-10 flex justify-between items-end">
         <div className="max-w-2xl">

@@ -158,17 +158,22 @@ export default function JobDetailModal({ job, open, onClose }) {
             className="order-1 w-full rounded-full bg-primary-container px-8 py-3.5 text-[10px] font-black uppercase tracking-widest text-white shadow-lg sm:order-2 sm:w-auto"
             onClick={() => {
               onClose();
-              navigate({
-                pathname: "/careers",
-                hash: "#apply",
-                state: {
+              navigate(
+                {
+                  pathname: "/careers",
+                  search: `?jobId=${encodeURIComponent(job.id)}&jobTitle=${encodeURIComponent(job.title)}`,
+                  hash: "#apply",
+                },
+                {
+                  state: {
                   jobId: job.id,
                   jobTitle: job.title,
                   company: "InTechRoot",
                   discipline: job.title,
                   experience: job.experience || "",
                 },
-              });
+                },
+              );
             }}
           >
             Apply for this role

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useAuthStore } from "../../../store/authStore";
 
 export default function EmployeeHeader() {
@@ -28,7 +29,7 @@ export default function EmployeeHeader() {
           </button>
         </div>
         <div className="h-8 w-px bg-outline-variant/20"></div>
-        <div className="flex items-center gap-3">
+        <Link className="flex items-center gap-3 rounded-xl px-2 py-1 transition-colors hover:bg-surface-container-low" to="/employee/profile">
           <div className="text-right">
             <p className="text-xs font-semibold text-primary-container leading-none">{name}</p>
             <p className="text-[10px] text-slate-500">{role}</p>
@@ -44,7 +45,7 @@ export default function EmployeeHeader() {
                 .slice(0, 2)}
             </div>
           )}
-        </div>
+        </Link>
       </div>
     </header>
   );

@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../../store/authStore";
 import { documentsService } from "../../services/documents.service";
 import { employeesService } from "../../services/employees.service";
 import { REQUIRED_DOCUMENT_ROWS } from "../../constants/requiredDocumentTemplates";
+import AdminDocumentPreviewModal from "../../components/admin/AdminDocumentPreviewModal";
 import { uploadStatusBadge, onboardingVerificationBadge } from "../../components/shared/requiredDocumentBadges";
 import {
   documentIconWrapClass,
@@ -14,6 +15,8 @@ import {
   hasUploadedFile,
   resolveDocVerificationDisplay,
 } from "../../utils/onboardingDocumentRules";
+
+const MIN_ACTION_MS = 600;
 
 function formatDateCell(iso) {
   if (!iso) return { text: "—", italic: true };
@@ -32,10 +35,21 @@ function effectiveExpiryForRow(rowKey, stored, expiryDraft) {
   return raw.slice(0, 10);
 }
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isPastExpiryDate(value) {
+  if (!value) return false;
+  return String(value).slice(0, 10) < todayISO();
+}
+
 export default function EmployeeDocumentsPage() {
   const { employeeId } = useAuthStore();
   const queryClient = useQueryClient();
   const fileInputRef = useRef(null);
+  const pendingExpiryConfirmRef = useRef(null);
+  const actionTimersRef = useRef([]);
 
   const { data: employee = null } = useQuery({
     queryKey: ["employee", employeeId],
@@ -54,26 +68,136 @@ export default function EmployeeDocumentsPage() {
   const [pendingUploadKey, setPendingUploadKey] = useState(null);
   const [rowErrors, setRowErrors] = useState({});
   const [previewingId, setPreviewingId] = useState(null);
+  const [documentPreview, setDocumentPreview] = useState(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [expiryDraft, setExpiryDraft] = useState({});
   const [addDocModalOpen, setAddDocModalOpen] = useState(false);
   const [addDocNameDraft, setAddDocNameDraft] = useState("");
   const [addDocModalError, setAddDocModalError] = useState("");
+  const [expiryConfirm, setExpiryConfirm] = useState(null);
+  const [rowActionStates, setRowActionStates] = useState({});
+
+  useEffect(() => {
+    return () => {
+      actionTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, []);
+
+  function queueActionTimer(callback, delay) {
+    const timer = window.setTimeout(callback, delay);
+    actionTimersRef.current.push(timer);
+  }
+
+  function startRowAction(key, phase, message, extra = {}) {
+    setRowActionStates((prev) => ({
+      ...prev,
+      [key]: { phase, message, startedAt: Date.now(), ...extra },
+    }));
+  }
+
+  function updateRowAction(key, phase, message) {
+    setRowActionStates((prev) => {
+      const current = prev[key];
+      if (!current) return prev;
+      return { ...prev, [key]: { ...current, phase, message } };
+    });
+  }
+
+  function finishRowAction(key, phase, message) {
+    setRowActionStates((prev) => {
+      const current = prev[key];
+      if (!current) return prev;
+      return { ...prev, [key]: { ...current, phase, message } };
+    });
+    queueActionTimer(() => {
+      setRowActionStates((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }, MIN_ACTION_MS);
+  }
+
+  function removeRowAction(key) {
+    setRowActionStates((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
 
   const upsertMutation = useMutation({
     mutationFn: (formData) => documentsService.upsert(formData),
-    onSuccess: () => {
+    onMutate: async (formData) => {
+      const templateKey = formData.get("templateKey");
+      if (!templateKey) return {};
+      await queryClient.cancelQueries({ queryKey: ['documents', employeeId] });
+      const previousDocs = queryClient.getQueryData(['documents', employeeId]);
+      const file = formData.get("file");
+      const name = formData.get("name");
+      const expiryDate = formData.get("expiryDate");
+      startRowAction(templateKey, "uploading", "Uploading document…", { fileName: file?.name });
+      queueActionTimer(() => updateRowAction(templateKey, "processing", "Processing upload…"), 250);
+      queryClient.setQueryData(['documents', employeeId], (old = []) => [
+        ...old.filter((doc) => doc.templateKey !== templateKey),
+        {
+          id: `optimistic-${templateKey}`,
+          employeeId,
+          templateKey,
+          name,
+          fileName: file?.name || "Document",
+          fileUrl: "",
+          storagePath: "",
+          expiryDate,
+          status: "uploaded",
+          verification: "unapproved",
+          uploadedAt: new Date().toISOString(),
+        },
+      ]);
+      return { previousDocs, templateKey };
+    },
+    onSuccess: (doc, _formData, context) => {
+      const templateKey = context?.templateKey || doc?.templateKey;
+      if (templateKey) {
+        updateRowAction(templateKey, "processing", "Finalizing document…");
+        queryClient.setQueryData(['documents', employeeId], (old = []) => [
+          ...old.filter((item) => item.templateKey !== templateKey),
+          doc,
+        ]);
+        finishRowAction(templateKey, "uploaded", "Upload complete");
+      }
       queryClient.invalidateQueries({ queryKey: ['documents', employeeId] });
     },
-    onError: (err, formData) => {
+    onError: (err, formData, context) => {
       const templateKey = formData.get("templateKey");
       if (!templateKey) return;
+      if (context?.previousDocs) {
+        queryClient.setQueryData(['documents', employeeId], context.previousDocs);
+      }
+      removeRowAction(templateKey);
       setRowErrors((prev) => ({
         ...prev,
         [templateKey]: err?.response?.data?.error?.message || "Upload failed. Please try again.",
       }));
     }
+  });
+
+  const clearDocumentMutation = useMutation({
+    mutationFn: ({ id }) => documentsService.delete(id),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['documents', employeeId] });
+      setRowErrors((prev) => ({
+        ...prev,
+        [vars.templateKey]: "Changing expiry date requires re-uploading the document.",
+      }));
+    },
+    onError: (err, vars) => {
+      setRowErrors((prev) => ({
+        ...prev,
+        [vars.templateKey]: err?.response?.data?.error?.message || "Could not clear this document. Please try again.",
+      }));
+    },
   });
 
   const addComplianceDocMutation = useMutation({
@@ -126,6 +250,13 @@ export default function EmployeeDocumentsPage() {
   function handleUploadClick(templateKey) {
     const stored = docsByKey.get(templateKey);
     const expiry = effectiveExpiryForRow(templateKey, stored, expiryDraft);
+    if (resolveDocVerificationDisplay(stored) === "verified") {
+      setRowErrors((prev) => ({
+        ...prev,
+        [templateKey]: "Document approved. Changes are not allowed",
+      }));
+      return;
+    }
     if (!expiry) {
       setRowErrors((prev) => ({
         ...prev,
@@ -133,9 +264,57 @@ export default function EmployeeDocumentsPage() {
       }));
       return;
     }
+    if (isPastExpiryDate(expiry)) {
+      setRowErrors((prev) => ({
+        ...prev,
+        [templateKey]: "Expiry date must be in the future",
+      }));
+      return;
+    }
     setPendingUploadKey(templateKey);
     setRowErrors((prev) => ({ ...prev, [templateKey]: "" }));
     fileInputRef.current?.click();
+  }
+
+  function handleExpiryChange(row, stored, nextValue) {
+    const templateKey = row.key;
+    const previousValue = effectiveExpiryForRow(templateKey, stored, expiryDraft);
+    const approved = resolveDocVerificationDisplay(stored) === "verified";
+    pendingExpiryConfirmRef.current = null;
+    if (approved) {
+      setRowErrors((prev) => ({
+        ...prev,
+        [templateKey]: "Document approved. Changes are not allowed",
+      }));
+      return;
+    }
+    if (isPastExpiryDate(nextValue)) {
+      setRowErrors((prev) => ({
+        ...prev,
+        [templateKey]: "Expiry date must be in the future",
+      }));
+      setExpiryDraft((prev) => ({ ...prev, [templateKey]: previousValue }));
+      return;
+    }
+    if (hasUploadedFile(stored) && nextValue !== previousValue) {
+      pendingExpiryConfirmRef.current = {
+        key: templateKey,
+        documentId: stored.id,
+        previousValue,
+        nextValue,
+        label: row.label,
+      };
+      return;
+    }
+    setExpiryDraft((prev) => ({ ...prev, [templateKey]: nextValue }));
+    setRowErrors((prev) => ({ ...prev, [templateKey]: "" }));
+  }
+
+  function openPendingExpiryConfirm(templateKey) {
+    const pending = pendingExpiryConfirmRef.current;
+    if (!pending || pending.key !== templateKey) return;
+    pendingExpiryConfirmRef.current = null;
+    setExpiryConfirm(pending);
   }
 
   function onFileSelected(event) {
@@ -159,6 +338,13 @@ export default function EmployeeDocumentsPage() {
       }));
       return;
     }
+    if (isPastExpiryDate(expiry)) {
+      setRowErrors((prev) => ({
+        ...prev,
+        [templateKey]: "Expiry date must be in the future",
+      }));
+      return;
+    }
 
     const row = requiredRows.find((r) => r.key === templateKey);
     const fd = new FormData();
@@ -170,12 +356,19 @@ export default function EmployeeDocumentsPage() {
     upsertMutation.mutate(fd);
   }
 
-  async function handlePreview(docId) {
+  async function handlePreview(stored, row) {
+    const docId = stored?.id;
     if (!docId) return;
     setPreviewingId(docId);
     try {
       const data = await documentsService.getDownloadUrl(docId);
-      if (data?.signedUrl) window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      if (data?.signedUrl) {
+        setDocumentPreview({
+          url: data.signedUrl,
+          title: stored?.fileName || row?.label || "Document preview",
+          downloadFileName: stored?.fileName || "document.pdf",
+        });
+      }
     } finally {
       setPreviewingId(null);
     }
@@ -184,7 +377,7 @@ export default function EmployeeDocumentsPage() {
   const filtered = useMemo(() => {
     return requiredRows.filter((row) => {
       const stored = docsByKey.get(row.key);
-      const expiryValue = (stored?.expiryDate || expiryDraft[row.key] || "").slice(0, 10);
+      const expiryValue = (expiryDraft[row.key] || stored?.expiryDate || "").slice(0, 10);
       const uploadStatus = getRowUploadStatusKey(stored, row, expiryValue);
       const statusLabel =
         uploadStatus === "expired"
@@ -305,8 +498,16 @@ export default function EmployeeDocumentsPage() {
               ) : (
                 filtered.map((row) => {
                   const stored = docsByKey.get(row.key);
-                  const expiryValue = (stored?.expiryDate || expiryDraft[row.key] || "").slice(0, 10);
-                  const uploadStatus = getRowUploadStatusKey(stored, row, expiryValue);
+                  const expiryValue = (expiryDraft[row.key] || stored?.expiryDate || "").slice(0, 10);
+                  const rowAction = rowActionStates[row.key];
+                  const uploadStatus =
+                    rowAction?.phase === "uploading"
+                      ? "uploading"
+                      : rowAction?.phase === "processing"
+                        ? "processing"
+                        : rowAction?.phase === "uploaded"
+                          ? "uploaded"
+                          : getRowUploadStatusKey(stored, row, expiryValue);
                   const verificationDisplay = resolveDocVerificationDisplay(stored);
                   const upload = formatDateCell(stored?.uploadedAt || stored?.uploadDate);
                   const rowCls = uploadStatus === "expiring_soon"
@@ -314,6 +515,13 @@ export default function EmployeeDocumentsPage() {
                     : "hover:bg-surface-container-low transition-colors";
                   const hasFile = hasUploadedFile(stored);
                   const rowError = rowErrors[row.key];
+                  const approved = verificationDisplay === "verified";
+                  const uploadDisabled =
+                    Boolean(rowAction) ||
+                    clearDocumentMutation.isPending ||
+                    approved ||
+                    !expiryValue ||
+                    isPastExpiryDate(expiryValue);
 
                   return (
                     <tr className={rowCls} key={row.key}>
@@ -326,7 +534,9 @@ export default function EmployeeDocumentsPage() {
                           </div>
                           <div>
                             <p className="font-bold text-primary-container text-sm">{row.label}</p>
-                            <p className="text-[11px] text-on-surface-variant">{formatDocumentSubtitle(stored, row)}</p>
+                            <p className="text-[11px] text-on-surface-variant">
+                              {rowAction?.fileName ? `${rowAction.fileName} • ${rowAction.message}` : formatDocumentSubtitle(stored, row)}
+                            </p>
                           </div>
                         </div>
                       </td>
@@ -336,9 +546,12 @@ export default function EmployeeDocumentsPage() {
                         <input
                           type="date"
                           required
+                          min={todayISO()}
                           aria-label={`Expiry date for ${row.label}`}
                           value={expiryValue}
-                          onChange={(e) => setExpiryDraft((prev) => ({ ...prev, [row.key]: e.target.value }))}
+                          disabled={approved}
+                          onChange={(e) => handleExpiryChange(row, stored, e.target.value)}
+                          onBlur={() => openPendingExpiryConfirm(row.key)}
                           className="max-w-full rounded border border-outline-variant/20 bg-white px-2 py-1.5 text-xs text-primary"
                         />
                       </td>
@@ -358,13 +571,14 @@ export default function EmployeeDocumentsPage() {
                                   type="button"
                                   className="px-3 py-1.5 text-[10px] font-bold rounded bg-primary-container text-white hover:bg-primary transition-colors border-none cursor-pointer"
                                   disabled={previewingId === stored?.id}
-                                  onClick={() => handlePreview(stored?.id)}
+                                  onClick={() => handlePreview(stored, row)}
                                 >
                                   {previewingId === stored?.id ? "Opening..." : "Preview"}
                                 </button>
                                 <button
                                   type="button"
                                   className="px-3 py-1.5 text-[10px] font-bold rounded border border-outline-variant/30 bg-white text-on-surface hover:bg-surface-container-low transition-colors"
+                                  disabled={uploadDisabled}
                                   onClick={() => handleUploadClick(row.key)}
                                 >
                                   Replace
@@ -374,12 +588,24 @@ export default function EmployeeDocumentsPage() {
                               <button
                                 type="button"
                                 className="px-3 py-1.5 text-[10px] font-bold rounded bg-primary-container text-white hover:bg-primary transition-colors border-none cursor-pointer"
+                                disabled={uploadDisabled}
                                 onClick={() => handleUploadClick(row.key)}
                               >
                                 Upload
                               </button>
                             )}
                           </div>
+                          {approved ? (
+                            <p className="text-[10px] font-medium text-on-surface-variant">
+                              Document approved. Changes are not allowed
+                            </p>
+                          ) : null}
+                          {rowAction?.message ? (
+                            <p className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700">
+                              <span className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-700" />
+                              {rowAction.message}
+                            </p>
+                          ) : null}
                           {rowError ? <p className="text-[10px] font-medium text-error">{rowError}</p> : null}
                         </div>
                       </td>
@@ -498,6 +724,58 @@ export default function EmployeeDocumentsPage() {
             </div>
           </div>
         ) : null}
+
+        {expiryConfirm ? (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#000615]/35 p-4 backdrop-blur-md">
+            <div className="w-full max-w-md rounded-2xl border border-white/30 bg-white p-6 shadow-2xl">
+              <div className="mb-5 flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+                  <span className="material-symbols-outlined">warning</span>
+                </div>
+                <div>
+                  <h4 className="text-lg font-extrabold text-primary">Re-upload required</h4>
+                  <p className="mt-1 text-sm leading-6 text-on-surface-variant">
+                    Changing expiry date requires re-uploading the document
+                    {expiryConfirm.label ? ` for ${expiryConfirm.label}` : ""}.
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-bold text-primary hover:bg-slate-50"
+                  onClick={() => {
+                    setExpiryDraft((prev) => ({ ...prev, [expiryConfirm.key]: expiryConfirm.previousValue }));
+                    setExpiryConfirm(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-secondary"
+                  onClick={() => {
+                    setExpiryDraft((prev) => ({ ...prev, [expiryConfirm.key]: expiryConfirm.nextValue }));
+                    setRowErrors((prev) => ({ ...prev, [expiryConfirm.key]: "" }));
+                    clearDocumentMutation.mutate({ id: expiryConfirm.documentId, templateKey: expiryConfirm.key });
+                    setExpiryConfirm(null);
+                  }}
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <AdminDocumentPreviewModal
+          open={documentPreview != null}
+          onClose={() => setDocumentPreview(null)}
+          url={documentPreview?.url || ""}
+          title={documentPreview?.title || "Document preview"}
+          downloadFileName={documentPreview?.downloadFileName}
+          requireInterestForDownload={false}
+        />
 
         <footer className="mt-auto px-8 py-4 bg-surface-container-low/30 border-t border-outline-variant/10 text-center">
           <p className="text-[10px] text-slate-400 font-medium tracking-widest uppercase font-body">

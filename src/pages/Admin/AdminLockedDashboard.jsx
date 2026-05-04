@@ -24,8 +24,9 @@ export default function AdminLockedDashboard() {
     enabled: role === "ADMIN",
   });
 
-  const dashboard = dashboardQuery.data || { assignedEmployees: 0, employees: [], timesheets: {} };
+  const dashboard = dashboardQuery.data || { assignedEmployees: 0, employees: [], timesheets: {}, admin: {} };
   const employees = Array.isArray(dashboard.employees) ? dashboard.employees : [];
+  const adminCompany = dashboard.admin?.company || "—";
 
   function handleLogout() {
     clearAuth();
@@ -56,6 +57,16 @@ export default function AdminLockedDashboard() {
             <span>Timesheets</span>
           </Link>
         </nav>
+        <div className="mt-auto px-4">
+          <button
+            className="w-full text-white/70 hover:text-white px-4 py-3 transition-all hover:bg-white/10 rounded-lg flex items-center gap-3 font-['Manrope'] tracking-tight text-sm uppercase font-bold"
+            type="button"
+            onClick={handleLogout}
+          >
+            <span className="material-symbols-outlined">logout</span>
+            <span>Logout</span>
+          </button>
+        </div>
       </aside>
 
       <header className="fixed top-0 right-0 left-64 z-50 bg-white/60 dark:bg-[#0B1F3A]/60 backdrop-blur-[24px] border-b border-[#c4c6ce]/15 flex justify-between items-center h-16 px-8 transition-all duration-300">
@@ -66,13 +77,6 @@ export default function AdminLockedDashboard() {
           </div>
         </div>
         <div className="flex items-center gap-6">
-          <button className="hover:bg-slate-100/50 dark:hover:bg-white/10 rounded-full p-2 transition-all relative" type="button">
-            <span className="material-symbols-outlined text-slate-500" data-icon="notifications">notifications</span>
-            <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
-          </button>
-          <button type="button" className="hover:bg-slate-100/50 dark:hover:bg-white/10 rounded-full p-2 transition-all" onClick={handleLogout} aria-label="Sign out">
-            <span className="material-symbols-outlined text-slate-500" data-icon="settings">settings</span>
-          </button>
           <div className="flex items-center gap-3 pl-4 border-l border-outline-variant/30">
             <div className="text-right">
               <p className="text-sm font-semibold text-[#0B1F3A] font-headline">{user?.name || "Administrator"}</p>
@@ -105,7 +109,7 @@ export default function AdminLockedDashboard() {
                 <div className="flex gap-8">
                   <div>
                     <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-0.5">Company</p>
-                    <p className="text-sm font-semibold text-primary">InTechRoot</p>
+                    <p className="text-sm font-semibold text-primary">{adminCompany}</p>
                   </div>
                   <div>
                     <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-0.5">Role</p>

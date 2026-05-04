@@ -70,6 +70,7 @@ export default function EmployeeDetails() {
   });
 
   const [requestDocError, setRequestDocError] = useState("");
+  const [documentActionStates, setDocumentActionStates] = useState({});
 
   const requestDocumentMutation = useMutation({
     mutationFn: (name) => employeesService.addExtraDocumentRequest(id, name),
@@ -87,8 +88,49 @@ export default function EmployeeDetails() {
 
   const verifyDocumentMutation = useMutation({
     mutationFn: ({ documentId, verification }) => documentsService.verify(documentId, verification),
-    onSuccess: () => {
+    onMutate: async ({ documentId, verification }) => {
+      await queryClient.cancelQueries({ queryKey: ['documents', id] });
+      const previousDocs = queryClient.getQueryData(['documents', id]);
+      setDocumentActionStates((prev) => ({
+        ...prev,
+        [documentId]: {
+          phase: "processing",
+          message: verification === "verified" ? "Approving…" : "Rejecting…",
+        },
+      }));
+      queryClient.setQueryData(['documents', id], (old = []) =>
+        old.map((doc) => (doc.id === documentId ? { ...doc, verification } : doc)),
+      );
+      return { previousDocs, documentId, verification };
+    },
+    onSuccess: (_data, vars) => {
+      setDocumentActionStates((prev) => ({
+        ...prev,
+        [vars.documentId]: {
+          phase: vars.verification === "verified" ? "approved" : "rejected",
+          message: "Synced",
+        },
+      }));
+      window.setTimeout(() => {
+        setDocumentActionStates((prev) => {
+          const next = { ...prev };
+          delete next[vars.documentId];
+          return next;
+        });
+      }, 600);
       queryClient.invalidateQueries({ queryKey: ['documents', id] });
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousDocs) {
+        queryClient.setQueryData(['documents', id], context.previousDocs);
+      }
+      if (context?.documentId) {
+        setDocumentActionStates((prev) => {
+          const next = { ...prev };
+          delete next[context.documentId];
+          return next;
+        });
+      }
     },
   });
 
@@ -418,9 +460,7 @@ export default function EmployeeDetails() {
                       ? "bg-amber-50/30 hover:bg-amber-50/50 transition-colors"
                       : "hover:bg-surface-container-low transition-colors";
                     const hasFile = hasUploadedFile(stored);
-                    const verifyBusy =
-                      verifyDocumentMutation.isPending &&
-                      verifyDocumentMutation.variables?.documentId === stored?.id;
+                    const documentAction = stored?.id ? documentActionStates[stored.id] : null;
 
                     return (
                       <tr className={rowCls} key={row.key}>
@@ -445,38 +485,42 @@ export default function EmployeeDetails() {
                           {expiry.text}
                         </td>
                         <td className="px-6 py-5 align-middle">
-                          {verificationDisplay == null ? (
-                            <span className="inline-block min-h-[1.5rem] min-w-[1px]" aria-hidden />
-                          ) : verificationDisplay === "verified" || verificationDisplay === "rejected" ? (
-                            onboardingVerificationBadge(verificationDisplay, { verifiedText: "Approved" })
-                          ) : (
-                            <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex flex-col gap-1">
+                            {verificationDisplay == null ? (
+                              <span className="inline-block min-h-[1.5rem] min-w-[1px]" aria-hidden />
+                            ) : verificationDisplay === "verified" || verificationDisplay === "rejected" ? (
+                              onboardingVerificationBadge(verificationDisplay, { verifiedText: "Approved" })
+                            ) : (
+                              <div className="flex flex-wrap items-center gap-2">
                               <button
                                 type="button"
                                 className="rounded-md bg-emerald-600 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                disabled={!stored?.id || verifyDocumentMutation.isPending}
+                                disabled={!stored?.id || Boolean(documentAction)}
                                 onClick={() =>
                                   verifyDocumentMutation.mutate({ documentId: stored.id, verification: "verified" })
                                 }
                               >
-                                {verifyBusy && verifyDocumentMutation.variables?.verification === "verified"
-                                  ? "…"
-                                  : "Approve"}
+                                Approve
                               </button>
                               <button
                                 type="button"
                                 className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                disabled={!stored?.id || verifyDocumentMutation.isPending}
+                                disabled={!stored?.id || Boolean(documentAction)}
                                 onClick={() =>
                                   verifyDocumentMutation.mutate({ documentId: stored.id, verification: "rejected" })
                                 }
                               >
-                                {verifyBusy && verifyDocumentMutation.variables?.verification === "rejected"
-                                  ? "…"
-                                  : "Reject"}
+                                Reject
                               </button>
                             </div>
-                          )}
+                            )}
+                            {documentAction?.message ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700">
+                                <span className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-700" />
+                                {documentAction.message}
+                              </span>
+                            ) : null}
+                          </div>
                         </td>
                         <td className="px-6 py-5 text-right">
                           <button

@@ -21,7 +21,8 @@ function computeMaxAllowed(ob) {
 export default function ApplicantOnboardingPage() {
   const { step } = useParams();
   const stepNum = Math.max(1, Math.min(5, Number(step) || 1));
-  const { applicationId } = useAuthStore();
+  const { applicationId, role, user } = useAuthStore();
+  const isSuperAdmin = role === "super_admin" || user?.role === "super_admin";
 
   const { data: ob, isLoading } = useQuery({
     queryKey: ['onboarding', applicationId],
@@ -50,15 +51,15 @@ export default function ApplicantOnboardingPage() {
     return <Navigate to="/employee/dashboard" replace />;
   }
 
-  const maxAllowed = computeMaxAllowed(ob);
+  const maxAllowed = isSuperAdmin ? 5 : computeMaxAllowed(ob);
 
-  if (ob.finalSubmitted && stepNum !== 5) {
+  if (!isSuperAdmin && ob.finalSubmitted && stepNum !== 5) {
     return <Navigate to="/applicant/onboarding/5" replace />;
   }
-  if (!ob.finalSubmitted && stepNum === 5) {
+  if (!isSuperAdmin && !ob.finalSubmitted && stepNum === 5) {
     return <Navigate to="/applicant/onboarding/4" replace />;
   }
-  if (stepNum > maxAllowed) {
+  if (!isSuperAdmin && stepNum > maxAllowed) {
     return <Navigate to={`/applicant/onboarding/${maxAllowed}`} replace />;
   }
 
