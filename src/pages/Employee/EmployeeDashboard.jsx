@@ -6,19 +6,6 @@ import { employeesService } from "../../services/employees.service";
 import { timesheetsService } from "../../services/timesheets.service";
 import { addDaysISO, calculateTotal, formatTimesheetRangeLabel, getWeekStartISO, parseYMD } from "./timesheetUtils";
 
-function documentStatusLabel(expiryDateStr) {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const exp = new Date(expiryDateStr);
-  exp.setHours(0, 0, 0, 0);
-  if (Number.isNaN(exp.getTime())) return "valid";
-  if (exp < now) return "expired";
-  const soon = new Date(now);
-  soon.setDate(soon.getDate() + 30);
-  if (exp <= soon) return "expiring";
-  return "valid";
-}
-
 export default function EmployeeDashboard() {
   const { employeeId } = useAuthStore();
 
@@ -73,20 +60,8 @@ export default function EmployeeDashboard() {
     [timesheets],
   );
 
-  const deadlinesCount = useMemo(() => {
-    const docs = [];
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const soon = new Date(now);
-    soon.setDate(soon.getDate() + 45);
-    return docs.filter((d) => {
-      const st = documentStatusLabel(d.expiryDate);
-      if (st === "expired") return true;
-      if (st === "expiring") return true;
-      const exp = new Date(d.expiryDate);
-      return exp <= soon && exp >= now;
-    }).length;
-  }, [employee]);
+  /** Placeholder until document deadlines are wired to real data (was always 0 before). */
+  const deadlinesCount = 0;
 
   const chartPeriodLabel = useMemo(() => {
     if (weekTs) return formatTimesheetRangeLabel(weekTs);
@@ -111,6 +86,18 @@ export default function EmployeeDashboard() {
       .slice(0, 5);
   }, [timesheets]);
   const recentDoc = null;
+
+  const recentMessageText =
+    employee?.employment?.adminDashboardMessage?.trim?.() ||
+    employee?.dashboardMessage?.trim?.() ||
+    "";
+  const rawWhen = employee?.employment?.adminDashboardMessageAt || employee?.dashboardMessageAt;
+  const recentMessageWhen = rawWhen
+    ? new Date(rawWhen).toLocaleString(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    : null;
 
   return (
     <main className="ml-64 pt-16 min-h-screen bg-surface flex flex-col md:flex-row">
@@ -320,36 +307,21 @@ export default function EmployeeDashboard() {
         </div>
         <div className="p-6 bg-[#000615] rounded-xl text-white relative overflow-hidden group">
           <div className="absolute bottom-0 right-0 w-32 h-32 bg-secondary opacity-10 rounded-full blur-2xl group-hover:opacity-20 transition-opacity"></div>
-          <h5 className="text-xs font-bold text-[#acedff] uppercase tracking-widest mb-4">Critical Alerts</h5>
-          <div className="space-y-4 relative z-10">
-            {deadlinesCount > 0 ? (
-              <div className="flex gap-3">
-                <div className="w-1 h-auto bg-error rounded"></div>
-                <div>
-                  <p className="text-xs font-bold">Document deadlines</p>
-                  <p className="text-[10px] text-slate-400">{deadlinesCount} item(s) need attention</p>
-                </div>
-              </div>
+          <h5 className="text-xs font-bold text-[#acedff] uppercase tracking-widest mb-4">Recent Messages</h5>
+          <div className="relative z-10 space-y-2">
+            {recentMessageText ? (
+              <>
+                <p className="text-sm font-medium leading-relaxed text-white/95 whitespace-pre-wrap break-words">
+                  {recentMessageText}
+                </p>
+                {recentMessageWhen ? (
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[#acedff]/80">{recentMessageWhen}</p>
+                ) : null}
+              </>
             ) : (
-              <div className="flex gap-3">
-                <div className="w-1 h-auto bg-tertiary-fixed rounded"></div>
-                <div>
-                  <p className="text-xs font-bold">All clear</p>
-                  <p className="text-[10px] text-slate-400">No urgent items</p>
-                </div>
-              </div>
+              <p className="text-sm text-white/60">No messages yet.</p>
             )}
-            <div className="flex gap-3">
-              <div className="w-1 h-auto bg-tertiary-fixed rounded"></div>
-              <div>
-                <p className="text-xs font-bold">Contract Update</p>
-                <p className="text-[10px] text-slate-400">Review by Friday</p>
-              </div>
-            </div>
           </div>
-          <button type="button" className="mt-6 w-full py-2 bg-white/10 hover:bg-white/20 text-[10px] font-bold rounded uppercase tracking-widest transition-colors border-none cursor-pointer">
-            Resolve Alerts
-          </button>
         </div>
       </aside>
     </main>

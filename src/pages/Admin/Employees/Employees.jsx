@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { employeesService } from "../../../services/employees.service";
 import PageSkeleton from "../../../components/PageSkeleton";
 import ErrorState from "../../../components/ErrorState";
 
 export default function Employees() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { data: apiData, isLoading, isError, refetch } = useQuery({
     queryKey: ['employees'],
@@ -59,6 +60,23 @@ export default function Employees() {
   const [roleFilter, setRoleFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("Active");
   const [departmentFilter, setDepartmentFilter] = useState("All");
+  const [messageModalOpen, setMessageModalOpen] = useState(false);
+  const [messageDraft, setMessageDraft] = useState("");
+  const [messageError, setMessageError] = useState("");
+
+  const sendMessageMutation = useMutation({
+    mutationFn: ({ employeeId, text }) => employeesService.sendDashboardMessage(employeeId, text),
+    onSuccess: (_data, vars) => {
+      setMessageDraft("");
+      setMessageError("");
+      setMessageModalOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      queryClient.invalidateQueries({ queryKey: ["employee", vars.employeeId] });
+    },
+    onError: (err) => {
+      setMessageError(err?.response?.data?.error?.message || "Failed to send message.");
+    },
+  });
   const roleOptions = useMemo(
     () => ["All", ...new Set(normalizedEmployees.map((employee) => employee.role))],
     [normalizedEmployees],
@@ -297,7 +315,16 @@ export default function Employees() {
       </div>
       </div>
       <div className="pt-4 grid grid-cols-2 gap-3">
-      <button className="flex items-center justify-center gap-2 py-3 bg-surface-container text-primary font-bold text-sm rounded-lg hover:bg-surface-container-high transition-colors">
+      <button
+        type="button"
+        className="flex items-center justify-center gap-2 py-3 bg-surface-container text-primary font-bold text-sm rounded-lg hover:bg-surface-container-high transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={!profileEmployee}
+        onClick={() => {
+          setMessageError("");
+          setMessageDraft("");
+          setMessageModalOpen(true);
+        }}
+      >
       <span className="material-symbols-outlined text-lg" data-icon="mail">mail</span>
                                           Message
                                       </button>
@@ -316,6 +343,65 @@ export default function Employees() {
       <button className="fixed bottom-8 right-8 w-14 h-14 bg-primary-container text-white rounded-full shadow-2xl flex items-center justify-center group hover:scale-110 transition-transform duration-200 lg:hidden">
       <span className="material-symbols-outlined text-2xl" data-icon="add">add</span>
       </button>
+
+      {messageModalOpen && profileEmployee ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-[#000615]/40 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="employee-quick-message-title"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            aria-label="Close"
+            onClick={() => !sendMessageMutation.isPending && setMessageModalOpen(false)}
+          />
+          <div className="relative z-10 w-full max-w-md rounded-2xl border border-outline-variant/20 bg-white p-6 shadow-2xl">
+            <h4 id="employee-quick-message-title" className="text-lg font-bold text-primary mb-1">
+              Send a quick message
+            </h4>
+            <p className="text-xs text-on-surface-variant mb-3">
+              This replaces the previous message on {profileEmployee.name}&apos;s employee dashboard.
+            </p>
+            {messageError ? (
+              <p className="mb-2 text-xs font-medium text-error" role="alert">
+                {messageError}
+              </p>
+            ) : null}
+            <textarea
+              className="w-full min-h-[7rem] resize-y rounded-lg border border-outline-variant/30 bg-surface-container-lowest p-3 text-sm text-primary focus:border-tertiary-fixed-dim focus:outline-none focus:ring-2 focus:ring-tertiary-fixed-dim/20"
+              placeholder="Write your message…"
+              value={messageDraft}
+              onChange={(e) => setMessageDraft(e.target.value)}
+              disabled={sendMessageMutation.isPending}
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-outline-variant/40 px-4 py-2 text-xs font-bold text-on-surface-variant hover:bg-surface-container-low"
+                disabled={sendMessageMutation.isPending}
+                onClick={() => setMessageModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-primary-container px-4 py-2 text-xs font-bold text-on-primary hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={sendMessageMutation.isPending || !messageDraft.trim()}
+                onClick={() =>
+                  sendMessageMutation.mutate({
+                    employeeId: profileEmployee.id,
+                    text: messageDraft.trim(),
+                  })
+                }
+              >
+                {sendMessageMutation.isPending ? "Sending…" : "Send"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

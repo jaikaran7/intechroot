@@ -37,13 +37,16 @@ function buildFields(employee, formData) {
     address: fd.address ?? employee.personal?.address ?? "",
     employmentType: fd.employmentType ?? employee.employment?.employmentType ?? "",
     jobTitle: fd.jobTitle ?? employee.employment?.jobTitle ?? employee.role ?? "",
-    department: employee.department || "—",
-    directManager: employee.directManager || employee.employment?.directManager || "—",
-    shiftType: fd.shiftType ?? employee.employment?.shiftType ?? "",
+    /** Shown as "Client"; persisted to `employee.client` (falls back to legacy `department` when client is empty). */
+    client: fd.client ?? employee.client ?? employee.department ?? "",
+    directManager: fd.directManager ?? employee.employment?.directManager ?? "",
+    /** Dedicated profile field with fallback to legacy employment values. */
+    timeZone: fd.timeZone ?? employee.timeZone ?? employee.employment?.timeZone ?? employee.employment?.shiftType ?? "",
     salary: fd.salary ?? employee.employment?.salary ?? "",
     payFrequency: fd.payFrequency ?? employee.employment?.payFrequency ?? "",
     contractType: fd.contractType ?? employee.employment?.contractType ?? "",
     contractTypeDescription: fd.contractTypeDescription ?? employee.employment?.contractTypeDescription ?? "",
+    status: fd.status ?? employee.status ?? "Active",
     employmentStatus: fd.employmentStatus ?? employee.employment?.employmentStatus ?? employee.status ?? "",
     employmentStatusTag: fd.employmentStatusTag ?? employee.employment?.employmentStatusTag ?? "",
     joiningDate: fd.joiningDate ?? employee.employment?.joiningDate ?? "",
@@ -69,6 +72,8 @@ export default function EmployeeBentoProfile({
   formatDateValue,
   heroBeforeName = null,
   heroActions = null,
+  onStatusToggle,
+  statusTogglePending = false,
 }) {
   const fd = buildFields(employee, formData);
   const personalSectionEditable =
@@ -80,24 +85,26 @@ export default function EmployeeBentoProfile({
   const contactFieldsEditable =
     (variant === "employee" && personalDetailsEditMode) || (variant === "admin" && isEditMode);
   const portraitSrc = employee.performance?.panelImage;
+  const clientDisplay = fd.client || employee.client || employee.department || "—";
   const quickNote =
     employee.quickNotes ||
-    `${employee.name} is currently recorded as ${employee.status} on the ${fd.department} team${
+    `${employee.name} is currently recorded as ${employee.status} for client ${clientDisplay}${
       employee.performance?.tenure ? ` with ${employee.performance.tenure} tenure` : ""
     }.`;
 
   const contractEndDisplay = fd.contractEndDate ? formatDateMedium(fd.contractEndDate) : null;
   const statusLabel =
     variant === "employee"
-      ? employee.status || fd.employmentStatus || "—"
-      : fd.employmentStatus || employee.status || "—";
-  const statusActive = String(employee.status || "").toLowerCase() === "active";
+      ? employee.status || "—"
+      : fd.status || employee.status || "—";
+  const statusActive = String(statusLabel || "").toLowerCase() === "active";
 
   const adminDate = formatDateValue
     ? (v) => formatDateValue(v)
     : (v) => formatDateMedium(v) || "—";
 
   const resolvedHeroActions = heroActions ?? null;
+  const timeZoneOptions = ["IST", "EST", "CST", "PST", "GMT", "UTC", "CET", "EET", "JST", "AEST"];
 
   return (
     <>
@@ -356,22 +363,42 @@ export default function EmployeeBentoProfile({
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
                       <span className="material-symbols-outlined">account_tree</span>
                     </div>
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                        Department
+                        Client
                       </label>
-                      <p className="font-medium text-primary">{fd.department}</p>
+                      {jobSectionEditable ? (
+                        <input
+                          className="w-full border-b border-outline-variant bg-transparent py-2 text-sm font-medium text-primary focus:border-tertiary-fixed-dim focus:outline-none"
+                          type="text"
+                          autoComplete="organization"
+                          value={fd.client}
+                          onChange={(e) => updateField?.("client", e.target.value)}
+                        />
+                      ) : (
+                        <p className="font-medium text-primary">{fd.client?.trim() ? fd.client : "—"}</p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-start gap-4">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
                       <span className="material-symbols-outlined">supervisor_account</span>
                     </div>
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                        Direct Manager
+                        Manager
                       </label>
-                      <p className="font-medium text-primary">{fd.directManager}</p>
+                      {jobSectionEditable ? (
+                        <input
+                          className="w-full border-b border-outline-variant bg-transparent py-2 text-sm font-medium text-primary focus:border-tertiary-fixed-dim focus:outline-none"
+                          type="text"
+                          autoComplete="name"
+                          value={fd.directManager}
+                          onChange={(e) => updateField?.("directManager", e.target.value)}
+                        />
+                      ) : (
+                        <p className="font-medium text-primary">{fd.directManager?.trim() ? fd.directManager : "—"}</p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-start gap-4">
@@ -380,20 +407,23 @@ export default function EmployeeBentoProfile({
                     </div>
                     <div className="min-w-0 flex-1">
                       <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                        Shift Type
+                        Time zone
                       </label>
                       {jobSectionEditable ? (
                         <select
                           className="w-full appearance-none border-b border-outline-variant bg-transparent py-2 text-sm font-medium text-primary focus:border-tertiary-fixed-dim focus:outline-none"
-                          value={fd.shiftType}
-                          onChange={(e) => updateField?.("shiftType", e.target.value)}
+                          value={fd.timeZone || ""}
+                          onChange={(e) => updateField?.("timeZone", e.target.value)}
                         >
-                          <option>Day (09:00 - 17:00)</option>
-                          <option>Night (17:00 - 01:00)</option>
-                          <option>Flexible</option>
+                          <option value="">Select Time Zone</option>
+                          {timeZoneOptions.map((zone) => (
+                            <option key={zone} value={zone}>
+                              {zone}
+                            </option>
+                          ))}
                         </select>
                       ) : (
-                        <p className="font-medium text-primary">{fd.shiftType || "—"}</p>
+                        <p className="font-medium text-primary">{fd.timeZone?.trim() ? fd.timeZone : "—"}</p>
                       )}
                     </div>
                   </div>
@@ -478,28 +508,36 @@ export default function EmployeeBentoProfile({
                           className={`h-2 w-2 shrink-0 animate-pulse rounded-full ${statusActive ? "bg-emerald-500" : "bg-amber-500"}`}
                         />
                         {jobSectionEditable ? (
-                          <>
-                            <input
-                              className="min-w-0 flex-1 border-b border-outline-variant bg-transparent py-1 text-sm font-bold text-primary focus:border-tertiary-fixed-dim focus:outline-none"
-                              value={fd.employmentStatus}
-                              onChange={(e) => updateField?.("employmentStatus", e.target.value)}
- />
-                            <input
-                              className="w-24 rounded bg-surface-container-high px-2 py-0.5 text-[10px] font-medium text-on-surface-variant focus:outline-none"
-                              value={fd.employmentStatusTag}
-                              onChange={(e) => updateField?.("employmentStatusTag", e.target.value)}
- />
-                          </>
-                        ) : (
-                          <>
-                            {statusLabel}
-                            {fd.employmentStatusTag ? (
-                              <span className="rounded bg-surface-container-high px-2 py-0.5 text-[10px] font-medium text-on-surface-variant">
-                                {fd.employmentStatusTag}
+                          <span className="inline-flex items-center gap-1 rounded-lg border border-outline-variant/30 bg-surface-container-lowest p-1">
+                            {["Active", "Inactive"].map((opt) => {
+                              const selected = (fd.status || employee.status || "") === opt;
+                              return (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  disabled={statusTogglePending || selected}
+                                  onClick={() => {
+                                    if (selected) return;
+                                    if (onStatusToggle) onStatusToggle(opt);
+                                    else updateField?.("status", opt);
+                                  }}
+                                  className={`rounded-md px-3 py-1 text-xs font-bold transition-colors ${
+                                    selected
+                                      ? "bg-primary-container text-on-primary shadow-sm"
+                                      : "text-on-surface-variant hover:bg-surface-container-high"
+                                  } ${statusTogglePending ? "cursor-not-allowed opacity-70" : ""}`}
+                                >
+                                  {opt}
+                                </button>
+                              );
+                            })}
+                            {statusTogglePending ? (
+                              <span className="inline-flex items-center px-1.5 text-on-surface-variant" aria-label="Updating status">
+                                <span className="h-3 w-3 animate-spin rounded-full border-2 border-outline-variant/50 border-t-primary-container" />
                               </span>
                             ) : null}
-                          </>
-                        )}
+                          </span>
+                        ) : statusLabel}
                       </span>
                     </div>
                     <div className="flex items-center justify-between border-b border-slate-100 pb-4">

@@ -61,11 +61,55 @@ export default function EmployeeDetails() {
 
   const saveMutation = useMutation({
     mutationFn: (data) => employeesService.update(id, data),
+    onMutate: async (payload) => {
+      await queryClient.cancelQueries({ queryKey: ['employee', id] });
+      await queryClient.cancelQueries({ queryKey: ['employees'] });
+
+      const previousEmployee = queryClient.getQueryData(['employee', id]);
+      const previousEmployeesLists = queryClient.getQueriesData({ queryKey: ['employees'] });
+
+      queryClient.setQueryData(['employee', id], (current) => {
+        if (!current) return current;
+        const currentEmployment = current.employment || {};
+        const payloadEmployment = payload.employment || {};
+        return {
+          ...current,
+          ...payload,
+          employment: {
+            ...currentEmployment,
+            ...payloadEmployment,
+          },
+          status: payload.status ?? current.status,
+        };
+      });
+
+      queryClient.setQueriesData({ queryKey: ['employees'] }, (current) => {
+        if (!current || !Array.isArray(current.data)) return current;
+        return {
+          ...current,
+          data: current.data.map((row) =>
+            row?.id === id ? { ...row, ...payload, status: payload.status ?? row.status } : row,
+          ),
+        };
+      });
+
+      return { previousEmployee, previousEmployeesLists };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employee', id] });
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       setIsEditMode(false);
       setShowSavePopup(true);
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousEmployee) {
+        queryClient.setQueryData(['employee', id], context.previousEmployee);
+      }
+      if (context?.previousEmployeesLists) {
+        context.previousEmployeesLists.forEach(([key, data]) => {
+          queryClient.setQueryData(key, data);
+        });
+      }
     },
   });
 
@@ -144,6 +188,52 @@ export default function EmployeeDetails() {
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [isDocRequestModalOpen, setIsDocRequestModalOpen] = useState(false);
   const [newDocNameDraft, setNewDocNameDraft] = useState("");
+  const [statusToast, setStatusToast] = useState("");
+
+  const statusToggleMutation = useMutation({
+    mutationFn: ({ nextStatus }) => employeesService.updateStatus(id, nextStatus),
+    onMutate: async ({ nextStatus }) => {
+      setStatusToast("");
+      await queryClient.cancelQueries({ queryKey: ['employee', id] });
+      await queryClient.cancelQueries({ queryKey: ['employees'] });
+      const previousEmployee = queryClient.getQueryData(['employee', id]);
+      const previousEmployeesLists = queryClient.getQueriesData({ queryKey: ['employees'] });
+      const previousStatus = (previousEmployee?.status || formData.status || "Active");
+
+      setFormData((prev) => ({ ...prev, status: nextStatus }));
+
+      queryClient.setQueryData(['employee', id], (current) => {
+        if (!current) return current;
+        return { ...current, status: nextStatus };
+      });
+      queryClient.setQueriesData({ queryKey: ['employees'] }, (current) => {
+        if (!current || !Array.isArray(current.data)) return current;
+        return {
+          ...current,
+          data: current.data.map((row) => (row?.id === id ? { ...row, status: nextStatus } : row)),
+        };
+      });
+
+      return { previousStatus, previousEmployee, previousEmployeesLists };
+    },
+    onSuccess: (_data, vars) => {
+      setSavedFormData((prev) => ({ ...prev, status: vars.nextStatus }));
+    },
+    onError: (_err, _vars, context) => {
+      const fallbackStatus = context?.previousStatus || "Active";
+      setFormData((prev) => ({ ...prev, status: fallbackStatus }));
+      setSavedFormData((prev) => ({ ...prev, status: fallbackStatus }));
+      if (context?.previousEmployee) {
+        queryClient.setQueryData(['employee', id], context.previousEmployee);
+      }
+      if (context?.previousEmployeesLists) {
+        context.previousEmployeesLists.forEach(([key, data]) => {
+          queryClient.setQueryData(key, data);
+        });
+      }
+      setStatusToast("Failed to update status");
+    },
+  });
 
   useEffect(() => {
     if (!showSavePopup) {
@@ -156,11 +246,17 @@ export default function EmployeeDetails() {
   }, [showSavePopup]);
 
   useEffect(() => {
+    if (!statusToast) return undefined;
+    const timeout = window.setTimeout(() => setStatusToast(""), 2200);
+    return () => window.clearTimeout(timeout);
+  }, [statusToast]);
+
+  useEffect(() => {
+    if (isEditMode) return;
     const next = buildProfileFormState(employee);
     setFormData(next);
     setSavedFormData(next);
-    setIsEditMode(false);
-  }, [employee]);
+  }, [employee, isEditMode]);
 
   const updateField = (field, value) => {
     setFormData((previous) => ({ ...previous, [field]: value }));
@@ -325,6 +421,8 @@ export default function EmployeeDetails() {
               updateField={updateField}
               handleSalaryChange={handleSalaryChange}
               formatDateValue={formatDateValue}
+              onStatusToggle={(nextStatus) => statusToggleMutation.mutate({ nextStatus })}
+              statusTogglePending={statusToggleMutation.isPending}
               heroBeforeName={
                 <button
                   type="button"
@@ -633,6 +731,11 @@ export default function EmployeeDetails() {
         downloadFileName={documentPreview?.downloadFileName}
         requireInterestForDownload
       />
+      {statusToast ? (
+        <div className="fixed bottom-8 left-1/2 z-[220] max-w-[min(100vw-2rem,24rem)] -translate-x-1/2 rounded-xl bg-red-700 px-5 py-3 text-center text-sm font-semibold text-white shadow-lg" role="status">
+          {statusToast}
+        </div>
+      ) : null}
     </>
   );
 }
