@@ -6,6 +6,7 @@ import Button from "../../../components/Form/Button";
 export default function ApplicationProcessStep({
   form,
   errors,
+  resumeFileError = "",
   jobs = [],
   jobsLoading,
   onChange,
@@ -262,7 +263,7 @@ export default function ApplicationProcessStep({
                 <p className="text-sm font-semibold text-on-surface">
                   Drag &amp; drop your files or <span className="text-secondary underline underline-offset-4">browse</span>
                 </p>
-                <p className="mt-0.5 text-xs text-on-surface-variant">PDF, DOCX up to 10MB. Unlocked files only.</p>
+                <p className="mt-0.5 text-xs text-on-surface-variant">PDF, DOCX up to 2MB. Unlocked files only.</p>
               </div>
             </label>
           </div>
@@ -309,6 +310,7 @@ export default function ApplicationProcessStep({
               </div>
             </div>
           ) : null}
+          {resumeFileError ? <p className="text-[10px] text-error">{resumeFileError}</p> : null}
           {errors.resume ? <p className="text-[10px] text-error">{errors.resume}</p> : null}
         </div>
       </div>

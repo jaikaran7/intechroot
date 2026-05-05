@@ -118,8 +118,12 @@ export default function ProfileStep({ applicationId, onboarding, maxAllowed }) {
       setErrors((er) => ({ ...er, profilePhotoUrl: "Please select an image file." }));
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setErrors((er) => ({ ...er, profilePhotoUrl: "Image must be 5MB or smaller." }));
+    const maxBytes = 2 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      setErrors((er) => ({
+        ...er,
+        profilePhotoUrl: "Photo exceeds the 2MB limit. Please choose a smaller image (under 2MB).",
+      }));
       return;
     }
     const localPreview = URL.createObjectURL(file);
@@ -300,7 +304,7 @@ export default function ProfileStep({ applicationId, onboarding, maxAllowed }) {
                   <p className="text-sm font-semibold text-primary">
                     {photoUploading ? "Uploading…" : "Click to upload photo"}
                   </p>
-                  <p className="text-[10px] text-on-surface-variant mt-1">JPG, PNG up to 5MB</p>
+                  <p className="text-[10px] text-on-surface-variant mt-1">JPG, PNG, or HEIC up to 2MB</p>
                 </>
               )}
             </button>

@@ -6,5 +6,9 @@
   {
     "email": "admin@intechroot.com",
     "role": "admin"
+  },
+  {
+    "email": "administrator@intechroot.com",
+    "role": "ADMIN"
   }
 ]

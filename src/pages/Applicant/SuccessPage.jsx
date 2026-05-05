@@ -15,8 +15,18 @@ import {
 import { getRowUploadStatusKey, resolveDocVerification } from "@/utils/onboardingDocumentRules";
 import AdminDocumentPreviewModal from "@/components/admin/AdminDocumentPreviewModal";
 import ApplicantDocumentActionButtons from "@/components/applicant/ApplicantDocumentActionButtons";
+import { documentRowRequiresExpiryDate } from "@/constants/documentUploadRules";
 
 const DUMMY_FILE_URL = "/sample.pdf";
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isPastExpiryDate(value) {
+  if (!value) return false;
+  return String(value).slice(0, 10) < todayISO();
+}
 
 const ALL_STAGE_NAMES = [
   "Application Submitted",
@@ -120,7 +130,8 @@ export default function SuccessPage() {
       fd.append("applicationId", applicationId);
       fd.append("templateKey", key);
       fd.append("name", name);
-      fd.append("expiryDate", expiry);
+      const exp = String(expiry ?? "").trim().slice(0, 10);
+      if (documentRowRequiresExpiryDate(key)) fd.append("expiryDate", exp);
       return documentsService.upsert(fd);
     },
     onSuccess: () => {
@@ -232,9 +243,18 @@ export default function SuccessPage() {
     const stored = application.onboardingDocuments?.find((d) => d.templateKey === rowKey);
     if (resolveDocVerification(stored) === "verified") return;
     const expiry = (stored?.expiryDate || expiryDraft[rowKey] || "").trim();
-    if (!expiry) {
-      setDocErrors((e) => ({ ...e, [rowKey]: "Please set an expiry date before uploading." }));
-      return;
+    if (documentRowRequiresExpiryDate(rowKey)) {
+      if (!expiry) {
+        setDocErrors((e) => ({ ...e, [rowKey]: "Please set an expiry date before uploading." }));
+        return;
+      }
+      if (isPastExpiryDate(expiry)) {
+        setDocErrors((e) => ({
+          ...e,
+          [rowKey]: "Expiry date must be today or in the future.",
+        }));
+        return;
+      }
     }
     setDocErrors((e) => ({ ...e, [rowKey]: "" }));
     setPendingUploadKey(rowKey);
@@ -251,8 +271,25 @@ export default function SuccessPage() {
     const stored = application.onboardingDocuments?.find((d) => d.templateKey === key);
     if (resolveDocVerification(stored) === "verified") return;
     const expiry = (stored?.expiryDate || expiryDraft[key] || "").trim();
-    if (!expiry) {
-      setDocErrors((er) => ({ ...er, [key]: "Please set an expiry date before uploading." }));
+    if (documentRowRequiresExpiryDate(key)) {
+      if (!expiry) {
+        setDocErrors((er) => ({ ...er, [key]: "Please set an expiry date before uploading." }));
+        return;
+      }
+      if (isPastExpiryDate(expiry)) {
+        setDocErrors((er) => ({
+          ...er,
+          [key]: "Expiry date must be today or in the future.",
+        }));
+        return;
+      }
+    }
+    const maxBytes = 2 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      setDocErrors((er) => ({
+        ...er,
+        [key]: "File exceeds the 2MB limit. Please upload a smaller file (under 2MB).",
+      }));
       return;
     }
     const label = row?.label || key;
@@ -547,6 +584,9 @@ export default function SuccessPage() {
                     const statusForBadge = displayStatus === "not_uploaded_neutral" ? "not_uploaded" : displayStatus;
                     const err = docErrors[row.key];
                     const verifiedLocked = resolveDocVerification(stored) === "verified";
+                    const uploadBlockedByExpiry =
+                      documentRowRequiresExpiryDate(row.key) &&
+                      (!expiryValue || isPastExpiryDate(expiryValue));
                     return (
                     <tr key={row.key} className="transition-colors hover:bg-white/40">
                       <td className="px-8 py-6">
@@ -598,6 +638,8 @@ export default function SuccessPage() {
                           expiryValue={expiryValue}
                           onOpenPreview={openApplicantDocPreview}
                           onUploadClick={handleUploadClick}
+                          interactionBusy={verifiedLocked}
+                          uploadBlockedByExpiry={uploadBlockedByExpiry}
                         />
                       </td>
                     </tr>

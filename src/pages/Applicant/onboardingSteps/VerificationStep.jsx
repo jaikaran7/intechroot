@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import OnboardingShell from "./OnboardingShell";
@@ -9,11 +9,21 @@ import { hasUploadedFile } from "@/utils/onboardingDocumentRules";
 
 const ID_TEMPLATE_KEYS = ["govId", "passport"];
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isPastExpiryDate(value) {
+  if (!value) return false;
+  return String(value).slice(0, 10) < todayISO();
+}
+
 export default function VerificationStep({ applicationId, onboarding, maxAllowed }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const fileInputRef = useRef(null);
   const [uploadError, setUploadError] = useState("");
+  const [idExpiryDraft, setIdExpiryDraft] = useState("");
   const [bgvVisited, setBgvVisited] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
@@ -29,6 +39,20 @@ export default function VerificationStep({ applicationId, onboarding, maxAllowed
     return docs.find((d) => ID_TEMPLATE_KEYS.includes(d.templateKey) && hasUploadedFile(d)) || null;
   }, [application?.onboardingDocuments]);
 
+  const govOrPassExpiry = useMemo(() => {
+    const docs = application?.onboardingDocuments || [];
+    for (const k of ID_TEMPLATE_KEYS) {
+      const d = docs.find((x) => x.templateKey === k && hasUploadedFile(x));
+      if (d?.expiryDate) return String(d.expiryDate).slice(0, 10);
+    }
+    return "";
+  }, [application?.onboardingDocuments]);
+
+  useEffect(() => {
+    if (idExpiryDraft) return;
+    if (govOrPassExpiry && !isPastExpiryDate(govOrPassExpiry)) setIdExpiryDraft(govOrPassExpiry);
+  }, [govOrPassExpiry, idExpiryDraft]);
+
   const bgvLink = onboarding?.bgvLink || "";
   const bgvNote = onboarding?.bgvNote || "";
   const hasBgvLink = Boolean(bgvLink.trim());
@@ -37,12 +61,13 @@ export default function VerificationStep({ applicationId, onboarding, maxAllowed
   const bgvInitiated = bgvVisited || bgvCompleted;
 
   const uploadMutation = useMutation({
-    mutationFn: (file) => {
+    mutationFn: ({ file, expiry }) => {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("applicationId", applicationId);
       fd.append("templateKey", "govId");
       fd.append("name", "Government ID");
+      fd.append("expiryDate", expiry);
       return documentsService.upsert(fd);
     },
     onSuccess: () => {
@@ -66,6 +91,15 @@ export default function VerificationStep({ applicationId, onboarding, maxAllowed
 
   function handleUploadClick() {
     setUploadError("");
+    const expiry = idExpiryDraft.trim().slice(0, 10);
+    if (!expiry) {
+      setUploadError("Select the expiry date printed on your ID before uploading.");
+      return;
+    }
+    if (isPastExpiryDate(expiry)) {
+      setUploadError("Expiry date must be today or in the future.");
+      return;
+    }
     fileInputRef.current?.click();
   }
 
@@ -73,11 +107,21 @@ export default function VerificationStep({ applicationId, onboarding, maxAllowed
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      setUploadError("File must be 10MB or smaller.");
+    const expiry = idExpiryDraft.trim().slice(0, 10);
+    if (!expiry) {
+      setUploadError("Select the expiry date printed on your ID before uploading.");
       return;
     }
-    uploadMutation.mutate(file);
+    if (isPastExpiryDate(expiry)) {
+      setUploadError("Expiry date must be today or in the future.");
+      return;
+    }
+    const maxBytes = 2 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      setUploadError("File exceeds the 2MB limit. Please upload a smaller file (under 2MB).");
+      return;
+    }
+    uploadMutation.mutate({ file, expiry });
   }
 
   function handleOpenBgv() {
@@ -167,6 +211,21 @@ export default function VerificationStep({ applicationId, onboarding, maxAllowed
             </span>
           </div>
 
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">
+            ID expiry date (printed on document)
+          </label>
+          <input
+            type="date"
+            min={todayISO()}
+            value={idExpiryDraft}
+            onChange={(e) => {
+              setIdExpiryDraft(e.target.value);
+              setUploadError("");
+            }}
+            disabled={finalSubmitted}
+            className="mb-3 w-full max-w-[11rem] rounded border border-outline-variant/20 bg-white px-2 py-1 text-xs disabled:opacity-60"
+          />
+
           <button
             type="button"
             onClick={handleUploadClick}
@@ -177,7 +236,9 @@ export default function VerificationStep({ applicationId, onboarding, maxAllowed
             <p className="text-sm font-semibold text-primary">
               {uploadMutation.isPending ? "Uploading…" : "Click to upload ID"}
             </p>
-            <p className="text-[10px] text-on-surface-variant mt-1">Passport, ID, or National ID (Max 10MB)</p>
+            <p className="text-[10px] text-on-surface-variant mt-1 px-4">
+              Passport, ID, or National ID — PDF or image — max 2MB (JPG, PNG, HEIC recommended)
+            </p>
           </button>
 
           {idDoc ? (

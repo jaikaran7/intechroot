@@ -14,7 +14,10 @@ function triggerDownload(url, name) {
 
 /**
  * Applicant document row actions: in-app View (outline) + primary upload/replace/download.
- * Used on applicant dashboard and onboarding documents step.
+ * Preview must stay enabled when a file exists even if expiry is missing (expiry only gates new upload/replace).
+ *
+ * @param {boolean} interactionBusy — finalSubmitted, row spinners, clearing doc, etc.
+ * @param {boolean} uploadBlockedByExpiry — missing/past expiry when upload/replace requires it
  */
 export default function ApplicantDocumentActionButtons({
   row,
@@ -22,9 +25,15 @@ export default function ApplicantDocumentActionButtons({
   expiryValue,
   onOpenPreview,
   onUploadClick,
+  interactionBusy = false,
+  uploadBlockedByExpiry = false,
+  /** @deprecated use interactionBusy + uploadBlockedByExpiry */
   disabled = false,
   approved = false,
 }) {
+  const busy = interactionBusy || disabled;
+  const blockUpload = busy || uploadBlockedByExpiry;
+
   const v = resolveDocVerification(stored);
   const hasFile = hasUploadedFile(stored);
   const exp = getExpiryBucket((expiryValue || "").slice(0, 10));
@@ -36,7 +45,7 @@ export default function ApplicantDocumentActionButtons({
 
   if (!hasFile) {
     return (
-      <button type="button" disabled={disabled} onClick={() => onUploadClick(row.key)} className={uploadPrimaryClass}>
+      <button type="button" disabled={blockUpload} onClick={() => onUploadClick(row.key)} className={uploadPrimaryClass}>
         Upload
       </button>
     );
@@ -46,7 +55,7 @@ export default function ApplicantDocumentActionButtons({
 
   if (v === "verified") {
     const href = (stored?.fileUrl && String(stored.fileUrl).trim()) || DUMMY_FILE_URL;
-    const dlName = stored?.fileName || "document.pdf";
+    const dlName = stored.fileName || "document.pdf";
     return (
       <div className="flex flex-col items-end gap-2">
         <button type="button" onClick={openPreview} className={downloadOutlineClass}>
@@ -64,10 +73,10 @@ export default function ApplicantDocumentActionButtons({
   if (exp === "expired" || exp === "expiring_soon") {
     return (
       <div className="flex flex-col items-end gap-2">
-        <button type="button" disabled={disabled} onClick={openPreview} className={downloadOutlineClass}>
+        <button type="button" disabled={busy} onClick={openPreview} className={downloadOutlineClass}>
           View
         </button>
-        <button type="button" disabled={disabled} onClick={() => onUploadClick(row.key)} className={uploadPrimaryClass}>
+        <button type="button" disabled={blockUpload} onClick={() => onUploadClick(row.key)} className={uploadPrimaryClass}>
           Replace
         </button>
       </div>
@@ -77,10 +86,10 @@ export default function ApplicantDocumentActionButtons({
   if (v === "rejected") {
     return (
       <div className="flex flex-col items-end gap-2">
-        <button type="button" disabled={disabled} onClick={openPreview} className={downloadOutlineClass}>
+        <button type="button" disabled={busy} onClick={openPreview} className={downloadOutlineClass}>
           View
         </button>
-        <button type="button" disabled={disabled} onClick={() => onUploadClick(row.key)} className={uploadPrimaryClass}>
+        <button type="button" disabled={blockUpload} onClick={() => onUploadClick(row.key)} className={uploadPrimaryClass}>
           Re-upload
         </button>
       </div>
@@ -90,10 +99,10 @@ export default function ApplicantDocumentActionButtons({
   if (v === "waiting") {
     return (
       <div className="flex flex-col items-end gap-2">
-        <button type="button" disabled={disabled} onClick={openPreview} className={downloadOutlineClass}>
+        <button type="button" disabled={busy} onClick={openPreview} className={downloadOutlineClass}>
           View
         </button>
-        <button type="button" disabled={disabled} onClick={() => onUploadClick(row.key)} className={uploadPrimaryClass}>
+        <button type="button" disabled={blockUpload} onClick={() => onUploadClick(row.key)} className={uploadPrimaryClass}>
           Replace
         </button>
       </div>
@@ -103,10 +112,10 @@ export default function ApplicantDocumentActionButtons({
   if (v === "unapproved") {
     return (
       <div className="flex flex-col items-end gap-2">
-        <button type="button" disabled={disabled} onClick={openPreview} className={downloadOutlineClass}>
+        <button type="button" disabled={busy} onClick={openPreview} className={downloadOutlineClass}>
           View
         </button>
-        <button type="button" disabled={disabled} onClick={() => onUploadClick(row.key)} className={uploadPrimaryClass}>
+        <button type="button" disabled={blockUpload} onClick={() => onUploadClick(row.key)} className={uploadPrimaryClass}>
           Replace
         </button>
       </div>

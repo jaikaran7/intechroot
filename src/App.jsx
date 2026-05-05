@@ -22,6 +22,8 @@ const ApplicationSubmittedPremiumSuccess = lazy(() =>
 const AlreadyAppliedPremiumPage = lazy(() => import("./pages/ApplyFlow/AlreadyAppliedPremiumPage"));
 const SuccessPage = lazy(() => import("./pages/Applicant/SuccessPage"));
 const ApplicantLogin = lazy(() => import("./pages/Applicant/ApplicantLogin"));
+const ApplicantForgotPassword = lazy(() => import("./pages/Applicant/ApplicantForgotPassword"));
+const ApplicantResetPassword = lazy(() => import("./pages/Applicant/ApplicantResetPassword"));
 const ApplicantOnboardingPage = lazy(() => import("./pages/Applicant/ApplicantOnboardingPage"));
 const ProtectedApplicant = lazy(() => import("./pages/Applicant/components/ProtectedApplicant"));
 
@@ -43,6 +45,7 @@ const JobDetails = lazy(() => import("./pages/Admin/JobPostings/JobDetails"));
 const Reports = lazy(() => import("./pages/Admin/Settings/Reports"));
 const Settings = lazy(() => import("./pages/Admin/Settings/Settings"));
 const OnboardingReview = lazy(() => import("./pages/Admin/Employees/OnboardingReview"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
 function RouteFallback() {
   return (
@@ -85,6 +88,8 @@ export default function App() {
           <Route path="/applicant-dashboard" element={<Navigate to="/applicant/dashboard" replace />} />
           <Route path="/success" element={<Navigate to="/applicant/login" replace />} />
           <Route path="/applicant/login" element={<ApplicantLogin />} />
+          <Route path="/applicant/forgot-password" element={<ApplicantForgotPassword />} />
+          <Route path="/applicant/reset-password" element={<ApplicantResetPassword />} />
           <Route
             path="/applicant/dashboard"
             element={
@@ -105,6 +110,7 @@ export default function App() {
 
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/admin/login" element={<Navigate to="/login" replace />} />
           <Route path="/admin-dashboard.html" element={<Navigate to="/admin-panel/dashboard" replace />} />
           <Route

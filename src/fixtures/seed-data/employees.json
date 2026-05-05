@@ -19,5 +19,17 @@
     "role": "QA Engineer",
     "department": "Quality Assurance",
     "defaultPassword": "Employee3@123"
+  },
+  {
+    "name": "Admin Panel Employee One",
+    "email": "admin.panel.employee1@intechroot.com",
+    "role": "Frontend Engineer",
+    "department": "Engineering"
+  },
+  {
+    "name": "Admin Panel Employee Two",
+    "email": "admin.panel.employee2@intechroot.com",
+    "role": "Backend Engineer",
+    "department": "Engineering"
   }
 ]

@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { applicationsService } from "../../../services/applications.service";
 import { jobsService } from "../../../services/jobs.service";
 import FormSection from "./FormSection";
+
+const MAX_RESUME_BYTES = 2 * 1024 * 1024;
 
 export default function ApplyTalentPipeline() {
   const navigate = useNavigate();
@@ -51,7 +53,9 @@ export default function ApplyTalentPipeline() {
     }
   }, [incoming.jobId, jobs]);
   const [errors, setErrors] = useState({});
+  const [resumeFileError, setResumeFileError] = useState("");
   const [submitError, setSubmitError] = useState("");
+  const submitLockRef = useRef(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -60,10 +64,22 @@ export default function ApplyTalentPipeline() {
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0] || null;
+    if (!file) {
+      setForm((prev) => ({ ...prev, resume: null }));
+      return;
+    }
+    if (file.size > MAX_RESUME_BYTES) {
+      setResumeFileError("File size exceeds 2MB. Please upload a smaller file.");
+      e.target.value = "";
+      setForm((prev) => ({ ...prev, resume: null }));
+      return;
+    }
+    setResumeFileError("");
     setForm((prev) => ({ ...prev, resume: file }));
   };
 
   const handleRemoveResume = () => {
+    setResumeFileError("");
     setForm((prev) => ({ ...prev, resume: null }));
   };
 
@@ -122,6 +138,7 @@ export default function ApplyTalentPipeline() {
 
   const submitMutation = useMutation({
     mutationFn: (payload) => applicationsService.create(payload),
+    retry: 0,
     onSuccess: (application) => {
       const submittedAtLabel = new Date().toLocaleDateString("en-US", {
         month: "short",
@@ -140,26 +157,44 @@ export default function ApplyTalentPipeline() {
       });
     },
     onError: (err) => {
-      if (err.response?.status === 409) {
+      const status = err.response?.status;
+      const code = err.response?.data?.error?.code;
+      const msg = err.response?.data?.error?.message || "";
+      const isDuplicateApplication =
+        status === 409 &&
+        code === "CONFLICT" &&
+        /already applied for this position/i.test(String(msg));
+
+      if (isDuplicateApplication) {
         navigate("/already-applied", {
           state: {
             jobTitle: form.discipline,
             company: incoming.company || "InTechRoot",
           },
         });
-      } else {
-        setSubmitError(
-          err.response?.data?.error?.message || "Submission failed. Please try again."
-        );
+        return;
       }
+
+      if (code === "FILE_TOO_LARGE" || /2MB/i.test(String(msg))) {
+        setResumeFileError("File size exceeds 2MB. Please upload a smaller file.");
+      }
+
+      setSubmitError(msg || "Submission failed. Please try again.");
+    },
+    onSettled: () => {
+      submitLockRef.current = false;
     },
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (submitMutation.isPending || submitLockRef.current) return;
     setSubmitError("");
     setErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) return;
+    if (resumeFileError) return;
+
+    submitLockRef.current = true;
 
     const fullName = [form.firstName, form.lastName].filter(Boolean).join(" ").trim();
     const expNum = Number(form.experience);
@@ -207,6 +242,7 @@ export default function ApplyTalentPipeline() {
             <FormSection
               form={form}
               errors={errors}
+              resumeFileError={resumeFileError}
               jobs={jobs}
               jobsLoading={jobsLoading}
               onChange={handleChange}

@@ -3,6 +3,7 @@ import ApplicationProcessStep from "./ApplicationProcessStep";
 export default function FormSection({
   form,
   errors,
+  resumeFileError,
   jobs,
   jobsLoading,
   onChange,
@@ -29,6 +30,7 @@ export default function FormSection({
           <ApplicationProcessStep
             form={form}
             errors={errors}
+            resumeFileError={resumeFileError}
             jobs={jobs}
             jobsLoading={jobsLoading}
             onChange={onChange}

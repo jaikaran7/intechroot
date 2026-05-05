@@ -14,9 +14,13 @@ export const authService = {
     api
       .post(
         '/auth/applicant/login',
-        password != null && String(password).trim() !== ''
-          ? { email, password: String(password).trim() }
-          : { email }
+        { email, password: String(password || '').trim() }
       )
       .then((r) => r.data.data),
+
+  forgotPassword: ({ email, role }) =>
+    api.post('/auth/forgot-password', { email, role }).then((r) => r.data.data),
+
+  resetPassword: ({ token, password, role }) =>
+    api.post('/auth/reset-password', { token, password, role }).then((r) => r.data.data),
 };

@@ -1,9 +1,29 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
+import { useState } from "react";
+import { authService } from "@/services/auth.service";
 
 /**
  * Static forgot-password UI (no API / state). Matches provided HTML structure and classes.
  */
 export default function ForgotPassword() {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+
+  const mutation = useMutation({
+    mutationFn: (payload) => authService.forgotPassword(payload),
+    onSuccess: () => {
+      setError("");
+      setNotice("If an account exists for that email, a reset link has been sent.");
+    },
+    onError: (err) => {
+      setNotice("");
+      setError(err?.response?.data?.error?.message || "Unable to send reset link. Please try again.");
+    },
+  });
+
   return (
     <div className="bg-background font-body text-on-surface antialiased">
     <main className="forgot-password-page network-bg relative flex min-h-screen w-full flex-col items-center justify-center p-6">
@@ -43,6 +63,14 @@ export default function ForgotPassword() {
           className="space-y-8"
           onSubmit={(e) => {
             e.preventDefault();
+            setError("");
+            setNotice("");
+            const normalized = email.trim().toLowerCase();
+            if (!normalized) {
+              setError("Enter your email.");
+              return;
+            }
+            mutation.mutate({ email: normalized, role: "employee" });
           }}
         >
           <div className="space-y-2">
@@ -57,16 +85,21 @@ export default function ForgotPassword() {
                 placeholder="executive@intechroot.com"
                 required
                 type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
               <div className="absolute bottom-0 left-0 h-0.5 w-0 bg-tertiary-fixed-dim transition-all duration-300 group-focus-within:w-full" />
             </div>
           </div>
+          {notice ? <p className="text-sm text-on-surface-variant">{notice}</p> : null}
+          {error ? <p className="text-sm text-error">{error}</p> : null}
           <div className="pt-4">
             <button
-              className="font-label flex w-full items-center justify-center gap-2 rounded-lg bg-primary-container py-4 text-sm font-bold tracking-wide text-on-primary shadow-lg transition-all hover:shadow-xl active:scale-95"
+              className="font-label flex w-full items-center justify-center gap-2 rounded-lg bg-primary-container py-4 text-sm font-bold tracking-wide text-on-primary shadow-lg transition-all hover:shadow-xl active:scale-95 disabled:opacity-60"
               type="submit"
+              disabled={mutation.isPending}
             >
-              <span>Send Reset Link</span>
+              <span>{mutation.isPending ? "Sending…" : "Send Reset Link"}</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </button>
           </div>

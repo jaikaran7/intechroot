@@ -17,6 +17,7 @@ import {
   onboardingVerificationBadge,
 } from "@/components/shared/requiredDocumentBadges";
 import { hasUploadedFile } from "@/utils/onboardingDocumentRules";
+import { documentRowRequiresExpiryDate } from "@/constants/documentUploadRules";
 
 const MIN_ACTION_MS = 600;
 
@@ -135,7 +136,7 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
       fd.append("applicationId", applicationId);
       fd.append("templateKey", key);
       fd.append("name", name);
-      if (expiry) fd.append("expiryDate", expiry);
+      if (documentRowRequiresExpiryDate(key)) fd.append("expiryDate", String(expiry).trim().slice(0, 10));
       return documentsService.upsert(fd);
     },
     onMutate: async (vars) => {
@@ -223,13 +224,15 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
     const row = allRows.find((r) => r.key === rowKey);
     const stored = application?.onboardingDocuments?.find((d) => d.templateKey === rowKey);
     const expiry = (expiryDraft[rowKey] || stored?.expiryDate || "").slice(0, 10);
-    if (!expiry) {
-      setRowErrors((e) => ({ ...e, [rowKey]: "Select an expiry date before uploading a document." }));
-      return;
-    }
-    if (isPastExpiryDate(expiry)) {
-      setRowErrors((e) => ({ ...e, [rowKey]: "Expiry date must be in the future" }));
-      return;
+    if (documentRowRequiresExpiryDate(rowKey)) {
+      if (!expiry) {
+        setRowErrors((e) => ({ ...e, [rowKey]: "Select an expiry date before uploading a document." }));
+        return;
+      }
+      if (isPastExpiryDate(expiry)) {
+        setRowErrors((e) => ({ ...e, [rowKey]: "Expiry date must be in the future" }));
+        return;
+      }
     }
     if (stored?.verification === "verified") {
       setRowErrors((e) => ({ ...e, [rowKey]: "Document approved. Changes are not allowed" }));
@@ -290,20 +293,26 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
     event.target.value = "";
     setPendingUploadKey(null);
     if (!file || !key || !application) return;
-    if (file.size > 10 * 1024 * 1024) {
-      setRowErrors((e) => ({ ...e, [key]: "File must be 10MB or smaller." }));
+    const maxBytes = 2 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      setRowErrors((e) => ({
+        ...e,
+        [key]: "File exceeds the 2MB limit. Please upload a smaller file (under 2MB).",
+      }));
       return;
     }
     const row = allRows.find((r) => r.key === key);
     const stored = application.onboardingDocuments?.find((d) => d.templateKey === key);
     const expiry = (expiryDraft[key] || stored?.expiryDate || "").trim();
-    if (!expiry) {
-      setRowErrors((e) => ({ ...e, [key]: "Select an expiry date before uploading a document." }));
-      return;
-    }
-    if (isPastExpiryDate(expiry)) {
-      setRowErrors((e) => ({ ...e, [key]: "Expiry date must be in the future" }));
-      return;
+    if (documentRowRequiresExpiryDate(key)) {
+      if (!expiry) {
+        setRowErrors((e) => ({ ...e, [key]: "Select an expiry date before uploading a document." }));
+        return;
+      }
+      if (isPastExpiryDate(expiry)) {
+        setRowErrors((e) => ({ ...e, [key]: "Expiry date must be in the future" }));
+        return;
+      }
     }
     uploadMutation.mutate({ key, file, expiry, name: row?.label || key });
   }
@@ -333,8 +342,10 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
       />
 
       <p className="text-sm text-on-surface-variant mb-6 max-w-3xl">
-        Ensure all digital assets are uploaded and valid for the upcoming technical screening. All documents must be
-        clearly legible and within their expiry dates.
+        If you already uploaded a document earlier (for example from your applicant dashboard), it appears here — use{" "}
+        <strong>View</strong> to preview it. Upload only what is still missing. Each file must be clearly legible and at
+        most 2MB. IDs and permits need a future expiry date before you can replace them; incorporation and banking items
+        do not require an expiry date.
       </p>
 
       <div className="rounded-2xl bg-white border border-outline-variant/10 shadow-sm overflow-hidden">
@@ -395,13 +406,15 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
                           : state.displayStatus === "not_uploaded_neutral" ? "not_uploaded" : state.displayStatus;
                   const err = rowErrors[row.key];
                   const approved = state.verification === "verified";
-                  const uploadDisabled =
+                  const hasDocFile = hasUploadedFile(state.stored);
+                  const uploadBlockedByExpiry =
+                    documentRowRequiresExpiryDate(row.key) &&
+                    (!state.expiryValue || isPastExpiryDate(state.expiryValue));
+                  const interactionBusy =
                     finalSubmitted ||
                     Boolean(rowAction) ||
                     clearDocumentMutation.isPending ||
-                    approved ||
-                    !state.expiryValue ||
-                    isPastExpiryDate(state.expiryValue);
+                    approved;
                   return (
                     <tr key={row.key} className="hover:bg-surface-container-lowest/60">
                       <td className="px-6 py-5">
@@ -446,9 +459,15 @@ export default function DocumentsStep({ applicationId, onboarding, maxAllowed })
                             expiryValue={state.expiryValue}
                             onOpenPreview={openDocPreview}
                             onUploadClick={handleUploadClick}
-                            disabled={uploadDisabled}
+                            interactionBusy={interactionBusy}
+                            uploadBlockedByExpiry={uploadBlockedByExpiry}
                             approved={approved}
                           />
+                          {hasDocFile && uploadBlockedByExpiry && !approved ? (
+                            <p className="text-[10px] text-amber-800 max-w-[14rem] text-right leading-snug">
+                              Set a valid expiry date to replace this file. Preview is available anytime.
+                            </p>
+                          ) : null}
                           {approved ? (
                             <p className="text-[10px] font-medium text-on-surface-variant">
                               Document approved. Changes are not allowed
