@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../../store/authStore";
 import { timesheetsService } from "../../services/timesheets.service";
+import PageSkeleton from "../../components/PageSkeleton";
 import {
   TIMESHEET_DAY_KEYS,
   addDaysISO,
@@ -71,7 +72,12 @@ export default function EmployeeTimesheetsPage() {
   const { employeeId } = useAuthStore();
   const queryClient = useQueryClient();
 
-  const { data: tsData, isError: timesheetsQueryError, refetch: refetchTimesheets } = useQuery({
+  const {
+    data: tsData,
+    isLoading: timesheetsLoading,
+    isError: timesheetsQueryError,
+    refetch: refetchTimesheets,
+  } = useQuery({
     queryKey: ['timesheets', employeeId],
     queryFn: () => timesheetsService.getByEmployee(employeeId, { limit: 50 }),
     staleTime: 30_000,
@@ -306,6 +312,13 @@ export default function EmployeeTimesheetsPage() {
     return (
       <main className="ml-64 pt-24 pb-12 px-8 min-h-screen bg-surface font-body">
         <p className="text-slate-600">Sign in to manage timesheets.</p>
+      </main>
+    );
+  }
+  if (timesheetsLoading) {
+    return (
+      <main className="ml-64 pt-24 pb-12 px-8 min-h-screen bg-surface font-body">
+        <PageSkeleton rows={12} />
       </main>
     );
   }

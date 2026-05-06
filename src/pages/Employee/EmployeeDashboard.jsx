@@ -5,23 +5,32 @@ import { useAuthStore } from "../../store/authStore";
 import { employeesService } from "../../services/employees.service";
 import { timesheetsService } from "../../services/timesheets.service";
 import { addDaysISO, calculateTotal, formatTimesheetRangeLabel, getWeekStartISO, parseYMD } from "./timesheetUtils";
+import PageSkeleton from "../../components/PageSkeleton";
 
 export default function EmployeeDashboard() {
   const { employeeId } = useAuthStore();
 
-  const { data: employee } = useQuery({
+  const { data: employee, isLoading: employeeLoading } = useQuery({
     queryKey: ['employee', employeeId],
     queryFn: () => employeesService.getById(employeeId),
     staleTime: 120_000,
     enabled: !!employeeId,
   });
 
-  const { data: tsData } = useQuery({
+  const { data: tsData, isLoading: timesheetsLoading } = useQuery({
     queryKey: ['timesheets', employeeId],
     queryFn: () => timesheetsService.getByEmployee(employeeId, { limit: 10 }),
     staleTime: 30_000,
     enabled: !!employeeId,
   });
+
+  if (employeeLoading || timesheetsLoading) {
+    return (
+      <main className="ml-64 pt-16 min-h-screen bg-surface font-body">
+        <PageSkeleton rows={12} />
+      </main>
+    );
+  }
 
   const timesheets = useMemo(() => {
     const list = tsData?.data;
@@ -75,14 +84,14 @@ export default function EmployeeDashboard() {
   const summaryDotClass =
     weekTs?.status === "Approved" ? "bg-emerald-500" : weekTs?.status === "Rejected" ? "bg-error" : "bg-slate-400";
 
-  const firstName = employee?.name?.split(" ")?.[0] ?? "there";
-  const dept = employee?.department ?? "Engineering Department";
+  const firstName = employee?.name?.split(" ")?.[0] ?? "";
+  const dept = employee?.department ?? "";
   const displayId = employee?.employeeCode
     ? employee.employeeCode
     : employee?.id
       ? `#${employee.id}`
-      : "#INTR-00-0000";
-  const loc = employee?.personal?.address?.split(",").slice(-2).join(",").trim() ?? "London, UK";
+      : "";
+  const loc = employee?.personal?.address?.split(",").slice(-2).join(",").trim() ?? "";
 
   const recentTs = useMemo(() => {
     return [...timesheets]
@@ -108,7 +117,9 @@ export default function EmployeeDashboard() {
       <div className="flex-1 p-8">
         <section className="mb-10">
           <p className="text-secondary font-semibold text-xs uppercase tracking-widest mb-2">Internal Dashboard</p>
-          <h2 className="text-4xl font-headline font-extrabold text-primary tracking-tight mb-2">Welcome back, {firstName}.</h2>
+          <h2 className="text-4xl font-headline font-extrabold text-primary tracking-tight mb-2">
+            Welcome back{firstName ? `, ${firstName}` : ""}.
+          </h2>
           <p className="text-on-surface-variant font-body">Here is what&apos;s happening with your deployments and paperwork today.</p>
         </section>
         <section className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -271,17 +282,17 @@ export default function EmployeeDashboard() {
               </span>
             </div>
           </div>
-          <h3 className="text-xl font-headline font-extrabold text-primary mb-1">{employee?.name ?? "Alex Sterling"}</h3>
-          <p className="text-sm font-medium text-secondary mb-1">{employee?.role ?? "Senior Solutions Architect"}</p>
-          <p className="text-xs text-on-surface-variant mb-6">{dept}</p>
+          <h3 className="text-xl font-headline font-extrabold text-primary mb-1">{employee?.name ?? "—"}</h3>
+          <p className="text-sm font-medium text-secondary mb-1">{employee?.role ?? "—"}</p>
+          <p className="text-xs text-on-surface-variant mb-6">{dept || "—"}</p>
           <div className="pt-6 border-t border-outline-variant/10 grid grid-cols-2 gap-4">
             <div className="text-left">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Employee ID</p>
-              <p className="text-xs font-semibold text-primary">{displayId}</p>
+              <p className="text-xs font-semibold text-primary">{displayId || "—"}</p>
             </div>
             <div className="text-left">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Location</p>
-              <p className="text-xs font-semibold text-primary">{loc}</p>
+              <p className="text-xs font-semibold text-primary">{loc || "—"}</p>
             </div>
           </div>
         </div>

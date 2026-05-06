@@ -2,6 +2,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { useAuthHydration } from "../hooks/useAuthHydration";
 import { ADMIN_PANEL_DASHBOARD_PATH, isAllowedAdminPanelPath } from "../constants/adminAccess";
+import PageSkeleton from "./PageSkeleton";
 
 export default function ProtectedAdminPanel({ children }) {
   const hydrated = useAuthHydration();
@@ -10,16 +11,10 @@ export default function ProtectedAdminPanel({ children }) {
 
   if (!hydrated) {
     return (
-      <div
-        style={{
-          display: "grid",
-          placeItems: "center",
-          minHeight: "40vh",
-          color: "#64748b",
-          fontSize: "0.95rem",
-        }}
-      >
-        Loading…
+      <div className="min-h-screen bg-surface font-body">
+        <div className="pt-24 px-6 max-w-5xl mx-auto">
+          <PageSkeleton rows={10} />
+        </div>
       </div>
     );
   }

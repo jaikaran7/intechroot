@@ -5,13 +5,14 @@ import EmployeeBentoProfile, { formatDateMedium } from "@/components/EmployeeBen
 import { buildProfileFormState } from "@/utils/employeeProfileFormState";
 import { useAuthStore } from "../../store/authStore";
 import { employeesService } from "../../services/employees.service";
+import PageSkeleton from "../../components/PageSkeleton";
 
 export default function EmployeeProfilePage() {
   const navigate = useNavigate();
   const { employeeId } = useAuthStore();
   const queryClient = useQueryClient();
 
-  const { data: employee } = useQuery({
+  const { data: employee, isLoading, isError, refetch } = useQuery({
     queryKey: ['employee', employeeId],
     queryFn: () => employeesService.getById(employeeId),
     staleTime: 120_000,
@@ -71,7 +72,34 @@ export default function EmployeeProfilePage() {
     });
   };
 
-  if (!employee) return null;
+  if (isLoading) {
+    return (
+      <main className="ml-64 pt-24 pb-12 px-8 min-h-screen bg-surface font-body">
+        <PageSkeleton rows={12} />
+      </main>
+    );
+  }
+  if (isError) {
+    return (
+      <main className="ml-64 pt-24 pb-12 px-8 min-h-screen bg-surface font-body">
+        <p className="text-on-surface-variant mb-4">Could not load employee profile.</p>
+        <button
+          type="button"
+          onClick={() => void refetch()}
+          className="rounded-lg bg-primary-container px-5 py-2.5 text-xs font-bold text-white"
+        >
+          Retry
+        </button>
+      </main>
+    );
+  }
+  if (!employee) {
+    return (
+      <main className="ml-64 pt-24 pb-12 px-8 min-h-screen bg-surface font-body">
+        <p className="text-on-surface-variant">Profile not found.</p>
+      </main>
+    );
+  }
 
   const formatDateValue = (v) => formatDateMedium(v) || "—";
 

@@ -5,6 +5,7 @@ import { ADMIN_PANEL_DASHBOARD_PATH } from "../../../constants/adminAccess";
 import EmployeeHeader from "./EmployeeHeader";
 import EmployeeProfileChromeHeader from "./EmployeeProfileChromeHeader";
 import EmployeeSidebar from "./EmployeeSidebar";
+import PageSkeleton from "../../../components/PageSkeleton";
 
 export default function ProtectedEmployee({ children }) {
   const hydrated = useAuthHydration();
@@ -16,16 +17,10 @@ export default function ProtectedEmployee({ children }) {
 
   if (!hydrated) {
     return (
-      <div
-        style={{
-          display: "grid",
-          placeItems: "center",
-          minHeight: "40vh",
-          color: "#64748b",
-          fontSize: "0.95rem",
-        }}
-      >
-        Loading…
+      <div className="min-h-screen bg-surface font-body">
+        <div className="pt-24 px-6 max-w-5xl mx-auto">
+          <PageSkeleton rows={10} />
+        </div>
       </div>
     );
   }

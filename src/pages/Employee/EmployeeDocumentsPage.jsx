@@ -5,6 +5,7 @@ import { documentsService } from "../../services/documents.service";
 import { employeesService } from "../../services/employees.service";
 import { REQUIRED_DOCUMENT_ROWS } from "../../constants/requiredDocumentTemplates";
 import AdminDocumentPreviewModal from "../../components/admin/AdminDocumentPreviewModal";
+import PageSkeleton from "../../components/PageSkeleton";
 import { uploadStatusBadge, onboardingVerificationBadge } from "../../components/shared/requiredDocumentBadges";
 import {
   documentIconWrapClass,
@@ -51,14 +52,24 @@ export default function EmployeeDocumentsPage() {
   const pendingExpiryConfirmRef = useRef(null);
   const actionTimersRef = useRef([]);
 
-  const { data: employee = null } = useQuery({
+  const {
+    data: employee = null,
+    isLoading: employeeLoading,
+    isError: employeeError,
+    refetch: refetchEmployee,
+  } = useQuery({
     queryKey: ["employee", employeeId],
     queryFn: () => employeesService.getById(employeeId),
     staleTime: 60_000,
     enabled: !!employeeId,
   });
 
-  const { data: docs = [] } = useQuery({
+  const {
+    data: docs = [],
+    isLoading: docsLoading,
+    isError: docsError,
+    refetch: refetchDocs,
+  } = useQuery({
     queryKey: ['documents', employeeId],
     queryFn: () => documentsService.getByOwner(employeeId, 'employee'),
     staleTime: 60_000,
@@ -398,6 +409,40 @@ export default function EmployeeDocumentsPage() {
     () => requiredRows.filter((row) => hasUploadedFile(docsByKey.get(row.key))).length,
     [requiredRows, docsByKey],
   );
+
+  if (!employeeId) {
+    return (
+      <main className="ml-64 pt-24 pb-12 px-8 min-h-screen bg-surface font-body">
+        <p className="text-slate-600">Sign in to manage documents.</p>
+      </main>
+    );
+  }
+
+  if (employeeLoading || docsLoading) {
+    return (
+      <main className="ml-64 pt-24 pb-12 px-8 min-h-screen bg-surface font-body">
+        <PageSkeleton rows={12} />
+      </main>
+    );
+  }
+
+  if (employeeError || docsError) {
+    return (
+      <main className="ml-64 pt-24 pb-12 px-8 min-h-screen bg-surface font-body">
+        <p className="text-on-surface-variant mb-4">Could not load documents.</p>
+        <button
+          type="button"
+          onClick={() => {
+            void refetchEmployee();
+            void refetchDocs();
+          }}
+          className="rounded-lg bg-primary-container px-5 py-2.5 text-xs font-bold text-white"
+        >
+          Retry
+        </button>
+      </main>
+    );
+  }
 
   return (
     <main className="ml-64 min-h-screen flex flex-col bg-surface text-on-surface">
