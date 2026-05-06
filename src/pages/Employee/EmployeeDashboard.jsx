@@ -10,24 +10,88 @@ import PageSkeleton from "../../components/PageSkeleton";
 export default function EmployeeDashboard() {
   const { employeeId } = useAuthStore();
 
-  const { data: employee, isLoading: employeeLoading } = useQuery({
+  const {
+    data: employee,
+    isLoading: employeeLoading,
+    isError: employeeIsError,
+    error: employeeError,
+    refetch: refetchEmployee,
+  } = useQuery({
     queryKey: ['employee', employeeId],
     queryFn: () => employeesService.getById(employeeId),
     staleTime: 120_000,
     enabled: !!employeeId,
   });
 
-  const { data: tsData, isLoading: timesheetsLoading } = useQuery({
+  const {
+    data: tsData,
+    isLoading: timesheetsLoading,
+    isError: tsIsError,
+    error: tsError,
+    refetch: refetchTimesheets,
+  } = useQuery({
     queryKey: ['timesheets', employeeId],
     queryFn: () => timesheetsService.getByEmployee(employeeId, { limit: 10 }),
     staleTime: 30_000,
     enabled: !!employeeId,
   });
 
+  if (!employeeId) {
+    return (
+      <main className="ml-64 pt-16 min-h-screen bg-surface font-body">
+        <div className="p-8">
+          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/15 p-6">
+            <h2 className="text-lg font-headline font-bold text-primary">Session not ready</h2>
+            <p className="mt-2 text-sm text-on-surface-variant">
+              Please sign in again to load your dashboard.
+            </p>
+            <Link className="mt-4 inline-block text-sm font-bold text-secondary hover:underline" to="/login">
+              Go to Login
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   if (employeeLoading || timesheetsLoading) {
     return (
       <main className="ml-64 pt-16 min-h-screen bg-surface font-body">
         <PageSkeleton rows={12} />
+      </main>
+    );
+  }
+
+  if (employeeIsError || tsIsError) {
+    const msg =
+      employeeError?.response?.data?.error?.message ||
+      tsError?.response?.data?.error?.message ||
+      employeeError?.message ||
+      tsError?.message ||
+      "Unable to load your dashboard right now.";
+    return (
+      <main className="ml-64 pt-16 min-h-screen bg-surface font-body">
+        <div className="p-8">
+          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/15 p-6">
+            <h2 className="text-lg font-headline font-bold text-primary">Couldn’t load dashboard</h2>
+            <p className="mt-2 text-sm text-on-surface-variant break-words">{msg}</p>
+            <div className="mt-4 flex gap-3">
+              <button
+                type="button"
+                className="rounded-lg bg-primary-container px-4 py-2 text-sm font-bold text-white"
+                onClick={() => {
+                  refetchEmployee();
+                  refetchTimesheets();
+                }}
+              >
+                Retry
+              </button>
+              <Link className="rounded-lg border border-outline-variant/30 px-4 py-2 text-sm font-bold text-primary" to="/employee/profile">
+                Open Profile
+              </Link>
+            </div>
+          </div>
+        </div>
       </main>
     );
   }
@@ -91,7 +155,9 @@ export default function EmployeeDashboard() {
     : employee?.id
       ? `#${employee.id}`
       : "";
-  const loc = employee?.personal?.address?.split(",").slice(-2).join(",").trim() ?? "";
+  const rawAddress = employee?.personal?.address;
+  const address = typeof rawAddress === "string" ? rawAddress : "";
+  const loc = address ? address.split(",").slice(-2).join(",").trim() : "";
 
   const recentTs = useMemo(() => {
     return [...timesheets]

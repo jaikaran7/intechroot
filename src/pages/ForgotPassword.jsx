@@ -11,15 +11,19 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [debugLink, setDebugLink] = useState("");
 
   const mutation = useMutation({
     mutationFn: (payload) => authService.forgotPassword(payload),
-    onSuccess: () => {
+    onSuccess: (data) => {
       setError("");
+      const link = data?.debugResetLink ? String(data.debugResetLink) : "";
+      setDebugLink(link);
       setNotice("If an account exists for that email, a reset link has been sent.");
     },
     onError: (err) => {
       setNotice("");
+      setDebugLink("");
       setError(err?.response?.data?.error?.message || "Unable to send reset link. Please try again.");
     },
   });
@@ -92,6 +96,26 @@ export default function ForgotPassword() {
             </div>
           </div>
           {notice ? <p className="text-sm text-on-surface-variant">{notice}</p> : null}
+          {debugLink ? (
+            <div className="rounded-lg border border-outline-variant/30 bg-surface-container-lowest p-3 text-sm text-primary">
+              <p className="font-semibold">Dev mode:</p>
+              <p className="mt-1 break-words">
+                Email sending isn’t configured on this environment. Use this reset link:
+              </p>
+              <a className="mt-2 inline-block text-secondary underline break-words" href={debugLink}>
+                {debugLink}
+              </a>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  className="rounded-lg bg-primary-container px-3 py-2 text-xs font-bold text-white"
+                  onClick={() => navigate(debugLink.replace(window.location.origin, ""))}
+                >
+                  Open reset page
+                </button>
+              </div>
+            </div>
+          ) : null}
           {error ? <p className="text-sm text-error">{error}</p> : null}
           <div className="pt-4">
             <button

@@ -38,7 +38,15 @@ api.interceptors.response.use(
     const originalRequest = error.config;
 
     const url = originalRequest.url || '';
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const isAuthEndpoint =
+      url.includes('/auth/login') ||
+      url.includes('/auth/applicant/login') ||
+      url.includes('/auth/forgot-password') ||
+      url.includes('/auth/reset-password');
+
+    // Don't attempt refresh-token on login/forgot/reset failures.
+    // Those flows must surface the actual 401 message to the UI.
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       if (url.includes('/auth/refresh-token')) {
         return Promise.reject(error);
       }
