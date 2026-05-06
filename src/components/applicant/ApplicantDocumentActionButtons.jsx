@@ -45,7 +45,13 @@ export default function ApplicantDocumentActionButtons({
 
   if (!hasFile) {
     return (
-      <button type="button" disabled={blockUpload} onClick={() => onUploadClick(row.key)} className={uploadPrimaryClass}>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => onUploadClick(row.key)}
+        className={`${uploadPrimaryClass} ${uploadBlockedByExpiry ? "opacity-80" : ""}`}
+        title={uploadBlockedByExpiry ? "Set the expiry date first, then upload." : undefined}
+      >
         Upload
       </button>
     );
@@ -76,7 +82,13 @@ export default function ApplicantDocumentActionButtons({
         <button type="button" disabled={busy} onClick={openPreview} className={downloadOutlineClass}>
           View
         </button>
-        <button type="button" disabled={blockUpload} onClick={() => onUploadClick(row.key)} className={uploadPrimaryClass}>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onUploadClick(row.key)}
+          className={`${uploadPrimaryClass} ${uploadBlockedByExpiry ? "opacity-80" : ""}`}
+          title={uploadBlockedByExpiry ? "Set the expiry date first, then replace." : undefined}
+        >
           Replace
         </button>
       </div>
@@ -89,7 +101,13 @@ export default function ApplicantDocumentActionButtons({
         <button type="button" disabled={busy} onClick={openPreview} className={downloadOutlineClass}>
           View
         </button>
-        <button type="button" disabled={blockUpload} onClick={() => onUploadClick(row.key)} className={uploadPrimaryClass}>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onUploadClick(row.key)}
+          className={`${uploadPrimaryClass} ${uploadBlockedByExpiry ? "opacity-80" : ""}`}
+          title={uploadBlockedByExpiry ? "Set the expiry date first, then re-upload." : undefined}
+        >
           Re-upload
         </button>
       </div>
@@ -102,7 +120,13 @@ export default function ApplicantDocumentActionButtons({
         <button type="button" disabled={busy} onClick={openPreview} className={downloadOutlineClass}>
           View
         </button>
-        <button type="button" disabled={blockUpload} onClick={() => onUploadClick(row.key)} className={uploadPrimaryClass}>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onUploadClick(row.key)}
+          className={`${uploadPrimaryClass} ${uploadBlockedByExpiry ? "opacity-80" : ""}`}
+          title={uploadBlockedByExpiry ? "Set the expiry date first, then replace." : undefined}
+        >
           Replace
         </button>
       </div>
@@ -115,7 +139,13 @@ export default function ApplicantDocumentActionButtons({
         <button type="button" disabled={busy} onClick={openPreview} className={downloadOutlineClass}>
           View
         </button>
-        <button type="button" disabled={blockUpload} onClick={() => onUploadClick(row.key)} className={uploadPrimaryClass}>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onUploadClick(row.key)}
+          className={`${uploadPrimaryClass} ${uploadBlockedByExpiry ? "opacity-80" : ""}`}
+          title={uploadBlockedByExpiry ? "Set the expiry date first, then replace." : undefined}
+        >
           Replace
         </button>
       </div>

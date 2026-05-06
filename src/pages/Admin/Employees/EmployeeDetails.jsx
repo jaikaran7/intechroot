@@ -17,6 +17,7 @@ import PageSkeleton from "../../../components/PageSkeleton";
 import ErrorState from "../../../components/ErrorState";
 import AdminDocumentPreviewModal from "@/components/admin/AdminDocumentPreviewModal";
 import EmployeeTimesheetHistoryPanel from "./EmployeeTimesheetHistoryPanel";
+import { useAuthStore } from "@/store/authStore";
 
 function formatDateCell(iso) {
   if (!iso) return { text: "—", italic: true };
@@ -33,6 +34,8 @@ export default function EmployeeDetails() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { id } = useParams();
+  const { role } = useAuthStore();
+  const canEditEmployeeCode = role === "super_admin";
   const profileRoute = `/admin/employees/${id}`;
   const timesheetsRoute = `/admin/employees/${id}/timesheets`;
   const documentsRoute = `/admin/employees/${id}/documents-submitted`;
@@ -418,6 +421,7 @@ export default function EmployeeDetails() {
               employee={employee}
               formData={formData}
               isEditMode={isEditMode}
+              canEditEmployeeCode={canEditEmployeeCode}
               updateField={updateField}
               handleSalaryChange={handleSalaryChange}
               formatDateValue={formatDateValue}

@@ -77,7 +77,11 @@ export default function EmployeeDashboard() {
 
   const firstName = employee?.name?.split(" ")?.[0] ?? "there";
   const dept = employee?.department ?? "Engineering Department";
-  const displayId = employee?.id ? `#${employee.id}` : "#ITR-29041";
+  const displayId = employee?.employeeCode
+    ? employee.employeeCode
+    : employee?.id
+      ? `#${employee.id}`
+      : "#INTR-00-0000";
   const loc = employee?.personal?.address?.split(",").slice(-2).join(",").trim() ?? "London, UK";
 
   const recentTs = useMemo(() => {

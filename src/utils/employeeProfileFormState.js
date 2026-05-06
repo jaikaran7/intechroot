@@ -8,6 +8,7 @@ export function buildProfileFormState(employee) {
       ? String(employee.client).trim()
       : employee.department || "";
   return {
+    employeeCode: employee.employeeCode || "",
     phone: employee.phone || "",
     email: employee.email || "",
     dateOfBirth: employee.personal?.dateOfBirth || employee.applicationProfile?.dateOfBirth || "",

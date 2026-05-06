@@ -18,6 +18,7 @@ import ApplicantDocumentActionButtons from "@/components/applicant/ApplicantDocu
 import { documentRowRequiresExpiryDate } from "@/constants/documentUploadRules";
 
 const DUMMY_FILE_URL = "/sample.pdf";
+const MIN_ACTION_MS = 600;
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -66,6 +67,7 @@ export default function SuccessPage() {
   const [onboardingWelcomeDismissed, setOnboardingWelcomeDismissed] = useState(false);
   const [statusToast, setStatusToast] = useState(null);
   const [applicantDocPreview, setApplicantDocPreview] = useState(null);
+  const [rowActionStates, setRowActionStates] = useState({});
   /** Only manual refresh should drive button disabled/spinner (auto-refresh stays non-blocking). */
   const [manualStatusRefresh, setManualStatusRefresh] = useState(false);
   const manualRefreshLockRef = useRef(false);
@@ -123,6 +125,46 @@ export default function SuccessPage() {
     return () => window.clearInterval(interval);
   }, [applicationId, application, queryClient]);
 
+  function startRowAction(key, phase, message, extra = {}) {
+    setRowActionStates((prev) => ({
+      ...prev,
+      [key]: { phase, message, startedAt: Date.now(), ...extra },
+    }));
+  }
+
+  function updateRowAction(key, phase, message) {
+    setRowActionStates((prev) => {
+      const current = prev[key];
+      if (!current) return prev;
+      return { ...prev, [key]: { ...current, phase, message } };
+    });
+  }
+
+  function finishRowAction(key, phase, message) {
+    setRowActionStates((prev) => {
+      const current = prev[key];
+      if (!current) return prev;
+      return { ...prev, [key]: { ...current, phase, message } };
+    });
+    const startedAt = rowActionStates[key]?.startedAt || Date.now();
+    const remaining = Math.max(0, MIN_ACTION_MS - (Date.now() - startedAt));
+    window.setTimeout(() => {
+      setRowActionStates((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }, remaining);
+  }
+
+  function removeRowAction(key) {
+    setRowActionStates((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
+
   const uploadDocMutation = useMutation({
     mutationFn: ({ key, file, expiry, name }) => {
       const fd = new FormData();
@@ -134,8 +176,59 @@ export default function SuccessPage() {
       if (documentRowRequiresExpiryDate(key)) fd.append("expiryDate", exp);
       return documentsService.upsert(fd);
     },
-    onSuccess: () => {
+    onMutate: async (vars) => {
+      await queryClient.cancelQueries({ queryKey: ['application', applicationId] });
+      const previousApplication = queryClient.getQueryData(['application', applicationId]);
+      setDocErrors((e) => ({ ...e, [vars.key]: "" }));
+      startRowAction(vars.key, "uploading", "Uploading document…", { fileName: vars.file?.name });
+      window.setTimeout(() => updateRowAction(vars.key, "processing", "Processing upload…"), 250);
+
+      // Optimistically reflect the new upload in UI (prevents repeated clicks / feels instant).
+      queryClient.setQueryData(['application', applicationId], (old) => {
+        if (!old) return old;
+        const optimisticDoc = {
+          id: `optimistic-${vars.key}`,
+          templateKey: vars.key,
+          name: vars.name,
+          fileName: vars.file?.name || "Document",
+          fileUrl: "",
+          storagePath: "",
+          expiryDate: String(vars.expiry ?? "").slice(0, 10),
+          status: "uploaded",
+          verification: "unapproved",
+          uploadedAt: new Date().toISOString(),
+        };
+        const docs = old.onboardingDocuments || [];
+        return {
+          ...old,
+          onboardingDocuments: [...docs.filter((d) => d.templateKey !== vars.key), optimisticDoc],
+        };
+      });
+
+      return { previousApplication, key: vars.key };
+    },
+    onSuccess: (doc, vars) => {
+      updateRowAction(vars.key, "processing", "Finalizing…");
+      queryClient.setQueryData(['application', applicationId], (old) => {
+        if (!old || !doc) return old;
+        const docs = old.onboardingDocuments || [];
+        return {
+          ...old,
+          onboardingDocuments: [...docs.filter((d) => d.templateKey !== vars.key), doc],
+        };
+      });
+      finishRowAction(vars.key, "uploaded", "Upload complete");
       queryClient.invalidateQueries({ queryKey: ['application', applicationId] });
+    },
+    onError: (err, vars, context) => {
+      if (context?.previousApplication) {
+        queryClient.setQueryData(['application', applicationId], context.previousApplication);
+      }
+      removeRowAction(vars.key);
+      setDocErrors((e) => ({
+        ...e,
+        [vars.key]: err?.response?.data?.error?.message || "Upload failed. Try again.",
+      }));
     },
   });
 
@@ -555,23 +648,23 @@ export default function SuccessPage() {
             </p>
             </div>
           <div className="glass-card overflow-hidden rounded-xl shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left">
+            <div className="overflow-x-auto md:overflow-x-visible">
+              <table className="w-full border-collapse text-left md:table-fixed">
                 <thead>
                   <tr className="border-b border-outline-variant/10 bg-surface-container-low/50">
-                    <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                    <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant md:w-[42%]">
                       Document Name
                     </th>
-                    <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                    <th className="px-4 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant md:w-[14%]">
                       Status
                     </th>
-                    <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                    <th className="px-4 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant md:w-[14%]">
                       Expiry Date
                     </th>
-                    <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                    <th className="px-4 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant md:w-[16%]">
                       Verification
                     </th>
-                    <th className="px-8 py-5 text-right text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                    <th className="px-5 py-4 text-right text-[10px] font-bold uppercase tracking-widest text-on-surface-variant md:w-[14%]">
                       Actions
                     </th>
                   </tr>
@@ -579,6 +672,7 @@ export default function SuccessPage() {
                 <tbody className="divide-y divide-outline-variant/10">
                   {allDocumentRows.map((row) => {
                     const stored = application.onboardingDocuments?.find((d) => d.templateKey === row.key);
+                    const rowAction = rowActionStates[row.key];
                     const expiryValue = (stored?.expiryDate || expiryDraft[row.key] || "").slice(0, 10);
                     const displayStatus = getRowUploadStatusKey(stored, row, expiryValue);
                     const statusForBadge = displayStatus === "not_uploaded_neutral" ? "not_uploaded" : displayStatus;
@@ -589,8 +683,8 @@ export default function SuccessPage() {
                       (!expiryValue || isPastExpiryDate(expiryValue));
                     return (
                     <tr key={row.key} className="transition-colors hover:bg-white/40">
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-4 min-w-0">
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3 min-w-0">
                           <div className={documentIconWrapClass(row, displayStatus)}>
                             <span
                               className="material-symbols-outlined text-xl"
@@ -600,18 +694,18 @@ export default function SuccessPage() {
                             </span>
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold text-primary">
+                            <p className="text-xs font-semibold text-primary truncate">
                               {row.label}
                               {row.required ? <span className="ml-1 text-red-500">*</span> : null}
                             </p>
                             <p className="text-xs text-on-surface-variant truncate">
-                              {formatDocumentSubtitle(stored, row)}
+                              {rowAction?.fileName ? `${rowAction.fileName} • ${rowAction.message}` : formatDocumentSubtitle(stored, row)}
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-8 py-6">{uploadStatusBadge(statusForBadge)}</td>
-                      <td className="px-8 py-6">
+                      <td className="px-4 py-4">{uploadStatusBadge(statusForBadge)}</td>
+                      <td className="px-4 py-4">
                         <input
                           className={`w-full min-w-[8rem] rounded border border-outline-variant/20 bg-white px-2 py-1 text-xs focus:ring-0 ${
                             displayStatus === "expiring_soon"
@@ -622,7 +716,7 @@ export default function SuccessPage() {
                           } ${verifiedLocked ? "cursor-not-allowed opacity-70" : ""}`}
                           type="date"
                           value={expiryValue}
-                          disabled={verifiedLocked}
+                          disabled={verifiedLocked || Boolean(rowAction)}
                           onChange={(e) => {
                             setExpiryDraft((d) => ({ ...d, [row.key]: e.target.value }));
                             setDocErrors((er) => ({ ...er, [row.key]: "" }));
@@ -630,17 +724,25 @@ export default function SuccessPage() {
                         />
                         {err ? <p className="mt-1 text-[10px] font-medium text-red-600">{err}</p> : null}
                       </td>
-                      <td className="px-8 py-6">{onboardingVerificationBadge(resolveDocVerification(stored))}</td>
-                      <td className="px-8 py-6 text-right">
-                        <ApplicantDocumentActionButtons
-                          row={row}
-                          stored={stored}
-                          expiryValue={expiryValue}
-                          onOpenPreview={openApplicantDocPreview}
-                          onUploadClick={handleUploadClick}
-                          interactionBusy={verifiedLocked}
-                          uploadBlockedByExpiry={uploadBlockedByExpiry}
-                        />
+                      <td className="px-4 py-4">{onboardingVerificationBadge(resolveDocVerification(stored))}</td>
+                      <td className="px-5 py-4 text-right">
+                        <div className="flex flex-col items-end gap-1">
+                          <ApplicantDocumentActionButtons
+                            row={row}
+                            stored={stored}
+                            expiryValue={expiryValue}
+                            onOpenPreview={openApplicantDocPreview}
+                            onUploadClick={handleUploadClick}
+                            interactionBusy={verifiedLocked || Boolean(rowAction)}
+                            uploadBlockedByExpiry={uploadBlockedByExpiry}
+                          />
+                          {rowAction?.message ? (
+                            <p className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700">
+                              <span className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-700" />
+                              {rowAction.message}
+                            </p>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   );

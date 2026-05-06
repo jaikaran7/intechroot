@@ -25,8 +25,7 @@ import {
   normalizeExternalHref,
 } from "@/utils/applicantDisplayHelpers";
 import { useAuthStore } from "@/store/authStore";
-
-const OFFER_STAGE_INDEX = 4; // "Offer & Onboarding" stage
+import { STAGE_ORDER } from "@/constants/stages";
 
 /** LinkedIn “in” mark (monochrome via currentColor). */
 function LinkedInLogoIcon({ className }) {
@@ -143,6 +142,7 @@ export default function ApplicationProfile() {
   /** When set, interview modal updates this row instead of creating a new one. */
   const [rescheduleTarget, setRescheduleTarget] = useState(null);
   const [stageMoveError, setStageMoveError] = useState("");
+  const [stageMoveToast, setStageMoveToast] = useState(null);
   const [documentVerifyError, setDocumentVerifyError] = useState("");
   const [hireMessage, setHireMessage] = useState("");
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
@@ -162,6 +162,34 @@ export default function ApplicationProfile() {
     enabled: !!id,
   });
 
+  useEffect(() => {
+    if (!stageMoveToast) return undefined;
+    const t = window.setTimeout(() => setStageMoveToast(null), 3200);
+    return () => window.clearTimeout(t);
+  }, [stageMoveToast]);
+
+  const pipelineStageNames = useMemo(() => {
+    // Backend only stores completed stage rows in `applicationData.stages`.
+    // The full pipeline definition lives in `STAGE_ORDER` (kept in sync with backend).
+    return Array.isArray(STAGE_ORDER) && STAGE_ORDER.length ? STAGE_ORDER : [];
+  }, []);
+
+  const pipelineStages = useMemo(() => {
+    const completed = Array.isArray(applicationData?.stages) ? applicationData.stages : [];
+    return pipelineStageNames.map((name) => {
+      const row = completed.find((s) => s?.name === name);
+      return {
+        name,
+        date: row?.date != null ? String(row.date) : "",
+      };
+    });
+  }, [applicationData, pipelineStageNames]);
+
+  const offerStageIndex = useMemo(() => {
+    const idx = pipelineStages.findIndex((s) => /offer/i.test(String(s.name)));
+    return idx >= 0 ? idx : Math.max(0, pipelineStages.length - 1);
+  }, [pipelineStages]);
+
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['applications'] });
     queryClient.invalidateQueries({ queryKey: ['application', id] });
@@ -170,8 +198,42 @@ export default function ApplicationProfile() {
 
   const advanceStageMutation = useMutation({
     mutationFn: (note) => applicationsService.advanceStage(id, note),
-    onSuccess: invalidate,
-    onError: (err) => setStageMoveError(err.response?.data?.error?.message || "Unable to advance stage."),
+    onMutate: async (note) => {
+      await queryClient.cancelQueries({ queryKey: ['application', id] });
+      const previousApplication = queryClient.getQueryData(['application', id]);
+      setStageMoveError("");
+      setStageMoveToast(null);
+
+      queryClient.setQueryData(['application', id], (old) => {
+        if (!old) return old;
+        if (old.lifecycleStage === "employee" || old.status === "Employee") return old;
+
+        const currentIdx = Number.isFinite(Number(old.currentStageIndex))
+          ? Number(old.currentStageIndex)
+          : 0;
+        const maxIdx = pipelineStageNames.length > 0 ? pipelineStageNames.length - 1 : currentIdx;
+        const nextIdx = Math.min(currentIdx + 1, maxIdx);
+        return {
+          ...old,
+          currentStageIndex: nextIdx,
+        };
+      });
+
+      return { previousApplication, note };
+    },
+    onError: (err, _note, context) => {
+      if (context?.previousApplication) {
+        queryClient.setQueryData(['application', id], context.previousApplication);
+      }
+      const msg = err?.response?.data?.error?.message || "Unable to advance stage.";
+      setStageMoveError(msg);
+      setStageMoveToast({ kind: "error", message: msg });
+    },
+    onSuccess: () => {
+      setStageMoveError("");
+      setStageMoveToast({ kind: "success", message: "Moved to next stage." });
+      invalidate();
+    },
   });
 
   const hireMutation = useMutation({
@@ -293,17 +355,6 @@ export default function ApplicationProfile() {
   }, [isMessageSentPopupOpen]);
   const getDisplayValue = (value) => (value ? value : "Not Provided");
 
-  const ALL_STAGES = [
-    'Application Submitted',
-    'Profile Screening',
-    'Technical Evaluation',
-    'Client Interview',
-    'Offer & Onboarding',
-  ];
-  const stages = ALL_STAGES.map((name) => ({
-    name,
-    date: applicationData?.stages?.find((s) => s.name === name)?.date ?? '',
-  }));
   const stageIndex = Number.isFinite(Number(applicationData?.currentStageIndex))
     ? applicationData.currentStageIndex
     : 0;
@@ -312,22 +363,27 @@ export default function ApplicationProfile() {
     applicationData?.status === "Employee";
 
   const journeyStages = useMemo(() => {
-    const base = ALL_STAGES.map((name) => ({
-      name,
-      date: applicationData?.stages?.find((s) => s.name === name)?.date ?? "",
-    }));
+    const base = pipelineStages.length ? pipelineStages : [];
     if (applicationData?.lifecycleStage === "employee") {
       return [...base, { name: "Employee", date: "Hired" }];
     }
     return base;
-  }, [applicationData]);
+  }, [applicationData, pipelineStages]);
 
-  const activeJourneyIndex = isEmployee ? journeyStages.length - 1 : stageIndex;
+  const safeStageIndex = Math.max(
+    0,
+    Math.min(
+      Number.isFinite(Number(stageIndex)) ? Number(stageIndex) : 0,
+      Math.max(0, journeyStages.length - 1),
+    ),
+  );
+
+  const activeJourneyIndex = isEmployee ? journeyStages.length - 1 : safeStageIndex;
 
   const journeyProgressPercent =
     journeyStages.length > 1 ? (activeJourneyIndex / (journeyStages.length - 1)) * 100 : 0;
 
-  const atFinalPipelineStage = stageIndex >= OFFER_STAGE_INDEX;
+  const atFinalPipelineStage = safeStageIndex >= offerStageIndex;
   const needsOnboardingPortalEnable =
     !isEmployee && atFinalPipelineStage && !Boolean(applicationData?.onboarding?.enabled);
 
@@ -339,13 +395,31 @@ export default function ApplicationProfile() {
   const handleConfirmOnboarding = async () => {
     setStageMoveError("");
     setOnboardingGateBusy(true);
+    const previousApplication = queryClient.getQueryData(['application', id]);
     try {
+      // Optimistic stage advance so the journey UI updates immediately.
+      queryClient.setQueryData(['application', id], (old) => {
+        if (!old) return old;
+        if (old.lifecycleStage === "employee" || old.status === "Employee") return old;
+        const currentIdx = Number.isFinite(Number(old.currentStageIndex))
+          ? Number(old.currentStageIndex)
+          : 0;
+        const maxIdx = pipelineStageNames.length > 0 ? pipelineStageNames.length - 1 : currentIdx;
+        const nextIdx = Math.min(currentIdx + 1, maxIdx);
+        return { ...old, currentStageIndex: nextIdx };
+      });
+
       await applicationsService.advanceStage(id, onboardingNote);
       await onboardingService.enableOnboarding(id);
       invalidate();
       setShowOnboardingModal(false);
       setOnboardingNote("");
+      setStageMoveToast({ kind: "success", message: "Moved to next stage." });
     } catch (err) {
+      // Rollback optimistic state on failure.
+      if (previousApplication) {
+        queryClient.setQueryData(['application', id], previousApplication);
+      }
       const msg = String(err.response?.data?.error?.message || err.message || "");
       if (/final stage/i.test(msg)) {
         try {
@@ -353,17 +427,20 @@ export default function ApplicationProfile() {
           invalidate();
           setShowOnboardingModal(false);
           setOnboardingNote("");
+          setStageMoveToast({ kind: "success", message: "Onboarding portal enabled." });
         } catch (e2) {
-          setStageMoveError(
+          const eMsg =
             e2.response?.data?.error?.message ||
-              "Stage is already at Offer & Onboarding, but enabling the portal failed. Use Enable onboarding portal below.",
-          );
+              "Stage is already at Offer & Onboarding, but enabling the portal failed. Use Enable onboarding portal below.";
+          setStageMoveError(eMsg);
+          setStageMoveToast({ kind: "error", message: eMsg });
         }
       } else {
-        setStageMoveError(
+        const eMsg =
           msg ||
-            "Could not advance to offer or enable the onboarding portal. Try again, or use Enable onboarding below if the stage already moved.",
-        );
+          "Could not advance to offer or enable the onboarding portal. Try again, or use Enable onboarding below if the stage already moved.";
+        setStageMoveError(eMsg);
+        setStageMoveToast({ kind: "error", message: eMsg });
       }
     } finally {
       setOnboardingGateBusy(false);
@@ -385,8 +462,9 @@ export default function ApplicationProfile() {
 
   const handleMoveToNextStage = () => {
     setStageMoveError("");
-    // Moving from Client Interview (index 3) → Offer & Onboarding requires enable onboarding
-    if (stageIndex === 3) {
+    // Moving into the Offer stage requires enabling onboarding (done from modal).
+    const stageBeforeOffer = Math.max(0, offerStageIndex - 1);
+    if (safeStageIndex === stageBeforeOffer && offerStageIndex > 0) {
       setOnboardingNote("");
       setShowOnboardingModal(true);
       return;
@@ -693,7 +771,7 @@ export default function ApplicationProfile() {
       <div className="flex items-center gap-3 mb-2">
       <h2 className="font-headline font-extrabold text-4xl text-white tracking-tight">{applicationData.name}</h2>
       <span className="px-3 py-1 bg-tertiary-container text-tertiary-fixed text-xs font-semibold rounded-full border border-tertiary-fixed/20">
-                                      {isEmployee ? "Employee" : stages[stageIndex]?.name}
+                                      {isEmployee ? "Employee" : journeyStages[safeStageIndex]?.name}
                                   </span>
       </div>
       <p className="font-headline text-lg text-primary-fixed-dim mb-4">{applicationData.role}</p>
@@ -798,8 +876,19 @@ export default function ApplicationProfile() {
 
       <footer className="bg-primary-container/5 rounded-xl p-6 border border-primary-container/10">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
-      <button className="w-full px-6 py-3 border border-primary-container text-primary-container font-bold text-sm rounded-lg hover:bg-primary-container/5 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed" disabled={moveToNextDisabled} onClick={handleMoveToNextStage} type="button">
-                          Move to Next Stage
+      <button
+        className="w-full px-6 py-3 border border-primary-container text-primary-container font-bold text-sm rounded-lg hover:bg-primary-container/5 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+        disabled={moveToNextDisabled}
+        onClick={handleMoveToNextStage}
+        type="button"
+        aria-busy={advanceStageMutation.isPending}
+      >
+        {advanceStageMutation.isPending ? (
+          <span className="material-symbols-outlined text-base animate-spin" aria-hidden>
+            progress_activity
+          </span>
+        ) : null}
+        {advanceStageMutation.isPending ? "Moving…" : "Move to Next Stage"}
                       </button>
       <button className="w-full px-6 py-3 border border-primary-container text-primary-container font-bold text-sm rounded-lg hover:bg-primary-container/5 transition-all active:scale-95 flex items-center justify-center gap-2" onClick={openNewInterviewModal} type="button">
       <span className="material-symbols-outlined text-sm" data-icon="calendar_today">calendar_today</span>
@@ -946,15 +1035,15 @@ export default function ApplicationProfile() {
       {documentVerifyError ? (
       <p className="mb-4 text-sm text-error font-medium" role="alert">{documentVerifyError}</p>
       ) : null}
-      <div className="overflow-x-auto rounded-xl border border-outline-variant/10">
-      <table className="w-full border-collapse text-left">
+      <div className="overflow-x-auto lg:overflow-x-visible rounded-xl border border-outline-variant/10">
+      <table className="w-full border-collapse text-left lg:table-fixed">
       <thead>
       <tr className="border-b border-outline-variant/10 bg-surface-container-low/50">
-      <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Document Name</th>
-      <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Status</th>
-      <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Expiry Date</th>
-      <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Verification</th>
-      <th className="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Actions</th>
+      <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant lg:w-[42%]">Document Name</th>
+      <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant lg:w-[14%]">Status</th>
+      <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant lg:w-[14%]">Expiry Date</th>
+      <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant lg:w-[16%]">Verification</th>
+      <th className="px-5 py-3 text-right text-[10px] font-bold uppercase tracking-widest text-on-surface-variant lg:w-[14%]">Actions</th>
       </tr>
       </thead>
       <tbody className="divide-y divide-outline-variant/10">
@@ -972,15 +1061,15 @@ export default function ApplicationProfile() {
       const expStr = formatExpiryForDisplay(expiryValue, v);
       return (
       <tr key={row.key} className="transition-colors hover:bg-surface-container-low/30">
-      <td className="px-6 py-4">
-      <div className="flex items-center gap-3 min-w-0">
+      <td className="px-5 py-3">
+      <div className="flex items-center gap-2 min-w-0">
       <div className={documentIconWrapClass(row, displayStatus)}>
       <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>
       {row.icon}
       </span>
       </div>
       <div className="min-w-0">
-      <span className="text-sm font-semibold text-primary">
+      <span className="text-xs font-semibold text-primary">
       {row.label}
       {row.required ? <span className="ml-1 text-red-500">*</span> : null}
       </span>
@@ -988,8 +1077,8 @@ export default function ApplicationProfile() {
       </div>
       </div>
       </td>
-      <td className="px-6 py-4">{uploadStatusBadge(statusForBadge)}</td>
-      <td className="px-6 py-4">
+      <td className="px-4 py-3">{uploadStatusBadge(statusForBadge)}</td>
+      <td className="px-4 py-3">
       <span
       className={`text-xs ${
       displayStatus === "expiring_soon"
@@ -1002,7 +1091,7 @@ export default function ApplicationProfile() {
       {expStr}
       </span>
       </td>
-      <td className="px-6 py-4">
+      <td className="px-4 py-3">
       <div className="flex flex-col gap-1">
       {onboardingVerificationBadge(v)}
       {documentAction?.message ? (
@@ -1013,7 +1102,7 @@ export default function ApplicationProfile() {
       ) : null}
       </div>
       </td>
-      <td className="px-6 py-4 text-right">
+      <td className="px-5 py-3 text-right">
       <div className="flex flex-wrap items-center justify-end gap-2">
       <button
       type="button"
@@ -1076,12 +1165,27 @@ export default function ApplicationProfile() {
         { label: "LinkedIn", value: getDisplayValue(applicationData.linkedIn) },
         { label: "Portfolio / website", value: getDisplayValue(portfolioTrim || applicationData.documents?.portfolio) },
         { label: "Application Date", value: formatAppliedDateDisplay(applicationData.appliedDate) },
-        { label: "Current Stage", value: isEmployee ? "Employee" : getDisplayValue(stages[stageIndex]?.name) },
+        { label: "Current Stage", value: isEmployee ? "Employee" : getDisplayValue(journeyStages[safeStageIndex]?.name) },
         { label: "Status", value: isEmployee ? "Employee" : getDisplayValue(applicationData.status) },
       ].map((row) => (
-      <div key={row.label}>
+      <div key={row.label} className="min-w-0">
       <p className="text-[10px] uppercase tracking-widest text-outline font-bold mb-1.5">{row.label}</p>
-      <p className="text-sm font-semibold text-primary">{row.value}</p>
+      {row.label === "LinkedIn" || row.label === "Portfolio / website" ? (
+        row.value && row.value !== "Not Provided" ? (
+          <a
+            href={normalizeExternalHref(String(row.value))}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-semibold text-secondary underline underline-offset-4 decoration-secondary/30 break-all"
+          >
+            {String(row.value)}
+          </a>
+        ) : (
+          <p className="text-sm font-semibold text-primary">{row.value}</p>
+        )
+      ) : (
+        <p className="text-sm font-semibold text-primary break-words whitespace-normal">{row.value}</p>
+      )}
       </div>
       ))}
       </div>
@@ -1358,7 +1462,8 @@ export default function ApplicationProfile() {
             <h4 className="text-lg font-bold text-primary mb-1">Move to Offer & Onboarding</h4>
             <p className="text-xs text-on-surface-variant mb-4">
               This will advance <span className="font-semibold text-primary">{applicationData.name}</span> ({applicationData.role}) from
-              Client Interview to the Offer & Onboarding stage and enable their onboarding portal access.
+              <span className="font-semibold text-primary"> {journeyStages[Math.max(0, offerStageIndex - 1)]?.name || "the current stage"}</span>
+              {" "}to the <span className="font-semibold text-primary">{journeyStages[offerStageIndex]?.name || "next stage"}</span> stage and enable their onboarding portal access.
             </p>
             <div className="space-y-2 mb-4 text-xs bg-surface-container-low rounded-lg p-4 border border-outline-variant/10">
               <div className="flex justify-between">
@@ -1398,12 +1503,34 @@ export default function ApplicationProfile() {
                 onClick={handleConfirmOnboarding}
                 disabled={onboardingGateBusy}
               >
-                {onboardingGateBusy ? "Processing…" : "Confirm & Enable Onboarding"}
+                {onboardingGateBusy ? (
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <span className="material-symbols-outlined text-base animate-spin" aria-hidden>
+                      progress_activity
+                    </span>
+                    Processing…
+                  </span>
+                ) : (
+                  "Confirm & Enable Onboarding"
+                )}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {stageMoveToast ? (
+        <div
+          className={`fixed bottom-8 left-1/2 z-[220] max-w-[min(100vw-2rem,24rem)] -translate-x-1/2 rounded-xl px-5 py-3 text-center text-sm font-semibold shadow-lg ${
+            stageMoveToast.kind === "error"
+              ? "bg-red-700 text-white"
+              : "bg-[#000615] text-white"
+          }`}
+          role="status"
+        >
+          {stageMoveToast.message}
+        </div>
+      ) : null}
 
       <div className="fixed inset-0 pointer-events-none -z-10 opacity-[0.03]">
       <svg height="100%" width="100%" xmlns="http://www.w3.org/2000/svg">

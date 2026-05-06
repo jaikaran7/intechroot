@@ -22,6 +22,7 @@ export function formatSalary(value) {
 function buildFields(employee, formData) {
   const fd = formData || {};
   return {
+    employeeCode: fd.employeeCode ?? employee.employeeCode ?? "",
     phone: fd.phone ?? employee.phone ?? "",
     email: fd.email ?? employee.email ?? "",
     dateOfBirth:
@@ -62,6 +63,7 @@ export default function EmployeeBentoProfile({
   variant = "employee",
   formData = null,
   isEditMode = false,
+  canEditEmployeeCode = false,
   /** @deprecated When true, job/compensation/status stay read-only while personal fields edit. Prefer full admin edit (false). */
   adminEditsPersonalDetailsOnly = false,
   /** Employee portal: pen icon puts Employee Details in edit mode. */
@@ -144,7 +146,16 @@ export default function EmployeeBentoProfile({
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-3">
                   <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary-container px-3 py-1 text-xs font-bold text-on-primary-container">
                     <span className="material-symbols-outlined text-[14px]">badge</span>
-                    {employee.id}
+                    {variant === "admin" && isEditMode && canEditEmployeeCode ? (
+                      <input
+                        className="w-[9.5rem] bg-transparent outline-none placeholder:text-on-primary-container/70"
+                        value={fd.employeeCode ?? employee.employeeCode ?? ""}
+                        placeholder="INTR-26-0001"
+                        onChange={(e) => updateField?.("employeeCode", e.target.value)}
+                      />
+                    ) : (
+                      employee.employeeCode || employee.id
+                    )}
                   </span>
                   {contactFieldsEditable ? (
                     <>
