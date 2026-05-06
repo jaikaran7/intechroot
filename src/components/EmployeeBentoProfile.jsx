@@ -86,7 +86,11 @@ export default function EmployeeBentoProfile({
   const addressEditable = personalSectionEditable;
   const contactFieldsEditable =
     (variant === "employee" && personalDetailsEditMode) || (variant === "admin" && isEditMode);
-  const portraitSrc = employee.performance?.panelImage;
+  const portraitSrc =
+    employee?.personal?.profilePhotoUrl ||
+    employee?.applicationProfile?.profilePhotoUrl ||
+    employee?.performance?.panelImage ||
+    "";
   const clientDisplay = fd.client || employee.client || employee.department || "—";
   const quickNote =
     employee.quickNotes ||
@@ -129,11 +133,23 @@ export default function EmployeeBentoProfile({
           <div className="flex flex-wrap items-end justify-between gap-6">
             <div className="flex items-center gap-8">
               <div className="relative shrink-0">
-                <img
-                  alt=""
-                  className="h-32 w-32 rounded-xl border-4 border-white object-cover shadow-2xl"
-                  src={portraitSrc}
-                />
+                {portraitSrc ? (
+                  <img
+                    alt=""
+                    className="h-32 w-32 rounded-xl border-4 border-white object-cover shadow-2xl"
+                    src={portraitSrc}
+                  />
+                ) : (
+                  <div className="h-32 w-32 rounded-xl border-4 border-white bg-surface-container text-primary flex items-center justify-center text-3xl font-extrabold shadow-2xl">
+                    {String(employee?.name || "?")
+                      .split(" ")
+                      .map((p) => p[0])
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .join("")
+                      .toUpperCase()}
+                  </div>
+                )}
                 <div className="absolute -bottom-2 -right-2 rounded-lg bg-blue-600 p-1.5 text-white shadow-lg">
                   <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
                     verified

@@ -408,7 +408,11 @@ export default function EmployeeDetails() {
       <p className="text-xs font-bold text-primary leading-none">{employee.name}</p>
       <p className="text-[10px] text-on-primary-container">{employee.role}</p>
       </div>
-      <img alt="Executive Profile" className="w-8 h-8 rounded-full border-2 border-primary/10" data-alt="Professional headshot of a mature executive male with confident expression and soft studio lighting" src={employee.performance?.panelImage}/>
+      <img
+        alt="Employee profile"
+        className="w-8 h-8 rounded-full border-2 border-primary/10 object-cover"
+        src={employee?.personal?.profilePhotoUrl || employee?.applicationProfile?.profilePhotoUrl || employee?.performance?.panelImage || ""}
+      />
       </div>
       </div>
       </header>

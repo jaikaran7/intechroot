@@ -269,8 +269,12 @@ export default function EmployeeDashboard() {
       <aside className="w-full md:w-80 bg-surface-container-low border-l border-outline-variant/10 p-8 flex flex-col gap-8">
         <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/15 shadow-[0_12px_40px_rgba(0,6,21,0.04)] text-center">
           <div className="relative inline-block mb-4">
-            {employee?.performance?.panelImage ? (
-              <img alt={employee.name} className="w-24 h-24 rounded-full mx-auto object-cover ring-4 ring-tertiary-fixed" src={employee.performance.panelImage} />
+            {employee?.personal?.profilePhotoUrl ? (
+              <img
+                alt={employee.name || "Employee"}
+                className="w-24 h-24 rounded-full mx-auto object-cover ring-4 ring-tertiary-fixed"
+                src={employee.personal.profilePhotoUrl}
+              />
             ) : (
               <div className="w-24 h-24 rounded-full mx-auto ring-4 ring-tertiary-fixed bg-secondary-container text-white flex items-center justify-center text-lg font-bold">
                 {firstName.slice(0, 1)}

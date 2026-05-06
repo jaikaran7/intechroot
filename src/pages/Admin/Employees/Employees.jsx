@@ -31,14 +31,21 @@ export default function Employees() {
             .slice(0, 2)
             .join("")
             .toUpperCase();
+          const photoUrl =
+            employee?.personal?.profilePhotoUrl ||
+            employee?.applicationProfile?.profilePhotoUrl ||
+            employee?.performance?.panelImage ||
+            "";
           return {
             ...employee,
-            avatar: employee?.avatar ?? {
-              type: "initials",
-              initials: fallbackInitials || "?",
-              className:
-                "h-10 w-10 rounded-full bg-surface-container text-on-surface text-xs font-bold flex items-center justify-center",
-            },
+            avatar: employee?.avatar ?? (photoUrl
+              ? { type: "image", image: photoUrl, className: "h-10 w-10 rounded-full object-cover border border-outline-variant/20" }
+              : {
+                  type: "initials",
+                  initials: fallbackInitials || "?",
+                  className:
+                    "h-10 w-10 rounded-full bg-surface-container text-on-surface text-xs font-bold flex items-center justify-center",
+                }),
             name: employee?.name ?? "Unknown Employee",
             email: employee?.email ?? "—",
             role: employee?.role ?? "Unknown",
@@ -288,8 +295,8 @@ export default function Employees() {
       <div className="flex flex-col items-center text-center mb-8">
       <div className="relative mb-6">
       <div className="absolute -inset-4 bg-gradient-to-tr from-secondary/20 to-tertiary-fixed-dim/20 rounded-full blur-xl"></div>
-      {profileEmployee?.performance?.panelImage ? (
-      <img className="relative w-32 h-32 rounded-full object-cover border-4 border-white shadow-xl" data-alt="close up of a professional male executive in a studio setting with soft lighting" src={profileEmployee.performance.panelImage}/>
+      {profileEmployee?.personal?.profilePhotoUrl ? (
+      <img className="relative w-32 h-32 rounded-full object-cover border-4 border-white shadow-xl" alt="" src={profileEmployee.personal.profilePhotoUrl}/>
       ) : (
       <div className="relative w-32 h-32 rounded-full border-4 border-white shadow-xl bg-surface-container text-on-surface text-3xl font-bold flex items-center justify-center">
       {profileEmployee?.avatar?.initials ?? "?"}
