@@ -36,6 +36,91 @@ export default function EmployeeDashboard() {
     enabled: !!employeeId,
   });
 
+  // IMPORTANT: All hooks must run unconditionally on every render.
+  // Derived values below use safe defaults so they work during loading/error states too.
+  const timesheets = useMemo(() => {
+    const list = tsData?.data;
+    return Array.isArray(list) ? list : [];
+  }, [tsData]);
+
+  const currentWeekStart = useMemo(() => getWeekStartISO(new Date()), []);
+  const weekTs = useMemo(() => {
+    return timesheets.find((t) => getWeekStartISO(t.weekStart) === currentWeekStart) ?? timesheets[0];
+  }, [timesheets, currentWeekStart]);
+
+  const hours = useMemo(() => {
+    const wd = weekTs?.weekData ?? {};
+    const n = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v));
+    return {
+      mon: n(wd.mon),
+      tue: n(wd.tue),
+      wed: n(wd.wed),
+      thu: n(wd.thu),
+      fri: n(wd.fri),
+      sat: n(wd.sat),
+      sun: n(wd.sun),
+    };
+  }, [weekTs]);
+
+  const maxH = useMemo(() => Math.max(1, ...Object.values(hours)), [hours]);
+  const barPct = (v) => `${Math.min(100, Math.round((Number(v) / maxH) * 100))}%`;
+
+  const totalWeek = useMemo(() => calculateTotal(hours), [hours]);
+  const pendingCount = useMemo(
+    () => timesheets.filter((t) => t.status === "Pending" || t.status === "Draft").length,
+    [timesheets],
+  );
+  const approvedCount = useMemo(
+    () => timesheets.filter((t) => t.status === "Approved").length,
+    [timesheets],
+  );
+
+  /** Placeholder until document deadlines are wired to real data (was always 0 before). */
+  const deadlinesCount = 0;
+
+  const chartPeriodLabel = useMemo(() => {
+    if (weekTs) return formatTimesheetRangeLabel(weekTs);
+    const start = parseYMD(currentWeekStart);
+    const end = parseYMD(addDaysISO(currentWeekStart, 4));
+    const opts = { month: "short", day: "numeric" };
+    return `${start.toLocaleDateString("en-US", opts)} - ${end.toLocaleDateString("en-US", opts)}`;
+  }, [weekTs, currentWeekStart]);
+
+  const summaryStatus =
+    weekTs?.status === "Approved" ? "Approved" : weekTs?.status === "Rejected" ? "Rejected" : "Pending approval";
+  const summaryDotClass =
+    weekTs?.status === "Approved" ? "bg-emerald-500" : weekTs?.status === "Rejected" ? "bg-error" : "bg-slate-400";
+
+  const firstName = employee?.name?.split(" ")?.[0] ?? "";
+  const dept = employee?.department ?? "";
+  const displayId = employee?.employeeCode
+    ? employee.employeeCode
+    : employee?.id
+      ? `#${employee.id}`
+      : "";
+  const rawAddress = employee?.personal?.address;
+  const address = typeof rawAddress === "string" ? rawAddress : "";
+  const loc = address ? address.split(",").slice(-2).join(",").trim() : "";
+
+  const recentTs = useMemo(() => {
+    return [...timesheets]
+      .sort((a, b) => String(b.weekStart).localeCompare(String(a.weekStart)))
+      .slice(0, 5);
+  }, [timesheets]);
+  const recentDoc = null;
+
+  const recentMessageText =
+    employee?.employment?.adminDashboardMessage?.trim?.() ||
+    employee?.dashboardMessage?.trim?.() ||
+    "";
+  const rawWhen = employee?.employment?.adminDashboardMessageAt || employee?.dashboardMessageAt;
+  const recentMessageWhen = rawWhen
+    ? new Date(rawWhen).toLocaleString(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    : null;
+
   if (!employeeId) {
     return (
       <main className="ml-64 pt-16 min-h-screen bg-surface font-body">
@@ -95,88 +180,6 @@ export default function EmployeeDashboard() {
       </main>
     );
   }
-
-  const timesheets = useMemo(() => {
-    const list = tsData?.data;
-    return Array.isArray(list) ? list : [];
-  }, [tsData]);
-
-  const currentWeekStart = useMemo(() => getWeekStartISO(new Date()), []);
-  const weekTs = useMemo(() => {
-    return timesheets.find((t) => getWeekStartISO(t.weekStart) === currentWeekStart) ?? timesheets[0];
-  }, [timesheets, currentWeekStart]);
-
-  const hours = useMemo(() => {
-    const wd = weekTs?.weekData ?? {};
-    const n = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v));
-    return {
-      mon: n(wd.mon),
-      tue: n(wd.tue),
-      wed: n(wd.wed),
-      thu: n(wd.thu),
-      fri: n(wd.fri),
-      sat: n(wd.sat),
-      sun: n(wd.sun),
-    };
-  }, [weekTs]);
-
-  const maxH = useMemo(() => Math.max(1, ...Object.values(hours)), [hours]);
-  const barPct = (v) => `${Math.min(100, Math.round((Number(v) / maxH) * 100))}%`;
-
-  const totalWeek = useMemo(() => calculateTotal(hours), [hours]);
-  const pendingCount = useMemo(
-    () => timesheets.filter((t) => t.status === "Pending" || t.status === "Draft").length,
-    [timesheets],
-  );
-  const approvedCount = useMemo(
-    () => timesheets.filter((t) => t.status === "Approved").length,
-    [timesheets],
-  );
-
-  /** Placeholder until document deadlines are wired to real data (was always 0 before). */
-  const deadlinesCount = 0;
-
-  const chartPeriodLabel = useMemo(() => {
-    if (weekTs) return formatTimesheetRangeLabel(weekTs);
-    const start = parseYMD(currentWeekStart);
-    const end = parseYMD(addDaysISO(currentWeekStart, 4));
-    const opts = { month: "short", day: "numeric" };
-    return `${start.toLocaleDateString("en-US", opts)} - ${end.toLocaleDateString("en-US", opts)}`;
-  }, [weekTs, currentWeekStart]);
-
-  const summaryStatus = weekTs?.status === "Approved" ? "Approved" : weekTs?.status === "Rejected" ? "Rejected" : "Pending approval";
-  const summaryDotClass =
-    weekTs?.status === "Approved" ? "bg-emerald-500" : weekTs?.status === "Rejected" ? "bg-error" : "bg-slate-400";
-
-  const firstName = employee?.name?.split(" ")?.[0] ?? "";
-  const dept = employee?.department ?? "";
-  const displayId = employee?.employeeCode
-    ? employee.employeeCode
-    : employee?.id
-      ? `#${employee.id}`
-      : "";
-  const rawAddress = employee?.personal?.address;
-  const address = typeof rawAddress === "string" ? rawAddress : "";
-  const loc = address ? address.split(",").slice(-2).join(",").trim() : "";
-
-  const recentTs = useMemo(() => {
-    return [...timesheets]
-      .sort((a, b) => String(b.weekStart).localeCompare(String(a.weekStart)))
-      .slice(0, 5);
-  }, [timesheets]);
-  const recentDoc = null;
-
-  const recentMessageText =
-    employee?.employment?.adminDashboardMessage?.trim?.() ||
-    employee?.dashboardMessage?.trim?.() ||
-    "";
-  const rawWhen = employee?.employment?.adminDashboardMessageAt || employee?.dashboardMessageAt;
-  const recentMessageWhen = rawWhen
-    ? new Date(rawWhen).toLocaleString(undefined, {
-        dateStyle: "medium",
-        timeStyle: "short",
-      })
-    : null;
 
   return (
     <main className="ml-64 pt-16 min-h-screen bg-surface flex flex-col md:flex-row">
