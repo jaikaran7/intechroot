@@ -1,10 +1,26 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
-// Backend dev server runs on 5001 in this repo.
-const LOCAL_API_URL = 'http://localhost:5001';
-const apiOrigin = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? LOCAL_API_URL : '');
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || (apiOrigin ? `${apiOrigin.replace(/\/$/, '')}/api/v1` : '/api/v1');
+/**
+ * API base URL resolution
+ *
+ * - Production: prefer absolute origin from `VITE_API_URL` (e.g. https://<service>.up.railway.app)
+ * - Dev: REQUIRE `VITE_API_URL` so we never "accidentally" talk to localhost and use local secrets.
+ *
+ * You can still override the full base path with `VITE_API_BASE_URL` (absolute).
+ */
+const apiOrigin = String(import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
+const explicitBaseUrl = String(import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/$/, '');
+
+if (import.meta.env.DEV && !apiOrigin && !explicitBaseUrl) {
+  // Fail loudly during development rather than silently hitting localhost.
+  // (This prevents local `.env` secrets like RESEND_API_KEY from being used.)
+  throw new Error(
+    'API misconfigured: set VITE_API_URL to your Railway backend origin (e.g. https://<name>.up.railway.app).'
+  );
+}
+
+const BASE_URL = explicitBaseUrl || (apiOrigin ? `${apiOrigin}/api/v1` : '/api/v1');
 
 const api = axios.create({
   baseURL: BASE_URL,

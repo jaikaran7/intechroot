@@ -8,6 +8,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /** Project root → `src` (use as `@/…` in imports, e.g. `@/data/applicationsStore`). */
 const srcRoot = path.resolve(__dirname, "./src");
 
+// IMPORTANT: do not default proxying to localhost. Force explicit config so dev
+// can't accidentally hit a locally running backend (and its local secrets).
+const proxyTarget = (process.env.VITE_API_URL || "").trim().replace(/\/$/, "");
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -20,9 +24,9 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:5001',
+        target: proxyTarget || 'http://127.0.0.1:9',
         changeOrigin: true,
-        // Requests from any device hitting Vite get proxied to localhost:5001 on this machine
+        // NOTE: set `VITE_API_URL` before running `npm run dev` to enable proxying.
       },
     },
   },
