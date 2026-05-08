@@ -8,6 +8,7 @@ import ErrorState from "../../../components/ErrorState";
 import AdminDocumentPreviewModal from "@/components/admin/AdminDocumentPreviewModal";
 import EntityAvatar from "@/components/shared/EntityAvatar";
 import { useAuthStore } from "@/store/authStore";
+import { useHrAdminPermissions } from "@/hooks/useHrAdminPermissions";
 import { resolveApplicationResumeUrl } from "@/utils/resolveApplicationResumeUrl";
 
 const EMPTY_STATS = {
@@ -87,7 +88,10 @@ function AdminResumePreviewLink({ application, onOpenPreview }) {
 
 export default function Applications() {
   const queryClient = useQueryClient();
-  const { user } = useAuthStore();
+  const { user, role } = useAuthStore();
+  const { can } = useHrAdminPermissions();
+  const hrNoPortalApproveReject =
+    role === "hr_admin" && !can.portalApproveRejectApplicant && !can.acceptRejectApplicantDocuments;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const jobIdFilter = searchParams.get("jobId");
@@ -567,7 +571,8 @@ export default function Applications() {
             rejectApplicationMutation.isPending ||
             Boolean(selectedApplication?.portalApprovedAt) ||
             /reject/i.test(selectedApplication?.status || "") ||
-            selectedApplication?.lifecycleStage === "employee"
+            selectedApplication?.lifecycleStage === "employee" ||
+            hrNoPortalApproveReject
           }
           onClick={() => {
             if (!selectedApplication?.id) return;
@@ -583,7 +588,8 @@ export default function Applications() {
             rejectApplicationMutation.isPending ||
             approvePortalMutation.isPending ||
             /reject/i.test(selectedApplication?.status || "") ||
-            selectedApplication?.lifecycleStage === "employee"
+            selectedApplication?.lifecycleStage === "employee" ||
+            hrNoPortalApproveReject
           }
           onClick={() => {
             if (!selectedApplication?.id) return;

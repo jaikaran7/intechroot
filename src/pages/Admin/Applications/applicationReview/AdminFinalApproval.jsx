@@ -1,8 +1,10 @@
 /** Admin STAGE 3 — Final Approval. Approve & move to Employee, or Reject the application. */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import AdminDocumentPreviewModal from "@/components/admin/AdminDocumentPreviewModal";
 import EntityAvatar from "@/components/shared/EntityAvatar";
+import { onboardingService } from "@/services/onboarding.service";
 import { resolveApplicationResumeUrl } from "@/utils/resolveApplicationResumeUrl";
 import OnboardingAdminStepper from "./OnboardingAdminStepper";
 
@@ -15,16 +17,53 @@ export default function AdminFinalApproval({
   maxStep,
   canAccessAll,
   onNavigateStage,
+  permissionHireAllowed = true,
+  permissionRejectAllowed = true,
+  permissionManageBgvAllowed = true,
 }) {
   const app = application || {};
   const ob = app.onboarding || {};
+  const queryClient = useQueryClient();
   const dossierUrl = resolveApplicationResumeUrl(app);
   const [documentPreview, setDocumentPreview] = useState(null);
+  const [bgvVerified, setBgvVerified] = useState(Boolean(ob.bgvVerified));
+  const [bgvStatusMessage, setBgvStatusMessage] = useState(null);
   const finalSubmitted = Boolean(ob.finalSubmitted);
-  const canHire = finalSubmitted && !rejectPending;
-  const hireDisabledReason = !finalSubmitted
+  const canHire = finalSubmitted && bgvVerified && !rejectPending && permissionHireAllowed;
+  const hireDisabledReason = !permissionHireAllowed
+    ? "You do not have permission to complete hiring actions."
+    : !finalSubmitted
     ? "Applicant must submit the onboarding checklist before you can approve."
-    : "";
+    : !bgvVerified
+      ? "Confirm BGV verification as Clear before approving this applicant."
+      : "";
+
+  useEffect(() => {
+    setBgvVerified(Boolean(ob.bgvVerified));
+  }, [app.id, ob.bgvVerified]);
+
+  const setBgvVerifiedMutation = useMutation({
+    mutationFn: (verified) => onboardingService.adminSetBgv(app.id, { bgvVerified: verified }),
+    onSuccess: (_, verified) => {
+      setBgvStatusMessage(null);
+      setBgvVerified(Boolean(verified));
+      if (app.id) queryClient.invalidateQueries({ queryKey: ["application", app.id] });
+    },
+  });
+
+  const handleBgvToggle = () => {
+    if (!permissionManageBgvAllowed) return;
+    const previous = bgvVerified;
+    const next = !previous;
+    setBgvStatusMessage(null);
+    setBgvVerified(next);
+    setBgvVerifiedMutation.mutate(next, {
+      onError: (err) => {
+        setBgvVerified(previous);
+        setBgvStatusMessage(err?.response?.data?.error?.message || "Failed to update BGV verification status.");
+      },
+    });
+  };
 
   return (
     <main className="flex-1 px-8 py-12 bg-surface w-full max-w-full">
@@ -114,8 +153,46 @@ export default function AdminFinalApproval({
               </div>
               <div className="text-right">
                 <span className="text-[10px] uppercase font-black text-on-surface-variant block mb-1">Risk Rating</span>
-                <span className="text-2xl font-headline font-black text-green-600 tracking-tighter">CLEAR</span>
+                <span
+                  className={`text-2xl font-headline font-black tracking-tighter ${
+                    bgvVerified ? "text-green-600" : "text-amber-600"
+                  }`}
+                >
+                  {bgvVerified ? "CLEAR" : "UNCLEAR"}
+                </span>
               </div>
+            </div>
+            <div className="mb-8 rounded-xl border border-outline-variant/20 bg-surface-container-low/30 p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">
+                BGV Verification Status
+              </p>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs font-bold uppercase tracking-wide ${bgvVerified ? "text-green-700" : "text-amber-700"}`}>
+                    {bgvVerified ? "Clear" : "Unclear"}
+                  </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={bgvVerified}
+                    onClick={handleBgvToggle}
+                    disabled={setBgvVerifiedMutation.isPending || !permissionManageBgvAllowed}
+                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+                      bgvVerified ? "bg-green-600" : "bg-slate-300"
+                    } disabled:opacity-60 disabled:cursor-not-allowed`}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                        bgvVerified ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-on-surface-variant">
+                Admin must confirm that the candidate successfully completed the BGV verification process before approval.
+              </p>
+              {bgvStatusMessage ? <p className="mt-2 text-xs font-medium text-red-700">{bgvStatusMessage}</p> : null}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="flex flex-col gap-2">
@@ -159,7 +236,7 @@ export default function AdminFinalApproval({
                 onClick={onFinalHire}
                 disabled={!canHire}
                 title={hireDisabledReason || undefined}
-                className="w-full h-14 bg-white text-primary-container font-black text-sm uppercase tracking-widest rounded shadow-xl hover:scale-[1.02] transition-transform active:scale-95 duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                className="w-full h-14 bg-white text-primary-container font-black text-sm uppercase tracking-widest rounded shadow-xl hover:scale-[1.02] transition-transform active:scale-95 duration-200 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
               >
                 <span className="material-symbols-outlined">person_add</span>
                 Approve & Move to Employee
@@ -171,7 +248,7 @@ export default function AdminFinalApproval({
                   if (!window.confirm(`Reject this application for ${app.name || "the applicant"}? This cannot be undone.`)) return;
                   onReject();
                 }}
-                disabled={!onReject || rejectPending}
+                disabled={!onReject || rejectPending || !permissionRejectAllowed}
                 className="w-full h-14 bg-transparent border border-white/20 text-white font-bold text-sm uppercase tracking-widest rounded hover:bg-white/5 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="material-symbols-outlined text-lg">cancel</span>

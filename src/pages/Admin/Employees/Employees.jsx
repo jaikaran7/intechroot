@@ -4,10 +4,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { employeesService } from "../../../services/employees.service";
 import PageSkeleton from "../../../components/PageSkeleton";
 import ErrorState from "../../../components/ErrorState";
+import { useAuthStore } from "@/store/authStore";
+import { useHrAdminPermissions } from "@/hooks/useHrAdminPermissions";
 
 export default function Employees() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { role } = useAuthStore();
+  const { can } = useHrAdminPermissions();
+  const hrEmployeeMsgLocked = role === "hr_admin" && !can.editEmployeeDetails;
+  const hrCanOpenEmployee =
+    role !== "hr_admin" || can.viewEmployeeDetails || can.viewEmployeeDocuments;
 
   const { data: apiData, isLoading, isError, refetch } = useQuery({
     queryKey: ['employees'],
@@ -147,10 +154,12 @@ export default function Employees() {
       <span className="material-symbols-outlined" data-icon="help_outline">help_outline</span>
       </button>
       <div className="h-8 w-[1px] bg-slate-200 mx-2"></div>
+      {role !== "hr_admin" ? (
       <button className="flex items-center gap-2 px-4 py-2 bg-primary-container text-white rounded-lg text-sm font-semibold hover:bg-primary transition-all" onClick={() => navigate("/admin/employees/onboarding")}>
       <span className="material-symbols-outlined text-sm" data-icon="add">add</span>
                       Add Employee
                   </button>
+      ) : null}
       </div>
       </header>
 
@@ -261,7 +270,15 @@ export default function Employees() {
       </div>
       </td>
       <td className="px-4 py-5 text-right align-middle lg:px-6">
-      <button className="inline-flex" onClick={(event) => { event.stopPropagation(); navigate(`/admin/employees/${employee.id}`); }}>
+      <button
+        className="inline-flex disabled:cursor-not-allowed disabled:opacity-40"
+        disabled={role === "hr_admin" && !hrCanOpenEmployee}
+        onClick={(event) => {
+          event.stopPropagation();
+          if (role === "hr_admin" && !hrCanOpenEmployee) return;
+          navigate(`/admin/employees/${employee.id}`);
+        }}
+      >
       <span className="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors" data-icon="visibility">visibility</span>
       </button>
       </td>
@@ -325,7 +342,7 @@ export default function Employees() {
       <button
         type="button"
         className="flex items-center justify-center gap-2 py-3 bg-surface-container text-primary font-bold text-sm rounded-lg hover:bg-surface-container-high transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-        disabled={!profileEmployee}
+        disabled={!profileEmployee || hrEmployeeMsgLocked}
         onClick={() => {
           setMessageError("");
           setMessageDraft("");
@@ -335,7 +352,7 @@ export default function Employees() {
       <span className="material-symbols-outlined text-lg" data-icon="mail">mail</span>
                                           Message
                                       </button>
-      <button className="flex items-center justify-center gap-2 py-3 border border-outline-variant text-primary font-bold text-sm rounded-lg hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed" onClick={() => profileEmployee && navigate(`/admin/employees/${profileEmployee.id}`)} disabled={!profileEmployee}>
+      <button className="flex items-center justify-center gap-2 py-3 border border-outline-variant text-primary font-bold text-sm rounded-lg hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed" onClick={() => profileEmployee && hrCanOpenEmployee && navigate(`/admin/employees/${profileEmployee.id}`)} disabled={!profileEmployee || !hrCanOpenEmployee}>
       <span className="material-symbols-outlined text-lg" data-icon="edit">edit</span>
                                           Edit Profile
                                       </button>

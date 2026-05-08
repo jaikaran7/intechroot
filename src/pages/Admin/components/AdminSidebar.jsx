@@ -1,10 +1,15 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../../store/authStore";
-import { ADMIN_NAV_ITEMS, isNavActive } from "./navConfig";
+import { useHrAdminPermissions } from "@/hooks/useHrAdminPermissions";
+import { getAdminNavItems, isNavActive } from "./navConfig";
 
 export default function AdminSidebar() {
   const { pathname } = useLocation();
   const clearAuth = useAuthStore((s) => s.clearAuth);
+  const role = useAuthStore((s) => s.role);
+  const { can, isLoading: hrPermsLoading } = useHrAdminPermissions();
+  const hrCanForNav = role === "hr_admin" ? (hrPermsLoading ? null : can) : null;
+  const navItems = getAdminNavItems(role, hrCanForNav);
 
   function handleLogout() {
     clearAuth();
@@ -18,7 +23,7 @@ export default function AdminSidebar() {
         <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-tertiary-fixed-dim opacity-70">Enterprise Admin</p>
       </div>
       <nav className="flex flex-col gap-y-1">
-        {ADMIN_NAV_ITEMS.map(({ to, label, icon }) => {
+        {navItems.map(({ to, label, icon }) => {
           const active = isNavActive(pathname, to);
           return (
             <Link

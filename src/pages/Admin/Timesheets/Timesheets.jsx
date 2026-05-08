@@ -5,6 +5,7 @@ import PageSkeleton from "../../../components/PageSkeleton";
 import ErrorState from "../../../components/ErrorState";
 import EntityAvatar from "@/components/shared/EntityAvatar";
 import { useAuthStore } from "@/store/authStore";
+import AdminPanelTimesheets from "../AdminPanelTimesheets";
 import {
   addDaysISO,
   calculateTotal,
@@ -56,6 +57,7 @@ export default function Timesheets() {
     queryKey: ['timesheets'],
     queryFn: () => timesheetsService.getAll({ limit: 200 }),
     staleTime: 30_000,
+    enabled: role !== 'hr_admin',
   });
 
   const approveMutation = useMutation({
@@ -233,6 +235,14 @@ export default function Timesheets() {
 
   const rejectingRow = rejectingRowId ? (data.find((r) => r.id === rejectingRowId) ?? null) : null;
   const rejectingRangeLabel = rejectingRow ? rejectingRow.rangeLabel || formatAdminWeekRangeSubtitle(rejectingRow) : "";
+
+  if (role === "hr_admin") {
+    return (
+      <main className="ml-64 min-h-screen p-8">
+        <AdminPanelTimesheets embedded />
+      </main>
+    );
+  }
 
   if (isLoading) return <PageSkeleton />;
   if (isError) return <ErrorState message="Failed to load timesheets." onRetry={refetch} />;

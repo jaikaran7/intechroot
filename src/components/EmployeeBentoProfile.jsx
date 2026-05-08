@@ -99,6 +99,7 @@ export default function EmployeeBentoProfile({
     }.`;
 
   const contractEndDisplay = fd.contractEndDate ? formatDateMedium(fd.contractEndDate) : null;
+  const displayEmployeeCode = String(fd.employeeCode || employee.employeeCode || employee.employee_id || "").trim();
   const statusLabel =
     variant === "employee"
       ? employee.status || "—"
@@ -170,7 +171,7 @@ export default function EmployeeBentoProfile({
                         onChange={(e) => updateField?.("employeeCode", e.target.value)}
                       />
                     ) : (
-                      employee.employeeCode || employee.id
+                      displayEmployeeCode || "Employee ID Pending"
                     )}
                   </span>
                   {contactFieldsEditable ? (

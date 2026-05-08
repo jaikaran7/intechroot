@@ -62,6 +62,7 @@ export const INTERVIEW_STATUS = {
 export const USER_ROLES = {
   SUPER_ADMIN: 'super_admin',
   ADMIN: 'admin',
+  HR_ADMIN: 'hr_admin',
   EMPLOYEE: 'employee',
   APPLICANT: 'applicant',
 };

@@ -26,6 +26,7 @@ import {
 } from "@/utils/applicantDisplayHelpers";
 import { useAuthStore } from "@/store/authStore";
 import { STAGE_ORDER } from "@/constants/stages";
+import { useHrAdminPermissions } from "@/hooks/useHrAdminPermissions";
 
 /** LinkedIn “in” mark (monochrome via currentColor). */
 function LinkedInLogoIcon({ className }) {
@@ -153,6 +154,7 @@ export default function ApplicationProfile() {
   // Admin may freely move between stages via the stage switcher — null falls back to derived step.
   const [forcedOnboardingStep, setForcedOnboardingStep] = useState(null);
   const { role, user } = useAuthStore();
+  const { can } = useHrAdminPermissions();
 
   // ── API data ──────────────────────────────────────────────
   const { data: applicationData, isLoading, isError, refetch } = useQuery({
@@ -390,7 +392,8 @@ export default function ApplicationProfile() {
   const moveToNextDisabled =
     applicationData?.lifecycleStage === "employee" ||
     atFinalPipelineStage ||
-    advanceStageMutation.isPending;
+    advanceStageMutation.isPending ||
+    (role === "hr_admin" && !can.advanceApplicationStage && !can.editApplicationStage);
 
   const handleConfirmOnboarding = async () => {
     setStageMoveError("");
@@ -448,6 +451,7 @@ export default function ApplicationProfile() {
   };
 
   const handleEnableOnboardingOnly = async () => {
+    if (role === "hr_admin" && !can.manageOnboardingProcess) return;
     setStageMoveError("");
     setOnboardingGateBusy(true);
     try {
@@ -461,6 +465,7 @@ export default function ApplicationProfile() {
   };
 
   const handleMoveToNextStage = () => {
+    if (role === "hr_admin" && !can.advanceApplicationStage && !can.editApplicationStage) return;
     setStageMoveError("");
     // Moving into the Offer stage requires enabling onboarding (done from modal).
     const stageBeforeOffer = Math.max(0, offerStageIndex - 1);
@@ -472,10 +477,12 @@ export default function ApplicationProfile() {
     advanceStageMutation.mutate();
   };
   const handleSendMessage = () => {
+    if (role === "hr_admin" && !can.sendMessagesToApplicants) return;
     if (!messageDraft.trim()) return;
     sendMessageMutation.mutate(messageDraft.trim());
   };
   const openNewInterviewModal = () => {
+    if (role === "hr_admin" && !can.scheduleInterview && !can.sendInterviewLinks) return;
     setInterviewModalError("");
     setRescheduleTarget(null);
     setInterviewForm({ type: INTERVIEW_TYPES[0], date: "", time: "", link: "", notes: "" });
@@ -483,6 +490,7 @@ export default function ApplicationProfile() {
   };
 
   const openRescheduleInterviewModal = (iv, index) => {
+    if (role === "hr_admin" && !can.scheduleInterview && !can.sendInterviewLinks) return;
     setInterviewModalError("");
     setRescheduleTarget({ id: iv?.id ?? null, index });
     setInterviewForm({
@@ -503,6 +511,7 @@ export default function ApplicationProfile() {
   };
 
   const handleDeleteInterview = () => {
+    if (role === "hr_admin" && !can.scheduleInterview && !can.sendInterviewLinks) return;
     if (!rescheduleTarget?.id) return;
     if (!window.confirm("Delete this interview? It will be removed for you and the applicant.")) return;
     setInterviewModalError("");
@@ -517,6 +526,7 @@ export default function ApplicationProfile() {
   };
 
   const handleScheduleInterviewSubmit = () => {
+    if (role === "hr_admin" && !can.scheduleInterview && !can.sendInterviewLinks) return;
     if (!applicationData) return;
     setInterviewModalError("");
     const displayTime = formatTimeFromInput(interviewForm.time);
@@ -555,6 +565,7 @@ export default function ApplicationProfile() {
   }, [applicationData?.messages]);
 
   const isSuperAdmin = role === "super_admin" || user?.role === "super_admin";
+  const hrInterviewLocked = role === "hr_admin" && !can.scheduleInterview && !can.sendInterviewLinks;
   const derivedOnboardingStep = getOnboardingAdminStep(applicationData?.onboarding);
   useEffect(() => {
     if (forcedOnboardingStep == null) return;
@@ -722,6 +733,9 @@ export default function ApplicationProfile() {
               maxStep={derivedOnboardingStep}
               canAccessAll={isSuperAdmin}
               onNavigateStage={setForcedOnboardingStep}
+              primaryActionDisabled={
+                role === "hr_admin" && !can.approveApplicantProfile && !can.manageOnboardingProcess
+              }
             />
           )}
           {onboardingAdminStep === 2 && (
@@ -731,6 +745,9 @@ export default function ApplicationProfile() {
               maxStep={derivedOnboardingStep}
               canAccessAll={isSuperAdmin}
               onNavigateStage={setForcedOnboardingStep}
+              primaryActionDisabled={
+                role === "hr_admin" && !can.manageOnboardingProcess && !can.verifyApplicantDocuments
+              }
             />
           )}
           {onboardingAdminStep === 3 && (
@@ -743,6 +760,18 @@ export default function ApplicationProfile() {
               maxStep={derivedOnboardingStep}
               canAccessAll={isSuperAdmin}
               onNavigateStage={setForcedOnboardingStep}
+              permissionHireAllowed={
+                role !== "hr_admin" || can.finalHireRejectApplicant || can.editApplicationStage
+              }
+              permissionRejectAllowed={
+                role !== "hr_admin" ||
+                can.finalHireRejectApplicant ||
+                can.portalApproveRejectApplicant ||
+                can.acceptRejectApplicantDocuments
+              }
+              permissionManageBgvAllowed={
+                role !== "hr_admin" || can.approveBGVVerification || can.manageOnboardingProcess
+              }
             />
           )}
         </div>
@@ -865,7 +894,7 @@ export default function ApplicationProfile() {
           </p>
           <button
             type="button"
-            disabled={onboardingGateBusy}
+            disabled={onboardingGateBusy || (role === "hr_admin" && !can.manageOnboardingProcess)}
             onClick={handleEnableOnboardingOnly}
             className="rounded-lg bg-primary-container px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:opacity-95 disabled:opacity-50"
           >
@@ -890,11 +919,11 @@ export default function ApplicationProfile() {
         ) : null}
         {advanceStageMutation.isPending ? "Moving…" : "Move to Next Stage"}
                       </button>
-      <button className="w-full px-6 py-3 border border-primary-container text-primary-container font-bold text-sm rounded-lg hover:bg-primary-container/5 transition-all active:scale-95 flex items-center justify-center gap-2" onClick={openNewInterviewModal} type="button">
+      <button className="w-full px-6 py-3 border border-primary-container text-primary-container font-bold text-sm rounded-lg hover:bg-primary-container/5 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed" onClick={openNewInterviewModal} disabled={role === "hr_admin" && !can.scheduleInterview && !can.sendInterviewLinks} type="button">
       <span className="material-symbols-outlined text-sm" data-icon="calendar_today">calendar_today</span>
                           Schedule Interview
                       </button>
-      <button className="w-full px-6 py-3 border border-primary-container text-primary-container font-bold text-sm rounded-lg hover:bg-primary-container/5 transition-all active:scale-95 flex items-center justify-center gap-2" onClick={() => setIsMessageModalOpen(true)} type="button">
+      <button className="w-full px-6 py-3 border border-primary-container text-primary-container font-bold text-sm rounded-lg hover:bg-primary-container/5 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed" onClick={() => setIsMessageModalOpen(true)} disabled={role === "hr_admin" && !can.sendMessagesToApplicants} type="button">
       <span className="material-symbols-outlined text-sm" data-icon="mail">mail</span>
                           Send Message
                       </button>
@@ -1057,6 +1086,8 @@ export default function ApplicationProfile() {
       const previewUrl =
         stored?.fileData?.trim() || stored?.fileUrl?.trim() || "/sample.pdf";
       const canApprove = hasFile && v !== "verified";
+      const canVerifyDocs =
+        role !== "hr_admin" || can.verifyApplicantDocuments || can.acceptRejectApplicantDocuments;
       const documentAction = stored?.id ? documentActionStates[stored.id] : null;
       const expStr = formatExpiryForDisplay(expiryValue, v);
       return (
@@ -1121,10 +1152,10 @@ export default function ApplicationProfile() {
       </button>
       <button
       type="button"
-      disabled={!canApprove || !stored?.id || Boolean(documentAction)}
+      disabled={!canApprove || !canVerifyDocs || !stored?.id || Boolean(documentAction)}
       className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-green-50 text-green-800 border border-green-200 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed"
       onClick={() => {
-      if (!stored?.id || !canApprove) return;
+      if (!stored?.id || !canApprove || !canVerifyDocs) return;
       setDocumentVerifyError("");
       verifyDocumentMutation.mutate({ documentId: stored.id, verification: "verified" });
       }}
@@ -1133,10 +1164,10 @@ export default function ApplicationProfile() {
       </button>
       <button
       type="button"
-      disabled={!hasFile || v === "verified" || !stored?.id || Boolean(documentAction)}
+      disabled={!hasFile || v === "verified" || !stored?.id || Boolean(documentAction) || !canVerifyDocs}
       className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-red-50 text-red-800 border border-red-200 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed"
       onClick={() => {
-      if (!stored?.id || !hasFile || v === "verified") return;
+      if (!stored?.id || !hasFile || v === "verified" || !canVerifyDocs) return;
       if (!window.confirm("Reject this document? The applicant can upload a new version.")) return;
       setDocumentVerifyError("");
       verifyDocumentMutation.mutate({ documentId: stored.id, verification: "rejected" });
@@ -1268,17 +1299,26 @@ export default function ApplicationProfile() {
       {(applicationData.interviews || []).map((iv, idx) => (
       <div
       key={iv.id || idx}
-      role="button"
-      tabIndex={0}
-      title="Click to reschedule"
-      onClick={() => openRescheduleInterviewModal(iv, idx)}
+      role={hrInterviewLocked ? undefined : "button"}
+      tabIndex={hrInterviewLocked ? -1 : 0}
+      title={hrInterviewLocked ? "You do not have permission to reschedule interviews" : "Click to reschedule"}
+      onClick={() => {
+        if (hrInterviewLocked) return;
+        openRescheduleInterviewModal(iv, idx);
+      }}
       onKeyDown={(e) => {
+        if (hrInterviewLocked) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           openRescheduleInterviewModal(iv, idx);
         }
       }}
-      className="flex items-center gap-4 p-4 rounded-xl bg-secondary/5 border border-secondary/10 cursor-pointer transition-colors hover:bg-secondary/10 hover:border-secondary/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary/40"
+      className={
+        "flex items-center gap-4 p-4 rounded-xl bg-secondary/5 border border-secondary/10 transition-colors focus:outline-none " +
+        (hrInterviewLocked
+          ? "cursor-not-allowed opacity-50"
+          : "cursor-pointer hover:bg-secondary/10 hover:border-secondary/25 focus-visible:ring-2 focus-visible:ring-secondary/40")
+      }
       >
       <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary shrink-0">
       <span className="material-symbols-outlined">

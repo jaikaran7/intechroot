@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import OnboardingShell from "./OnboardingShell";
 
@@ -6,10 +5,7 @@ export default function FinalizeStep({ applicationId, onboarding, maxAllowed }) 
   const navigate = useNavigate();
   const app = onboarding?.application || {};
 
-  const appIdDisplay = useMemo(() => {
-    if (typeof app.id === "number") return `#ITH-${String(app.id).padStart(3, "0")}-${Math.abs(app.id % 9999).toString(16).toUpperCase().padStart(4, "0")}`;
-    return applicationId ? `#${String(applicationId).slice(0, 16).toUpperCase()}` : "—";
-  }, [app.id, applicationId]);
+  const appIdDisplay = app.onboardingApplicationId || "—";
 
   return (
     <OnboardingShell

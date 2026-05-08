@@ -26,7 +26,7 @@ export default function LoginPage() {
       const { accessToken, user, employee } = await authService.login(email, password);
       const resolvedEmployeeId = employee?.id ?? user?.employeeId ?? user?.id ?? null;
 
-      if (user.role === "ADMIN" || user.role === "admin" || user.role === "super_admin") {
+      if (user.role === "ADMIN" || user.role === "admin" || user.role === "super_admin" || user.role === "hr_admin") {
         setAuth({ user, role: user.role, accessToken });
         if (user.role === "ADMIN" || user.role === "admin") {
           navigate(ADMIN_PANEL_DASHBOARD_PATH, { replace: true });

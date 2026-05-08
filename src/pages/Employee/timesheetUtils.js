@@ -51,12 +51,33 @@ export const getWeekStartISO = (date) => {
 
 /** All day keys used in timesheet grids (Mon–Sun). */
 export const TIMESHEET_DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+export const TIMESHEET_DAY_STATUS = {
+  WORKING: "WORKING",
+  OFF: "OFF",
+  LEAVE: "LEAVE",
+};
+
+const WEEKDAY_COLUMN_LABELS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+
+/** Day name + calendar date (`MON` / `04`) for headers above each timesheet column. */
+export function weekCalendarDayMeta(weekStartDb, dayKey) {
+  const idx = TIMESHEET_DAY_KEYS.indexOf(dayKey);
+  if (idx < 0) return { dayName: "—", dateNum: "—" };
+  const dayName = WEEKDAY_COLUMN_LABELS[idx];
+  const mon = weekMondayISOFromDb(weekStartDb);
+  if (!mon) return { dayName, dateNum: "—" };
+  const iso = addDaysISO(mon, idx);
+  const d = parseYMD(iso);
+  if (Number.isNaN(d.getTime())) return { dayName, dateNum: "—" };
+  const dateNum = String(d.getDate()).padStart(2, "0");
+  return { dayName, dateNum };
+}
 
 export const calculateTotal = (weekData) =>
   TIMESHEET_DAY_KEYS.reduce((sum, key) => {
     const v = weekData?.[key];
     if (v === null || v === undefined || v === "") return sum;
-    if (v === "L" || v === "O") return sum;
+    if (v === "L" || v === "O" || v === "LEAVE" || v === "OFF") return sum;
     const n = Number(v);
     return sum + (Number.isNaN(n) ? 0 : n);
   }, 0);
@@ -64,10 +85,100 @@ export const calculateTotal = (weekData) =>
 /** Display cell: null / empty → em dash; L/O leave-off markers as-is. */
 export function formatHourCell(raw) {
   if (raw === null || raw === undefined || raw === "") return "—";
-  if (raw === "L" || raw === "O") return String(raw);
+  if (raw === "L" || raw === "LEAVE") return "LEAVE";
+  if (raw === "O" || raw === "OFF") return "OFF";
   const n = Number(raw);
   if (Number.isNaN(n)) return "—";
-  return n.toFixed(1);
+  const rounded = Math.round(n * 100) / 100;
+  if (rounded === Math.floor(rounded)) return `${rounded}.0`;
+  return String(rounded).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
+}
+
+export function isWeekendKey(dayKey) {
+  return dayKey === "sat" || dayKey === "sun";
+}
+
+export function parseDayState(raw, dayKey) {
+  const v = raw == null ? "" : String(raw).trim();
+  const upper = v.toUpperCase();
+  if (upper === "O" || upper === "OFF") return { status: TIMESHEET_DAY_STATUS.OFF, hours: "" };
+  if (upper === "L" || upper === "LEAVE") return { status: TIMESHEET_DAY_STATUS.LEAVE, hours: "" };
+  if (v === "") {
+    return { status: TIMESHEET_DAY_STATUS.WORKING, hours: "" };
+  }
+  // Preserve in-progress decimals ("5.", "0.") for controlled input — do not coerce via Number() yet.
+  if (/^\d+\.$/.test(v) || v === "0.") {
+    return { status: TIMESHEET_DAY_STATUS.WORKING, hours: v };
+  }
+  const n = Number(v);
+  if (Number.isNaN(n)) return { status: TIMESHEET_DAY_STATUS.WORKING, hours: "" };
+  const clamped = Math.min(24, Math.max(0, n));
+  const rounded = Math.round(clamped * 1e6) / 1e6;
+  return { status: TIMESHEET_DAY_STATUS.WORKING, hours: formatHoursStringForState(rounded, v) };
+}
+
+/** Keep user-typed decimals stable when possible (avoid float artifacts). */
+function formatHoursStringForState(rounded, originalRaw) {
+  const o = String(originalRaw ?? "").trim();
+  if (/\d+\.\d+/.test(o) && Math.abs(Number(o) - rounded) < 1e-9) return o;
+  if (rounded === Math.floor(rounded)) return String(Math.floor(rounded));
+  return String(rounded);
+}
+
+/**
+ * Sanitize hours while typing: one decimal point, digits only, max 24h, preserve trailing ".".
+ */
+export function sanitizeHourInput(raw) {
+  let s = String(raw ?? "").replace(/[^\d.]/g, "");
+  if (!s) return "";
+
+  const fd = s.indexOf(".");
+  if (fd !== -1) {
+    s = s.slice(0, fd + 1) + s.slice(fd + 1).replace(/\./g, "");
+  }
+  if (s === ".") return "0.";
+  if (s.startsWith(".")) s = "0" + s;
+
+  const d = s.indexOf(".");
+  if (d === -1) {
+    if (!/^\d+$/.test(s)) return "";
+    const n = Number(s);
+    if (Number.isNaN(n)) return "";
+    if (n > 24) return "24";
+    if (n < 0) return "0";
+    return String(parseInt(s, 10));
+  }
+
+  let intPart = s.slice(0, d);
+  const afterDot = s.slice(d + 1);
+  const trailingDot = afterDot === "";
+  const decPart = trailingDot ? "" : afterDot.replace(/[^\d]/g, "").slice(0, 8);
+
+  intPart = intPart === "" ? "0" : String(parseInt(intPart, 10));
+  const intNum = Number(intPart);
+  if (intNum > 24) return "24";
+  if (intNum === 24 && (decPart.length > 0 || trailingDot)) return "24";
+
+  if (trailingDot) return `${intPart}.`;
+  if (decPart === "") return intPart;
+
+  const out = `${intPart}.${decPart}`;
+  const n = Number(out);
+  if (Number.isNaN(n)) return out;
+  if (n > 24) return "24";
+  if (n < 0) return "0";
+  return out;
+}
+
+export function composeDayValue(status, hoursInput) {
+  if (status === TIMESHEET_DAY_STATUS.OFF) return "O";
+  if (status === TIMESHEET_DAY_STATUS.LEAVE) return "L";
+  const t = String(hoursInput ?? "").trim();
+  if (t === "") return null;
+  const n = Number(t);
+  if (Number.isNaN(n)) return null;
+  const clamped = Math.min(24, Math.max(0, n));
+  return Math.round(clamped * 1e6) / 1e6;
 }
 
 /** While typing: allow digits/one dot, or a single L/l/O/o. */
@@ -84,10 +195,12 @@ export function normalizeTimesheetCellForPayload(raw) {
   const t = String(raw ?? "").trim();
   if (t === "") return null;
   const u = t.toUpperCase();
-  if (u === "L" || u === "O") return u;
+  if (u === "L" || u === "LEAVE") return "L";
+  if (u === "O" || u === "OFF") return "O";
   const n = Number(t);
   if (Number.isNaN(n)) return null;
-  return Math.min(24, Math.max(0, n));
+  const clamped = Math.min(24, Math.max(0, n));
+  return Math.round(clamped * 1e6) / 1e6;
 }
 
 export function weekDataPayloadFromInput(input) {
@@ -124,7 +237,7 @@ export function buildWeekDataForPeriod(periodStartISO, periodEndISO) {
     if (t < ps.getTime() || t > pe.getTime()) {
       out[key] = null;
     } else {
-      out[key] = null;
+      out[key] = isWeekendKey(key) ? "O" : null;
     }
   });
   return out;

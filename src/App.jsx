@@ -32,6 +32,7 @@ const AdminLockedDashboard = lazy(() => import("./pages/Admin/AdminLockedDashboa
 const AdminPanelTimesheets = lazy(() => import("./pages/Admin/AdminPanelTimesheets"));
 const Dashboard = lazy(() => import("./pages/Admin/Dashboard/Dashboard"));
 const Admins = lazy(() => import("./pages/Admin/Admins/Admins"));
+const AdminDirectoryList = lazy(() => import("./pages/Admin/Admins/AdminDirectoryList"));
 const AdminDetails = lazy(() => import("./pages/Admin/Admins/AdminDetails"));
 const Employees = lazy(() => import("./pages/Admin/Employees/Employees"));
 const EmployeeDetails = lazy(() => import("./pages/Admin/Employees/EmployeeDetails"));
@@ -139,6 +140,8 @@ export default function App() {
           >
             <Route index element={<Dashboard />} />
             <Route path="admins" element={<Admins />} />
+            <Route path="admins/client" element={<AdminDirectoryList kind="client" />} />
+            <Route path="admins/hr" element={<AdminDirectoryList kind="hr" />} />
             <Route path="admins/:id" element={<AdminDetails />} />
             <Route path="employees/onboarding/review" element={<OnboardingReview />} />
             <Route path="employees/onboarding" element={<EmployeeOnboarding />} />

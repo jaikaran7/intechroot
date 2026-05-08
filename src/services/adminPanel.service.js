@@ -25,6 +25,15 @@ export const adminPanelService = {
   setAssignments: (id, employeeIds) =>
     api.put(`/admin-panel/admins/${id}/assignments`, { employeeIds }).then((r) => r.data.data),
 
+  getApplicantAssignments: (id) =>
+    api.get(`/admin-panel/admins/${id}/applicant-assignments`).then((r) => r.data.data),
+
+  setApplicantAssignments: (id, applicationIds) =>
+    api.put(`/admin-panel/admins/${id}/applicant-assignments`, { applicationIds }).then((r) => r.data.data),
+
+  removeApplicantAssignment: (id, applicationId) =>
+    api.delete(`/admin-panel/admins/${id}/applicant-assignments/${applicationId}`).then((r) => r.data.data),
+
   getDashboard: () =>
     api.get('/admin-panel/dashboard').then((r) => r.data.data),
 };

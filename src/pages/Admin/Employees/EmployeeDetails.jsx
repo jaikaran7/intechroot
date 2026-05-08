@@ -18,6 +18,7 @@ import ErrorState from "../../../components/ErrorState";
 import AdminDocumentPreviewModal from "@/components/admin/AdminDocumentPreviewModal";
 import EmployeeTimesheetHistoryPanel from "./EmployeeTimesheetHistoryPanel";
 import { useAuthStore } from "@/store/authStore";
+import { useHrAdminPermissions } from "@/hooks/useHrAdminPermissions";
 
 function formatDateCell(iso) {
   if (!iso) return { text: "—", italic: true };
@@ -35,6 +36,12 @@ export default function EmployeeDetails() {
   const queryClient = useQueryClient();
   const { id } = useParams();
   const { role } = useAuthStore();
+  const { can } = useHrAdminPermissions();
+  const hrNoEmployeeEdit = role === "hr_admin" && !can.editEmployeeDetails;
+  const hrNoRequestExtraDocs =
+    role === "hr_admin" && !can.requestExtraEmployeeDocuments && !can.editEmployeeDetails;
+  const hrCanViewEmployeeDocs =
+    role !== "hr_admin" || can.viewEmployeeDocuments || can.viewEmployeeDetails;
   const canEditEmployeeCode = role === "super_admin";
   const profileRoute = `/admin/employees/${id}`;
   const timesheetsRoute = `/admin/employees/${id}/timesheets`;
@@ -59,7 +66,7 @@ export default function EmployeeDetails() {
     queryKey: ['documents', id],
     queryFn: () => documentsService.getByOwner(id, 'employee'),
     staleTime: 60_000,
-    enabled: isDocumentsTab && !!id,
+    enabled: isDocumentsTab && !!id && hrCanViewEmployeeDocs,
   });
 
   const saveMutation = useMutation({
@@ -282,6 +289,7 @@ export default function EmployeeDetails() {
 
   const handleSaveChanges = () => {
     if (!isEditMode) {
+      if (hrNoEmployeeEdit) return;
       setIsEditMode(true);
       return;
     }
@@ -452,8 +460,9 @@ export default function EmployeeDetails() {
                   </button>
                   <button
                     type="button"
-                    className="flex items-center gap-2 rounded-lg bg-primary-container px-8 py-2.5 text-sm font-bold text-on-primary shadow-xl shadow-primary/20 transition-all hover:translate-y-[-2px] active:scale-95"
+                    className="flex items-center gap-2 rounded-lg bg-primary-container px-8 py-2.5 text-sm font-bold text-on-primary shadow-xl shadow-primary/20 transition-all hover:translate-y-[-2px] active:scale-95 disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                     onClick={handleSaveChanges}
+                    disabled={saveMutation.isPending || (!isEditMode && hrNoEmployeeEdit)}
                   >
                     <span className="material-symbols-outlined text-sm">{isEditMode ? "save" : "edit"}</span>
                     {isEditMode ? "Save Changes" : "Edit"}
@@ -468,6 +477,13 @@ export default function EmployeeDetails() {
           <EmployeeTimesheetHistoryPanel id={id} />
         </div>
       ) : isDocumentsTab ? (
+        !hrCanViewEmployeeDocs ? (
+          <div className="relative min-h-0 flex-1 w-full p-10 pb-16">
+            <p className="text-sm font-medium text-on-surface-variant">
+              You do not have permission to view this employee&apos;s documents.
+            </p>
+          </div>
+        ) : (
         <div className="relative min-h-0 flex-1 w-full p-10 pb-16">
           <div className="mb-10 flex justify-between items-end flex-wrap gap-4">
             <div>
@@ -481,7 +497,7 @@ export default function EmployeeDetails() {
             <button
               type="button"
               className="bg-primary-container text-on-primary px-6 py-3 rounded flex items-center gap-2 hover:translate-y-[-2px] transition-all shadow-lg shadow-primary-container/20 border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={requestDocumentMutation.isPending}
+              disabled={requestDocumentMutation.isPending || hrNoRequestExtraDocs}
               onClick={() => {
                 setNewDocNameDraft("");
                 setRequestDocError("");
@@ -601,17 +617,14 @@ export default function EmployeeDetails() {
                               <button
                                 type="button"
                                 className="rounded-md bg-emerald-600 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                disabled={!stored?.id || Boolean(documentAction)}
-                                onClick={() =>
-                                  verifyDocumentMutation.mutate({ documentId: stored.id, verification: "verified" })
-                                }
+                                disabled={!stored?.id || Boolean(documentAction) || hrNoEmployeeEdit}
                               >
                                 Approve
                               </button>
                               <button
                                 type="button"
                                 className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                disabled={!stored?.id || Boolean(documentAction)}
+                                disabled={!stored?.id || Boolean(documentAction) || hrNoEmployeeEdit}
                                 onClick={() =>
                                   verifyDocumentMutation.mutate({ documentId: stored.id, verification: "rejected" })
                                 }
@@ -706,6 +719,7 @@ export default function EmployeeDetails() {
             </div>
           ) : null}
         </div>
+        )
       ) : null}
 
       {isProfileTab && (
@@ -713,7 +727,11 @@ export default function EmployeeDetails() {
       <button className="flex-1 py-3 rounded-lg border-2 border-outline-variant/30 text-primary-container font-bold text-sm" onClick={() => isEditMode && handleCancel()}>
                       Cancel
                   </button>
-      <button className="flex-1 py-3 rounded-lg bg-primary-container text-on-primary font-bold text-sm shadow-lg shadow-primary/20" onClick={handleSaveChanges}>
+      <button
+        className="flex-1 py-3 rounded-lg bg-primary-container text-on-primary font-bold text-sm shadow-lg shadow-primary/20 disabled:opacity-45 disabled:cursor-not-allowed"
+        onClick={handleSaveChanges}
+        disabled={saveMutation.isPending || (!isEditMode && hrNoEmployeeEdit)}
+      >
                       {isEditMode ? "Save Changes" : "Edit"}
                   </button>
       </div>

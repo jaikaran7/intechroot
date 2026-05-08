@@ -70,7 +70,7 @@ function formFromJob(job) {
   };
 }
 
-export default function CreateJobModal({ editingJob, onClose, onSave }) {
+export default function CreateJobModal({ editingJob, onClose, onSave, statusChangeDisabled = false }) {
   const [createForm, setCreateForm] = useState(() => formFromJob(editingJob));
   const [createSkills, setCreateSkills] = useState(() =>
     Array.isArray(editingJob?.skills) && editingJob.skills.length ? [...editingJob.skills] : [],
@@ -122,10 +122,21 @@ export default function CreateJobModal({ editingJob, onClose, onSave }) {
     const location = createForm.location.trim() || "Remote";
     const salary = createForm.salary.trim() || "TBD";
     const isContract = createForm.employment === "Contract";
-    const status =
+    let status =
       createForm.status === "Active" || createForm.status === "Draft" || createForm.status === "Closed"
         ? createForm.status
         : "Draft";
+    if (statusChangeDisabled) {
+      if (editingJob) {
+        const s = editingJob.status;
+        status =
+          s === "Active" || s === "Draft" || s === "Closed"
+            ? s
+            : "Active";
+      } else {
+        status = "Active";
+      }
+    }
 
     return {
       title,
@@ -278,8 +289,9 @@ export default function CreateJobModal({ editingJob, onClose, onSave }) {
           <label className="text-on-surface-variant mb-1.5 block text-[11px] font-bold uppercase tracking-wider">Publish status</label>
           <p className="text-on-surface-variant mb-2 text-[10px] leading-relaxed">Active jobs appear on the public careers page. Draft and Closed are hidden.</p>
           <select
-            className="focus:ring-tertiary-fixed-dim w-full rounded-lg border-none bg-surface-container-low px-4 py-3 text-sm focus:ring-1"
+            className="focus:ring-tertiary-fixed-dim w-full rounded-lg border-none bg-surface-container-low px-4 py-3 text-sm focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60"
             value={createForm.status}
+            disabled={statusChangeDisabled}
             onChange={(e) => setCreateForm((f) => ({ ...f, status: e.target.value }))}
           >
             <option value="Active">Active — live on careers</option>

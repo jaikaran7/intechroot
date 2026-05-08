@@ -40,7 +40,7 @@ function getAssignedEmployeeIds(adminUser, employees) {
   return ids;
 }
 
-export default function AdminPanelTimesheets() {
+export default function AdminPanelTimesheets({ embedded = false }) {
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const user = useAuthStore((s) => s.user);
   const role = useAuthStore((s) => s.role);
@@ -52,13 +52,24 @@ export default function AdminPanelTimesheets() {
   const [rejectingRowId, setRejectingRowId] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [activeNote, setActiveNote] = useState("");
-  const usesAdminPanelApi = role === "ADMIN";
+  const usesAdminPanelApi = role === "ADMIN" || role === "hr_admin";
   const dashboardQuery = useQuery({
     queryKey: ["admin-panel-dashboard"],
     queryFn: adminPanelService.getDashboard,
     enabled: usesAdminPanelApi,
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchInterval: 15_000,
   });
+  const currentAdmin = dashboardQuery.data?.admin || null;
+  const headerAdminName =
+    currentAdmin?.name?.trim() || (!usesAdminPanelApi ? user?.name?.trim() : "") || "—";
+  const headerAdminRole = currentAdmin?.role
+    ? String(currentAdmin.role).replace(/_/g, " ")
+    : !usesAdminPanelApi
+      ? "Admin"
+      : "—";
   const permissions = dashboardQuery.data?.permissions || {};
   const canApprove = !usesAdminPanelApi || Boolean(permissions.approveTimesheets);
   const canReject = !usesAdminPanelApi || Boolean(permissions.rejectTimesheets);
@@ -172,13 +183,21 @@ export default function AdminPanelTimesheets() {
     rejectMutation.mutate({ id: rejectingRowId, rejectionNote: reason });
   }
 
-  if ((!usesAdminPanelApi && employeesQuery.isLoading) || timesheetsQuery.isLoading || (usesAdminPanelApi && dashboardQuery.isLoading)) return <PageSkeleton />;
+  if (
+    (!usesAdminPanelApi && employeesQuery.isPending) ||
+    timesheetsQuery.isPending ||
+    (usesAdminPanelApi && dashboardQuery.isPending)
+  ) {
+    return <PageSkeleton />;
+  }
   if ((!usesAdminPanelApi && employeesQuery.isError) || timesheetsQuery.isError || (usesAdminPanelApi && dashboardQuery.isError)) {
     return <ErrorState message="Failed to load admin timesheets." onRetry={() => { employeesQuery.refetch(); timesheetsQuery.refetch(); }} />;
   }
 
   return (
-    <div className="min-h-screen bg-surface font-body text-on-surface selection:bg-tertiary-fixed-dim selection:text-primary">
+    <>
+      {!embedded && (
+        <div className="min-h-screen bg-surface font-body text-on-surface selection:bg-tertiary-fixed-dim selection:text-primary">
       <aside className="fixed left-0 top-0 h-full w-64 border-r border-white/5 bg-[#000615] flex flex-col gap-4 py-8 shadow-[40px_0_40px_rgba(0,6,21,0.04)] z-[60]">
         <div className="px-8 mb-8">
           <div className="flex items-center gap-3">
@@ -223,14 +242,34 @@ export default function AdminPanelTimesheets() {
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3 pl-4 border-l border-outline-variant/30">
             <div className="text-right">
-              <p className="text-sm font-semibold text-[#0B1F3A] font-headline">{user?.name || "Administrator"}</p>
-              <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Admin</p>
+              <p className="text-sm font-semibold text-[#0B1F3A] font-headline">{headerAdminName}</p>
+              <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">{headerAdminRole}</p>
             </div>
           </div>
         </div>
       </header>
+        </div>
+      )}
 
-      <main className="ml-64 pt-24 pb-12 px-12 min-h-screen">
+      {embedded && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 px-1">
+          <div className="relative flex-1 max-w-md">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+            <input
+              className="w-full bg-surface-container-low border-none rounded-full py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-tertiary-fixed-dim/20 transition-all"
+              placeholder="Search employees or periods..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="text-right text-sm text-on-surface-variant">
+            <p className="font-semibold text-primary font-headline">{headerAdminName}</p>
+            <p className="text-[10px] uppercase tracking-wider text-slate-500">{headerAdminRole}</p>
+          </div>
+        </div>
+      )}
+
+      <main className={embedded ? "w-full pb-8 px-1 md:px-4" : "ml-64 pt-24 pb-12 px-12 min-h-screen"}>
         <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="space-y-1">
             <h2 className="text-4xl font-extrabold text-primary tracking-tight font-headline">Timesheet Management</h2>
@@ -503,6 +542,6 @@ export default function AdminPanelTimesheets() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

@@ -5,7 +5,7 @@ export const useAuthStore = create(
   persist(
     (set, get) => ({
       user: null,         // { id, email, name, role }
-      role: null,         // 'super_admin' | 'admin' | 'ADMIN' | 'employee' | 'applicant'
+      role: null,         // 'super_admin' | 'admin' | 'ADMIN' | 'hr_admin' | 'employee' | 'applicant'
       accessToken: null,
       applicationId: null, // For applicant role
       employeeId: null,    // For employee role
@@ -33,7 +33,7 @@ export const useAuthStore = create(
       },
 
       isAuthenticated: () => !!get().accessToken,
-      isAdmin: () => ['admin', 'ADMIN', 'super_admin'].includes(get().role),
+      isAdmin: () => ['admin', 'ADMIN', 'super_admin', 'hr_admin'].includes(get().role),
       isEmployee: () => get().role === 'employee',
       isApplicant: () => get().role === 'applicant',
     }),

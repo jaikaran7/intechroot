@@ -16,7 +16,14 @@ function formatDate(value) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export default function AdminProfileReview({ application, onApproveProfile, maxStep, canAccessAll, onNavigateStage }) {
+export default function AdminProfileReview({
+  application,
+  onApproveProfile,
+  maxStep,
+  canAccessAll,
+  onNavigateStage,
+  primaryActionDisabled = false,
+}) {
   const app = application || {};
   const skills = Array.isArray(app.skills) ? app.skills : [];
   const tagSkills = skills.length ? skills.slice(0, 3) : [];
@@ -58,7 +65,7 @@ export default function AdminProfileReview({ application, onApproveProfile, maxS
           <button
             type="button"
             onClick={onApproveProfile}
-            disabled={!profileCompleted}
+            disabled={!profileCompleted || primaryActionDisabled}
             className="px-6 py-3 bg-primary-container text-white font-bold rounded-lg shadow-md hover:bg-primary hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
             title={profileCompleted ? "Mark profile reviewed and move to Document Review" : "Waiting for applicant to submit their profile"}
           >

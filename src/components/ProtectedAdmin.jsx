@@ -24,7 +24,7 @@ export default function ProtectedAdmin({ children }) {
     );
   }
 
-  if (!accessToken || !["admin", "ADMIN", "super_admin"].includes(role)) {
+  if (!accessToken || !["admin", "ADMIN", "super_admin", "hr_admin"].includes(role)) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

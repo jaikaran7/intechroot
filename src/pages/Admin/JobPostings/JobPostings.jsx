@@ -1,14 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { jobsService } from "../../../services/jobs.service";
 import PageSkeleton from "../../../components/PageSkeleton";
 import ErrorState from "../../../components/ErrorState";
 import CreateJobModal from "../components/CreateJobModal";
+import { useAuthStore } from "@/store/authStore";
+import { useHrAdminPermissions } from "@/hooks/useHrAdminPermissions";
 
 export default function JobPostings() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const role = useAuthStore((s) => s.role);
+  const { can, isLoading: hrPermLoading } = useHrAdminPermissions();
+  const hrJobAccessOk =
+    role !== "hr_admin" ||
+    can.viewJobPostings ||
+    can.createEditJobPostings ||
+    can.openCloseJobPostings;
+  const canCreateEditJob = role !== "hr_admin" || can.createEditJobPostings;
+  const canReorderJobs = role !== "hr_admin";
+  const canDeleteJob = role !== "hr_admin";
+  const statusChangeDisabled = role === "hr_admin" && !can.openCloseJobPostings;
 
   const { data: apiData, isLoading, isError, refetch } = useQuery({
     queryKey: ['jobs'],
@@ -168,6 +181,8 @@ export default function JobPostings() {
     reorderMutation.mutate(next.map((j) => j.id));
   };
 
+  if (role === "hr_admin" && hrPermLoading) return <PageSkeleton />;
+  if (role === "hr_admin" && !hrJobAccessOk) return <Navigate to="/admin" replace />;
   if (isLoading) return <PageSkeleton />;
   if (isError) return <ErrorState message="Failed to load job postings." onRetry={refetch} />;
 
@@ -220,7 +235,8 @@ export default function JobPostings() {
               </p>
               <button
                 type="button"
-                className="mt-4 px-6 py-2.5 bg-primary-container text-white font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 transition-all flex items-center gap-2"
+                className="mt-4 px-6 py-2.5 bg-primary-container text-white font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0"
+                disabled={!canCreateEditJob}
                 onClick={openCreatePanel}
               >
                 <span className="material-symbols-outlined text-sm" data-icon="add">
@@ -410,7 +426,7 @@ export default function JobPostings() {
                           `${dropTargetId === job.id ? "ring-2 ring-secondary/35 ring-inset" : ""}`
                         }
                         key={job.id}
-                        draggable={!reorderMutation.isPending}
+                        draggable={canReorderJobs && !reorderMutation.isPending}
                         onDragStart={(e) => {
                           wasDraggingRef.current = true;
                           setDraggingId(job.id);
@@ -495,7 +511,8 @@ export default function JobPostings() {
                             </button>
                             <button
                               type="button"
-                              className="p-2 hover:bg-surface-container rounded-lg text-outline transition-colors"
+                              className="p-2 hover:bg-surface-container rounded-lg text-outline transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                              disabled={!canCreateEditJob}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleEdit(job);
@@ -507,7 +524,8 @@ export default function JobPostings() {
                             </button>
                             <button
                               type="button"
-                              className="p-2 hover:bg-error-container/20 rounded-lg text-error transition-colors"
+                              className="p-2 hover:bg-error-container/20 rounded-lg text-error transition-colors disabled:cursor-not-allowed disabled:opacity-35"
+                              disabled={!canDeleteJob}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleDelete(job.id);
@@ -556,7 +574,12 @@ export default function JobPostings() {
             onClick={handleCloseModal}
           />
           <div className="relative z-10 max-h-[90vh] w-[600px] overflow-y-auto">
-            <CreateJobModal editingJob={editingJob} onClose={handleCloseModal} onSave={handleSaveJob} />
+            <CreateJobModal
+              editingJob={editingJob}
+              onClose={handleCloseModal}
+              onSave={handleSaveJob}
+              statusChangeDisabled={statusChangeDisabled}
+            />
           </div>
         </div>
       )}

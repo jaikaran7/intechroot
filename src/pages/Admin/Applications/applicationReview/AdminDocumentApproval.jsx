@@ -16,13 +16,27 @@ import { hasUploadedFile, resolveDocVerification } from "@/utils/onboardingDocum
 import AdminDocumentPreviewModal from "@/components/admin/AdminDocumentPreviewModal";
 import EntityAvatar from "@/components/shared/EntityAvatar";
 import OnboardingAdminStepper from "./OnboardingAdminStepper";
+import { useHrAdminPermissions } from "@/hooks/useHrAdminPermissions";
 
 const MIN_ACTION_MS = 600;
 
 const candidateIdLabel = (app) => (app?.id != null ? `#ITR-${String(app.id).padStart(5, "0")}` : "#ITR-—");
 
-export default function AdminDocumentApproval({ application, onApproveDocuments, maxStep, canAccessAll, onNavigateStage }) {
+export default function AdminDocumentApproval({
+  application,
+  onApproveDocuments,
+  maxStep,
+  canAccessAll,
+  onNavigateStage,
+  primaryActionDisabled = false,
+}) {
   const queryClient = useQueryClient();
+  const { isHrAdmin, can } = useHrAdminPermissions();
+  const hrBlockVerify =
+    isHrAdmin && !can.verifyApplicantDocuments && !can.acceptRejectApplicantDocuments;
+  const hrBlockDocRequests =
+    isHrAdmin && !can.requestAdditionalDocuments && !can.manageOnboardingProcess;
+  const hrBlockBgvSave = isHrAdmin && !can.setBGVDetails && !can.manageOnboardingProcess;
   const app = application || {};
   const ob = app.onboarding || {};
   const adminRequested = app.adminRequestedDocuments || [];
@@ -208,11 +222,13 @@ export default function AdminDocumentApproval({ application, onApproveDocuments,
             <div className="flex gap-2">
               <button
                 type="button"
+                disabled={hrBlockDocRequests}
                 onClick={() => {
+                  if (hrBlockDocRequests) return;
                   setNewDocNameDraft("");
                   setIsDocRequestModalOpen(true);
                 }}
-                className="flex items-center gap-2 px-4 py-2 bg-primary-container text-on-primary text-xs font-bold rounded hover:opacity-90 transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-primary-container text-on-primary text-xs font-bold rounded hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <span className="material-symbols-outlined text-sm">add</span>
                 Request New Document
@@ -320,9 +336,9 @@ export default function AdminDocumentApproval({ application, onApproveDocuments,
                           </button>
                           <button
                             type="button"
-                            disabled={!canApprove || !stored?.id || Boolean(docAction)}
+                            disabled={hrBlockVerify || !canApprove || !stored?.id || Boolean(docAction)}
                             onClick={() => {
-                              if (!stored?.id || !canApprove) return;
+                              if (!stored?.id || !canApprove || hrBlockVerify) return;
                               verifyDocumentMutation.mutate({ documentId: stored.id, verification: "verified" });
                             }}
                             className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -334,9 +350,11 @@ export default function AdminDocumentApproval({ application, onApproveDocuments,
                           </button>
                           <button
                             type="button"
-                            disabled={!hasFile || v === "verified" || !stored?.id || Boolean(docAction)}
+                            disabled={
+                              hrBlockVerify || !hasFile || v === "verified" || !stored?.id || Boolean(docAction)
+                            }
                             onClick={() => {
-                              if (!stored?.id || !hasFile || v === "verified") return;
+                              if (!stored?.id || !hasFile || v === "verified" || hrBlockVerify) return;
                               if (!window.confirm("Reject this document? The applicant can upload a new version.")) return;
                               verifyDocumentMutation.mutate({ documentId: stored.id, verification: "rejected" });
                             }}
@@ -413,7 +431,7 @@ export default function AdminDocumentApproval({ application, onApproveDocuments,
               <button
                 type="button"
                 onClick={handleSaveBgv}
-                disabled={saveBgvMutation.isPending}
+                disabled={hrBlockBgvSave || saveBgvMutation.isPending}
                 className="px-5 py-2.5 bg-primary-container text-on-primary text-xs font-bold rounded hover:opacity-90 transition-all disabled:opacity-50"
               >
                 {saveBgvMutation.isPending ? "Saving…" : "Save for candidate"}
@@ -442,10 +460,11 @@ export default function AdminDocumentApproval({ application, onApproveDocuments,
                       <button
                         type="button"
                         onClick={() => {
+                          if (hrBlockDocRequests) return;
                           if (!window.confirm("Remove this document request? The applicant will no longer see it.")) return;
                           deleteDocRequestMutation.mutate(r.id);
                         }}
-                        disabled={deleteDocRequestMutation.isPending}
+                        disabled={hrBlockDocRequests || deleteDocRequestMutation.isPending}
                         className="text-[10px] font-bold text-error hover:underline disabled:opacity-40"
                       >
                         Remove
@@ -485,8 +504,9 @@ export default function AdminDocumentApproval({ application, onApproveDocuments,
             </div>
             <button
               type="button"
+              disabled={primaryActionDisabled}
               onClick={onApproveDocuments}
-              className="w-full mt-8 py-3 bg-primary text-on-primary text-[10px] font-extrabold uppercase tracking-widest active:scale-95 transition-all"
+              className="w-full mt-8 py-3 bg-primary text-on-primary text-[10px] font-extrabold uppercase tracking-widest active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Complete Step 02
             </button>

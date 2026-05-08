@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { jobsService } from "../../../services/jobs.service";
 import { applicationsService } from "../../../services/applications.service";
 import EntityAvatar from "@/components/shared/EntityAvatar";
 import { useAuthStore } from "@/store/authStore";
+import { useHrAdminPermissions } from "@/hooks/useHrAdminPermissions";
+import PageSkeleton from "../../../components/PageSkeleton";
 
 function splitTitle(title) {
   const words = title.trim().split(/\s+/);
@@ -30,6 +32,14 @@ function jobPostingBadgeCopy(status) {
 
 export default function JobDetails() {
   const { user } = useAuthStore();
+  const role = useAuthStore((s) => s.role);
+  const { can, isLoading: hrPermLoading } = useHrAdminPermissions();
+  const hrJobAccessOk =
+    role !== "hr_admin" ||
+    can.viewJobPostings ||
+    can.createEditJobPostings ||
+    can.openCloseJobPostings;
+  const canEditJob = role !== "hr_admin" || can.createEditJobPostings;
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -82,6 +92,7 @@ export default function JobDetails() {
     : "";
 
   const startEdit = () => {
+    if (!canEditJob) return;
     if (!job) return;
     setEditDraft({
       title: job.title,
@@ -94,6 +105,7 @@ export default function JobDetails() {
   };
 
   const handleSaveDetails = () => {
+    if (!canEditJob) return;
     if (!job || !editDraft) return;
     const title = editDraft.title.trim();
     if (!title) return;
@@ -109,6 +121,7 @@ export default function JobDetails() {
   };
 
   const handleArchive = () => {
+    if (role === "hr_admin") return;
     if (!id) return;
     const merged = resolveMergedJobs();
     const next = merged.map((j) =>
@@ -117,6 +130,17 @@ export default function JobDetails() {
     persistJobPostingsToSession(next);
     setJob((prev) => (prev ? { ...prev, status: "ARCHIVED" } : prev));
   };
+
+  if (role === "hr_admin" && hrPermLoading) {
+    return (
+      <main className="ml-64 min-h-screen bg-surface pt-24 px-12">
+        <PageSkeleton />
+      </main>
+    );
+  }
+  if (role === "hr_admin" && !hrJobAccessOk) {
+    return <Navigate to="/admin" replace />;
+  }
 
   if (!job) {
     return (
@@ -233,7 +257,8 @@ export default function JobDetails() {
               {!isEditing ? (
                 <button
                   type="button"
-                  className="flex items-center gap-2 rounded-lg border border-outline-variant/30 px-6 py-3 text-sm font-bold text-primary-container transition-all hover:bg-surface-container-low"
+                  className="flex items-center gap-2 rounded-lg border border-outline-variant/30 px-6 py-3 text-sm font-bold text-primary-container transition-all hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={!canEditJob}
                   onClick={startEdit}
                 >
                   <span className="material-symbols-outlined text-sm" data-icon="edit">
@@ -244,7 +269,8 @@ export default function JobDetails() {
               ) : (
                 <button
                   type="button"
-                  className="flex items-center gap-2 rounded-lg border border-outline-variant/30 px-6 py-3 text-sm font-bold text-primary-container transition-all hover:bg-surface-container-low"
+                  className="flex items-center gap-2 rounded-lg border border-outline-variant/30 px-6 py-3 text-sm font-bold text-primary-container transition-all hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={!canEditJob}
                   onClick={handleSaveDetails}
                 >
                   <span className="material-symbols-outlined text-sm" data-icon="save">
@@ -255,7 +281,8 @@ export default function JobDetails() {
               )}
               <button
                 type="button"
-                className="rounded-lg border border-outline-variant/30 p-3 text-error transition-all hover:bg-error-container/20"
+                className="rounded-lg border border-outline-variant/30 p-3 text-error transition-all hover:bg-error-container/20 disabled:cursor-not-allowed disabled:opacity-35"
+                disabled={role === "hr_admin"}
                 onClick={handleArchive}
               >
                 <span className="material-symbols-outlined text-sm" data-icon="archive">
