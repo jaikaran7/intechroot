@@ -238,9 +238,9 @@ export default function Timesheets() {
 
   if (role === "hr_admin") {
     return (
-      <main className="ml-64 min-h-screen p-8">
+      <div className="ml-64 min-h-screen bg-surface p-8 text-on-surface">
         <AdminPanelTimesheets embedded />
-      </main>
+      </div>
     );
   }
 

@@ -19,7 +19,7 @@ export default function ProtectedAdminPanel({ children }) {
     );
   }
 
-  if (!accessToken || !["admin", "ADMIN"].includes(role)) {
+  if (!accessToken || !["admin", "ADMIN", "hr_admin"].includes(role)) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

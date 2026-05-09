@@ -52,7 +52,7 @@ export default function AdminPanelTimesheets({ embedded = false }) {
   const [rejectingRowId, setRejectingRowId] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [activeNote, setActiveNote] = useState("");
-  const usesAdminPanelApi = role === "ADMIN" || role === "hr_admin";
+  const usesAdminPanelApi = role === "ADMIN" || role === "admin" || role === "hr_admin";
   const dashboardQuery = useQuery({
     queryKey: ["admin-panel-dashboard"],
     queryFn: adminPanelService.getDashboard,
@@ -71,8 +71,9 @@ export default function AdminPanelTimesheets({ embedded = false }) {
       ? "Admin"
       : "—";
   const permissions = dashboardQuery.data?.permissions || {};
-  const canApprove = !usesAdminPanelApi || Boolean(permissions.approveTimesheets);
-  const canReject = !usesAdminPanelApi || Boolean(permissions.rejectTimesheets);
+  // Match backend: approve/reject allowed when approve/reject flag OR editTimesheets (nav can show Timesheets on edit-only).
+  const canApprove = !usesAdminPanelApi || Boolean(permissions.approveTimesheets || permissions.editTimesheets);
+  const canReject = !usesAdminPanelApi || Boolean(permissions.rejectTimesheets || permissions.editTimesheets);
 
   const employeesQuery = useQuery({
     queryKey: ["employees-admin-panel"],
@@ -194,6 +195,155 @@ export default function AdminPanelTimesheets({ embedded = false }) {
     return <ErrorState message="Failed to load admin timesheets." onRetry={() => { employeesQuery.refetch(); timesheetsQuery.refetch(); }} />;
   }
 
+  const pageBody = (
+    <>
+      <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="space-y-1">
+          <h2 className="text-4xl font-extrabold text-primary tracking-tight font-headline">Timesheet Management</h2>
+          <p className="text-on-surface-variant">Review and manage weekly employee hours and billing status.</p>
+        </div>
+        <div className="flex gap-3">
+          <button type="button" className="px-6 py-2.5 border border-primary-container text-primary-container font-semibold rounded-lg hover:bg-slate-50 transition-all flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm">file_download</span>
+            Export CSV
+          </button>
+          <button type="button" className="px-6 py-2.5 bg-primary-container text-white font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 transition-all flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm">add</span>
+            Manual Entry
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="glass-card rounded-xl p-6">
+          <p className="text-xs font-bold uppercase tracking-widest text-secondary">Pending</p>
+          <p className="text-3xl font-extrabold font-headline mt-1">{stats.pending}</p>
+        </div>
+        <div className="glass-card rounded-xl p-6">
+          <p className="text-xs font-bold uppercase tracking-widest text-on-tertiary-container">Approved</p>
+          <p className="text-3xl font-extrabold font-headline mt-1">{stats.approved}</p>
+        </div>
+        <div className="glass-card rounded-xl p-6">
+          <p className="text-xs font-bold uppercase tracking-widest text-error">Rejected</p>
+          <p className="text-3xl font-extrabold font-headline mt-1">{stats.rejected}</p>
+        </div>
+        <div className="glass-card rounded-xl p-6">
+          <p className="text-xs font-bold uppercase tracking-widest text-tertiary-fixed-dim">Total Hours</p>
+          <p className="text-3xl font-extrabold font-headline mt-1">
+            {(Number.isFinite(stats.totalHours) ? stats.totalHours : 0).toFixed(1)}
+          </p>
+        </div>
+      </div>
+
+      <section className="glass-card rounded-xl overflow-hidden">
+        <div className="px-8 py-5 flex items-center justify-between bg-surface-container-low/50">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-400 uppercase">View:</span>
+              <span className="text-sm font-semibold">All periods</span>
+            </div>
+            <div className="h-4 w-[1px] bg-slate-300"></div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-400 uppercase">Status:</span>
+            </div>
+            <select className="bg-transparent border-none text-sm font-semibold focus:ring-0 cursor-pointer" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <option>All</option>
+              <option>Pending</option>
+              <option>Approved</option>
+              <option>Rejected</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2 text-slate-500">
+            <span className="material-symbols-outlined">filter_list</span>
+            <span className="text-xs font-bold">More Filters</span>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-white border-b border-slate-100">
+              <tr>
+                <th className="px-8 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Employee</th>
+                <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Date</th>
+                <th className="px-4 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">M</th>
+                <th className="px-4 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">T</th>
+                <th className="px-4 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">W</th>
+                <th className="px-4 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">T</th>
+                <th className="px-4 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">F</th>
+                <th className="px-4 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">ST</th>
+                <th className="px-4 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">S</th>
+                <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Total</th>
+                <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Status</th>
+                <th className="px-8 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {visibleRows.map((row) => (
+                <tr key={row.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-8 py-5">
+                    <div>
+                      <p className="text-sm font-bold text-primary">{row.employeeName}</p>
+                      <p className="text-[11px] text-slate-400">{row.employeeRole}</p>
+                    </div>
+                  </td>
+                  <td className="px-6 py-5 text-sm font-semibold text-primary">{row.dateLabel}</td>
+                  <td className="px-4 py-5 text-center text-sm font-medium">{formatHourCell(row.weekData.mon)}</td>
+                  <td className="px-4 py-5 text-center text-sm font-medium">{formatHourCell(row.weekData.tue)}</td>
+                  <td className="px-4 py-5 text-center text-sm font-medium">{formatHourCell(row.weekData.wed)}</td>
+                  <td className="px-4 py-5 text-center text-sm font-medium">{formatHourCell(row.weekData.thu)}</td>
+                  <td className="px-4 py-5 text-center text-sm font-medium">{formatHourCell(row.weekData.fri)}</td>
+                  <td className="px-4 py-5 text-center text-sm font-medium">{formatHourCell(row.weekData.sat)}</td>
+                  <td className="px-4 py-5 text-center text-sm font-medium">{formatHourCell(row.weekData.sun)}</td>
+                  <td className="px-6 py-5 text-sm font-extrabold text-primary">{(Number.isFinite(row.hours) ? row.hours : 0).toFixed(1)}</td>
+                  <td className="px-6 py-5">
+                    <span className={row.status === "Approved" ? "inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 uppercase tracking-tight" : row.status === "Rejected" ? "inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-[10px] font-extrabold bg-error-container text-error uppercase tracking-tight" : "inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 uppercase tracking-tight"}>
+                      {row.status}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5 text-right">
+                    {row.status === "Rejected" ? (
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 text-[10px] font-bold text-secondary uppercase hover:bg-secondary/10 rounded transition-all"
+                        onClick={() => setActiveNote(row.rejectionNote || "No notes available.")}
+                      >
+                        View Notes
+                      </button>
+                    ) : row.status === "Approved" ? (
+                      <span className="text-[10px] text-slate-400">—</span>
+                    ) : row.status === "Pending" && (canApprove || canReject) ? (
+                      <div className="inline-flex gap-2">
+                        {canReject && (
+                          <button type="button" className="w-8 h-8 flex items-center justify-center rounded-lg border border-error-container text-error hover:bg-error-container/20 transition-all" onClick={() => openReject(row.id)} title="Reject">
+                            <span className="material-symbols-outlined text-lg">close</span>
+                          </button>
+                        )}
+                        {canApprove && (
+                          <button type="button" className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary-container text-tertiary-fixed hover:shadow-md transition-all" onClick={() => openApprove(row.id)} title="Approve">
+                            <span className="material-symbols-outlined text-lg">check</span>
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-slate-400">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {visibleRows.length === 0 && (
+                <tr>
+                  <td className="px-8 py-8 text-sm text-slate-500" colSpan={12}>
+                    No assigned employee timesheets found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </>
+  );
+
   return (
     <>
       {!embedded && (
@@ -248,6 +398,9 @@ export default function AdminPanelTimesheets({ embedded = false }) {
           </div>
         </div>
       </header>
+      <main className="relative z-0 ml-64 min-h-screen bg-surface pb-12 pt-24 px-12 text-on-surface">
+        {pageBody}
+      </main>
         </div>
       )}
 
@@ -269,152 +422,11 @@ export default function AdminPanelTimesheets({ embedded = false }) {
         </div>
       )}
 
-      <main className={embedded ? "w-full pb-8 px-1 md:px-4" : "ml-64 pt-24 pb-12 px-12 min-h-screen"}>
-        <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div className="space-y-1">
-            <h2 className="text-4xl font-extrabold text-primary tracking-tight font-headline">Timesheet Management</h2>
-            <p className="text-on-surface-variant">Review and manage weekly employee hours and billing status.</p>
-          </div>
-          <div className="flex gap-3">
-            <button type="button" className="px-6 py-2.5 border border-primary-container text-primary-container font-semibold rounded-lg hover:bg-slate-50 transition-all flex items-center gap-2">
-              <span className="material-symbols-outlined text-sm">file_download</span>
-              Export CSV
-            </button>
-            <button type="button" className="px-6 py-2.5 bg-primary-container text-white font-semibold rounded-lg shadow-sm hover:-translate-y-0.5 transition-all flex items-center gap-2">
-              <span className="material-symbols-outlined text-sm">add</span>
-              Manual Entry
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="glass-card rounded-xl p-6">
-            <p className="text-xs font-bold uppercase tracking-widest text-secondary">Pending</p>
-            <p className="text-3xl font-extrabold font-headline mt-1">{stats.pending}</p>
-          </div>
-          <div className="glass-card rounded-xl p-6">
-            <p className="text-xs font-bold uppercase tracking-widest text-on-tertiary-container">Approved</p>
-            <p className="text-3xl font-extrabold font-headline mt-1">{stats.approved}</p>
-          </div>
-          <div className="glass-card rounded-xl p-6">
-            <p className="text-xs font-bold uppercase tracking-widest text-error">Rejected</p>
-            <p className="text-3xl font-extrabold font-headline mt-1">{stats.rejected}</p>
-          </div>
-          <div className="glass-card rounded-xl p-6">
-            <p className="text-xs font-bold uppercase tracking-widest text-tertiary-fixed-dim">Total Hours</p>
-            <p className="text-3xl font-extrabold font-headline mt-1">
-              {(Number.isFinite(stats.totalHours) ? stats.totalHours : 0).toFixed(1)}
-            </p>
-          </div>
-        </div>
-
-        <section className="glass-card rounded-xl overflow-hidden">
-          <div className="px-8 py-5 flex items-center justify-between bg-surface-container-low/50">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-400 uppercase">View:</span>
-                <span className="text-sm font-semibold">All periods</span>
-              </div>
-              <div className="h-4 w-[1px] bg-slate-300"></div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-400 uppercase">Status:</span>
-              </div>
-              <select className="bg-transparent border-none text-sm font-semibold focus:ring-0 cursor-pointer" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                <option>All</option>
-                <option>Pending</option>
-                <option>Approved</option>
-                <option>Rejected</option>
-              </select>
-            </div>
-            <div className="flex items-center gap-2 text-slate-500">
-              <span className="material-symbols-outlined">filter_list</span>
-              <span className="text-xs font-bold">More Filters</span>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-white border-b border-slate-100">
-                <tr>
-                  <th className="px-8 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Employee</th>
-                  <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Date</th>
-                  <th className="px-4 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">M</th>
-                  <th className="px-4 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">T</th>
-                  <th className="px-4 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">W</th>
-                  <th className="px-4 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">T</th>
-                  <th className="px-4 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">F</th>
-                  <th className="px-4 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">ST</th>
-                  <th className="px-4 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-center">S</th>
-                  <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Total</th>
-                  <th className="px-6 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Status</th>
-                  <th className="px-8 py-4 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {visibleRows.map((row) => (
-                  <tr key={row.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-8 py-5">
-                      <div>
-                        <p className="text-sm font-bold text-primary">{row.employeeName}</p>
-                        <p className="text-[11px] text-slate-400">{row.employeeRole}</p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 text-sm font-semibold text-primary">{row.dateLabel}</td>
-                    <td className="px-4 py-5 text-center text-sm font-medium">{formatHourCell(row.weekData.mon)}</td>
-                    <td className="px-4 py-5 text-center text-sm font-medium">{formatHourCell(row.weekData.tue)}</td>
-                    <td className="px-4 py-5 text-center text-sm font-medium">{formatHourCell(row.weekData.wed)}</td>
-                    <td className="px-4 py-5 text-center text-sm font-medium">{formatHourCell(row.weekData.thu)}</td>
-                    <td className="px-4 py-5 text-center text-sm font-medium">{formatHourCell(row.weekData.fri)}</td>
-                    <td className="px-4 py-5 text-center text-sm font-medium">{formatHourCell(row.weekData.sat)}</td>
-                    <td className="px-4 py-5 text-center text-sm font-medium">{formatHourCell(row.weekData.sun)}</td>
-                    <td className="px-6 py-5 text-sm font-extrabold text-primary">{row.hours.toFixed(1)}</td>
-                    <td className="px-6 py-5">
-                      <span className={row.status === "Approved" ? "inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 uppercase tracking-tight" : row.status === "Rejected" ? "inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-[10px] font-extrabold bg-error-container text-error uppercase tracking-tight" : "inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 uppercase tracking-tight"}>
-                        {row.status}
-                      </span>
-                    </td>
-                    <td className="px-8 py-5 text-right">
-                      {row.status === "Rejected" ? (
-                        <button
-                          type="button"
-                          className="px-3 py-1.5 text-[10px] font-bold text-secondary uppercase hover:bg-secondary/10 rounded transition-all"
-                          onClick={() => setActiveNote(row.rejectionNote || "No notes available.")}
-                        >
-                          View Notes
-                        </button>
-                      ) : row.status === "Approved" ? (
-                        <span className="text-[10px] text-slate-400">—</span>
-                      ) : row.status === "Pending" && (canApprove || canReject) ? (
-                        <div className="inline-flex gap-2">
-                          {canReject && (
-                            <button type="button" className="w-8 h-8 flex items-center justify-center rounded-lg border border-error-container text-error hover:bg-error-container/20 transition-all" onClick={() => openReject(row.id)} title="Reject">
-                              <span className="material-symbols-outlined text-lg">close</span>
-                            </button>
-                          )}
-                          {canApprove && (
-                            <button type="button" className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary-container text-tertiary-fixed hover:shadow-md transition-all" onClick={() => openApprove(row.id)} title="Approve">
-                              <span className="material-symbols-outlined text-lg">check</span>
-                            </button>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-[10px] text-slate-400">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {visibleRows.length === 0 && (
-                  <tr>
-                    <td className="px-8 py-8 text-sm text-slate-500" colSpan={12}>
-                      No assigned employee timesheets found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </main>
+      {embedded && (
+        <main className="w-full bg-surface pb-8 px-1 text-on-surface md:px-4" role="main">
+          {pageBody}
+        </main>
+      )}
 
       {approvingRowId && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/20 backdrop-blur-md p-4">

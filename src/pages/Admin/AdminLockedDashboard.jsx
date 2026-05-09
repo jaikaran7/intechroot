@@ -24,7 +24,7 @@ export default function AdminLockedDashboard() {
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
     refetchInterval: 15_000,
-    enabled: role === "ADMIN",
+    enabled: role === "ADMIN" || role === "admin" || role === "hr_admin",
   });
 
   const dashboard = dashboardQuery.data;
