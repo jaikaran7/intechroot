@@ -1,0 +1,888 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { documentsService } from "../../services/documents.service";
+import { employeesService } from "../../services/employees.service";
+import { REQUIRED_DOCUMENT_ROWS } from "../../constants/requiredDocumentTemplates";
+import AdminDocumentPreviewModal from "../admin/AdminDocumentPreviewModal";
+import PageSkeleton from "../PageSkeleton";
+import { uploadStatusBadge, onboardingVerificationBadge } from "../shared/requiredDocumentBadges";
+import {
+  documentIconWrapClass,
+  formatDocumentSubtitle,
+} from "../../utils/applicantDocumentRows";
+import {
+  getRowUploadStatusKey,
+  hasUploadedFile,
+  resolveDocVerificationDisplay,
+} from "../../utils/onboardingDocumentRules";
+
+const MIN_ACTION_MS = 600;
+
+function formatDateCell(iso) {
+  if (!iso) return { text: "—", italic: true };
+  const day = String(iso).slice(0, 10);
+  const d = new Date(`${day}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return { text: day, italic: false };
+  return {
+    text: d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+    italic: false,
+  };
+}
+
+/** YYYY-MM-DD from draft or saved document — required before employee upload/replace. */
+function effectiveExpiryForRow(rowKey, stored, expiryDraft) {
+  const raw = (expiryDraft[rowKey] || stored?.expiryDate || "").trim();
+  return raw.slice(0, 10);
+}
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isPastExpiryDate(value) {
+  if (!value) return false;
+  return String(value).slice(0, 10) < todayISO();
+}
+
+/**
+ * @param {{ employeeId: string | null; layoutVariant?: "portal" | "embedded"; showAuxSections?: boolean; missingIdMessage?: string }} props
+ */
+export function EmployeeDocumentsWorkspace({
+  employeeId,
+  layoutVariant = "portal",
+  showAuxSections,
+  missingIdMessage,
+}) {
+  const showBottomExtras = showAuxSections ?? layoutVariant === "portal";
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef(null);
+  const pendingExpiryConfirmRef = useRef(null);
+  const actionTimersRef = useRef([]);
+
+  const {
+    data: employee = null,
+    isLoading: employeeLoading,
+    isError: employeeError,
+    refetch: refetchEmployee,
+  } = useQuery({
+    queryKey: ["employee", employeeId],
+    queryFn: () => employeesService.getById(employeeId),
+    staleTime: 60_000,
+    enabled: !!employeeId,
+  });
+
+  const {
+    data: docs = [],
+    isLoading: docsLoading,
+    isError: docsError,
+    refetch: refetchDocs,
+  } = useQuery({
+    queryKey: ['documents', employeeId],
+    queryFn: () => documentsService.getByOwner(employeeId, 'employee'),
+    staleTime: 60_000,
+    enabled: !!employeeId,
+  });
+
+  const [pendingUploadKey, setPendingUploadKey] = useState(null);
+  const [rowErrors, setRowErrors] = useState({});
+  const [previewingId, setPreviewingId] = useState(null);
+  const [documentPreview, setDocumentPreview] = useState(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All Statuses");
+  const [expiryDraft, setExpiryDraft] = useState({});
+  const [addDocModalOpen, setAddDocModalOpen] = useState(false);
+  const [addDocNameDraft, setAddDocNameDraft] = useState("");
+  const [addDocModalError, setAddDocModalError] = useState("");
+  const [expiryConfirm, setExpiryConfirm] = useState(null);
+  const [rowActionStates, setRowActionStates] = useState({});
+
+  useEffect(() => {
+    return () => {
+      actionTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, []);
+
+  function queueActionTimer(callback, delay) {
+    const timer = window.setTimeout(callback, delay);
+    actionTimersRef.current.push(timer);
+  }
+
+  function startRowAction(key, phase, message, extra = {}) {
+    setRowActionStates((prev) => ({
+      ...prev,
+      [key]: { phase, message, startedAt: Date.now(), ...extra },
+    }));
+  }
+
+  function updateRowAction(key, phase, message) {
+    setRowActionStates((prev) => {
+      const current = prev[key];
+      if (!current) return prev;
+      return { ...prev, [key]: { ...current, phase, message } };
+    });
+  }
+
+  function finishRowAction(key, phase, message) {
+    setRowActionStates((prev) => {
+      const current = prev[key];
+      if (!current) return prev;
+      return { ...prev, [key]: { ...current, phase, message } };
+    });
+    queueActionTimer(() => {
+      setRowActionStates((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }, MIN_ACTION_MS);
+  }
+
+  function removeRowAction(key) {
+    setRowActionStates((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
+
+  const upsertMutation = useMutation({
+    mutationFn: (formData) => documentsService.upsert(formData),
+    onMutate: async (formData) => {
+      const templateKey = formData.get("templateKey");
+      if (!templateKey) return {};
+      await queryClient.cancelQueries({ queryKey: ['documents', employeeId] });
+      const previousDocs = queryClient.getQueryData(['documents', employeeId]);
+      const file = formData.get("file");
+      const name = formData.get("name");
+      const expiryDate = formData.get("expiryDate");
+      startRowAction(templateKey, "uploading", "Uploading document…", { fileName: file?.name });
+      queueActionTimer(() => updateRowAction(templateKey, "processing", "Processing upload…"), 250);
+      queryClient.setQueryData(['documents', employeeId], (old = []) => [
+        ...old.filter((doc) => doc.templateKey !== templateKey),
+        {
+          id: `optimistic-${templateKey}`,
+          employeeId,
+          templateKey,
+          name,
+          fileName: file?.name || "Document",
+          fileUrl: "",
+          storagePath: "",
+          expiryDate,
+          status: "uploaded",
+          verification: "unapproved",
+          uploadedAt: new Date().toISOString(),
+        },
+      ]);
+      return { previousDocs, templateKey };
+    },
+    onSuccess: (doc, _formData, context) => {
+      const templateKey = context?.templateKey || doc?.templateKey;
+      if (templateKey) {
+        updateRowAction(templateKey, "processing", "Finalizing document…");
+        queryClient.setQueryData(['documents', employeeId], (old = []) => [
+          ...old.filter((item) => item.templateKey !== templateKey),
+          doc,
+        ]);
+        finishRowAction(templateKey, "uploaded", "Upload complete");
+      }
+      queryClient.invalidateQueries({ queryKey: ['documents', employeeId] });
+    },
+    onError: (err, formData, context) => {
+      const templateKey = formData.get("templateKey");
+      if (!templateKey) return;
+      if (context?.previousDocs) {
+        queryClient.setQueryData(['documents', employeeId], context.previousDocs);
+      }
+      removeRowAction(templateKey);
+      setRowErrors((prev) => ({
+        ...prev,
+        [templateKey]: err?.response?.data?.error?.message || "Upload failed. Please try again.",
+      }));
+    }
+  });
+
+  const clearDocumentMutation = useMutation({
+    mutationFn: ({ id }) => documentsService.delete(id),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['documents', employeeId] });
+      setRowErrors((prev) => ({
+        ...prev,
+        [vars.templateKey]: "Changing expiry date requires re-uploading the document.",
+      }));
+    },
+    onError: (err, vars) => {
+      setRowErrors((prev) => ({
+        ...prev,
+        [vars.templateKey]: err?.response?.data?.error?.message || "Could not clear this document. Please try again.",
+      }));
+    },
+  });
+
+  const addComplianceDocMutation = useMutation({
+    mutationFn: (name) => employeesService.addExtraDocumentRequest(employeeId, name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employee", employeeId] });
+      queryClient.invalidateQueries({ queryKey: ["documents", employeeId] });
+      setAddDocModalOpen(false);
+      setAddDocNameDraft("");
+      setAddDocModalError("");
+    },
+    onError: (err) => {
+      setAddDocModalError(
+        err?.response?.data?.error?.message || "Could not add the document. Try again or contact HR.",
+      );
+    },
+  });
+
+  const requiredRows = useMemo(() => {
+    const baseRequired = REQUIRED_DOCUMENT_ROWS.filter((row) => row.required);
+    const adminRequested = (employee?.applicationProfile?.adminDocRequests || []).map((request) => ({
+      key: `adminreq_${request.id}`,
+      label: request.name,
+      required: true,
+      status: "not_uploaded",
+      expiry: "",
+      action: "upload",
+      icon: "assignment_add",
+    }));
+    const employeeRequested = (employee?.extraDocumentRequests || []).map((request) => ({
+      key: `empreq_${request.id}`,
+      label: request.name,
+      required: true,
+      status: "not_uploaded",
+      expiry: "",
+      action: "upload",
+      icon: "assignment_add",
+    }));
+    return [...baseRequired, ...adminRequested, ...employeeRequested];
+  }, [employee?.applicationProfile?.adminDocRequests, employee?.extraDocumentRequests]);
+
+  const docsByKey = useMemo(() => {
+    const map = new Map();
+    for (const d of docs) {
+      if (d?.templateKey) map.set(d.templateKey, d);
+    }
+    return map;
+  }, [docs]);
+
+  function handleUploadClick(templateKey) {
+    const stored = docsByKey.get(templateKey);
+    const expiry = effectiveExpiryForRow(templateKey, stored, expiryDraft);
+    if (resolveDocVerificationDisplay(stored) === "verified") {
+      setRowErrors((prev) => ({
+        ...prev,
+        [templateKey]: "Document approved. Changes are not allowed",
+      }));
+      return;
+    }
+    if (!expiry) {
+      setRowErrors((prev) => ({
+        ...prev,
+        [templateKey]: "Select an expiry date before uploading or replacing a file.",
+      }));
+      return;
+    }
+    if (isPastExpiryDate(expiry)) {
+      setRowErrors((prev) => ({
+        ...prev,
+        [templateKey]: "Expiry date must be in the future",
+      }));
+      return;
+    }
+    setPendingUploadKey(templateKey);
+    setRowErrors((prev) => ({ ...prev, [templateKey]: "" }));
+    fileInputRef.current?.click();
+  }
+
+  function handleExpiryChange(row, stored, nextValue) {
+    const templateKey = row.key;
+    const previousValue = effectiveExpiryForRow(templateKey, stored, expiryDraft);
+    const approved = resolveDocVerificationDisplay(stored) === "verified";
+    pendingExpiryConfirmRef.current = null;
+    if (approved) {
+      setRowErrors((prev) => ({
+        ...prev,
+        [templateKey]: "Document approved. Changes are not allowed",
+      }));
+      return;
+    }
+    if (isPastExpiryDate(nextValue)) {
+      setRowErrors((prev) => ({
+        ...prev,
+        [templateKey]: "Expiry date must be in the future",
+      }));
+      setExpiryDraft((prev) => ({ ...prev, [templateKey]: previousValue }));
+      return;
+    }
+    if (hasUploadedFile(stored) && nextValue !== previousValue) {
+      pendingExpiryConfirmRef.current = {
+        key: templateKey,
+        documentId: stored.id,
+        previousValue,
+        nextValue,
+        label: row.label,
+      };
+      return;
+    }
+    setExpiryDraft((prev) => ({ ...prev, [templateKey]: nextValue }));
+    setRowErrors((prev) => ({ ...prev, [templateKey]: "" }));
+  }
+
+  function openPendingExpiryConfirm(templateKey) {
+    const pending = pendingExpiryConfirmRef.current;
+    if (!pending || pending.key !== templateKey) return;
+    pendingExpiryConfirmRef.current = null;
+    setExpiryConfirm(pending);
+  }
+
+  function onFileSelected(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    const templateKey = pendingUploadKey;
+    setPendingUploadKey(null);
+    if (!file || !templateKey || !employeeId) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      setRowErrors((prev) => ({ ...prev, [templateKey]: "File must be 10MB or smaller." }));
+      return;
+    }
+
+    const stored = docsByKey.get(templateKey);
+    const expiry = effectiveExpiryForRow(templateKey, stored, expiryDraft);
+    if (!expiry) {
+      setRowErrors((prev) => ({
+        ...prev,
+        [templateKey]: "Expiry date is required. Choose a date and try again.",
+      }));
+      return;
+    }
+    if (isPastExpiryDate(expiry)) {
+      setRowErrors((prev) => ({
+        ...prev,
+        [templateKey]: "Expiry date must be in the future",
+      }));
+      return;
+    }
+
+    const row = requiredRows.find((r) => r.key === templateKey);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("employeeId", employeeId);
+    fd.append("templateKey", templateKey);
+    fd.append("name", row?.label || templateKey);
+    fd.append("expiryDate", expiry);
+    upsertMutation.mutate(fd);
+  }
+
+  async function handlePreview(stored, row) {
+    const docId = stored?.id;
+    if (!docId) return;
+    setPreviewingId(docId);
+    try {
+      const data = await documentsService.getDownloadUrl(docId);
+      if (data?.signedUrl) {
+        setDocumentPreview({
+          url: data.signedUrl,
+          title: stored?.fileName || row?.label || "Document preview",
+          downloadFileName: stored?.fileName || "document.pdf",
+        });
+      }
+    } finally {
+      setPreviewingId(null);
+    }
+  }
+
+  const filtered = useMemo(() => {
+    return requiredRows.filter((row) => {
+      const stored = docsByKey.get(row.key);
+      const expiryValue = (expiryDraft[row.key] || stored?.expiryDate || "").slice(0, 10);
+      const uploadStatus = getRowUploadStatusKey(stored, row, expiryValue);
+      const statusLabel =
+        uploadStatus === "expired"
+          ? "EXPIRED"
+          : uploadStatus === "expiring_soon"
+            ? "EXPIRING SOON"
+            : uploadStatus === "uploaded"
+              ? "UPLOADED"
+              : "NOT UPLOADED";
+      const q = search.trim().toLowerCase();
+      if (q && !(row.label || "").toLowerCase().includes(q)) return false;
+      if (statusFilter !== "All Statuses" && statusLabel !== statusFilter) return false;
+      return true;
+    });
+  }, [requiredRows, docsByKey, expiryDraft, search, statusFilter]);
+
+  const uploadedRequiredCount = useMemo(
+    () => requiredRows.filter((row) => hasUploadedFile(docsByKey.get(row.key))).length,
+    [requiredRows, docsByKey],
+  );
+
+  if (!employeeId) {
+    const msg =
+      missingIdMessage ||
+      (layoutVariant === "embedded"
+        ? "Complete the previous steps to attach documents to this employee."
+        : "Sign in to manage documents.");
+    return (
+      <div
+        className={
+          layoutVariant === "portal"
+            ? "ml-64 pt-24 pb-12 px-8 min-h-screen bg-surface font-body"
+            : "rounded-lg border border-outline-variant/20 bg-surface-container-low/40 p-8 text-center"
+        }
+      >
+        <p className="text-slate-600">{msg}</p>
+      </div>
+    );
+  }
+
+  if (employeeLoading || docsLoading) {
+    return (
+      <div
+        className={
+          layoutVariant === "portal"
+            ? "ml-64 pt-24 pb-12 px-8 min-h-screen bg-surface font-body"
+            : "min-h-[240px] py-8"
+        }
+      >
+        <PageSkeleton rows={12} />
+      </div>
+    );
+  }
+
+  if (employeeError || docsError) {
+    return (
+      <div
+        className={
+          layoutVariant === "portal"
+            ? "ml-64 pt-24 pb-12 px-8 min-h-screen bg-surface font-body"
+            : "rounded-lg border border-outline-variant/20 p-8"
+        }
+      >
+        <p className="text-on-surface-variant mb-4">Could not load documents.</p>
+        <button
+          type="button"
+          onClick={() => {
+            void refetchEmployee();
+            void refetchDocs();
+          }}
+          className="rounded-lg bg-primary-container px-5 py-2.5 text-xs font-bold text-white"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const outerClass =
+    layoutVariant === "portal"
+      ? "ml-64 min-h-screen flex flex-col bg-surface text-on-surface"
+      : "w-full min-h-0 flex flex-col bg-surface text-on-surface";
+
+  return (
+    <div className={outerClass}>
+      <div className={layoutVariant === "portal" ? "mt-16 p-8 flex-1" : "p-0 flex-1"}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,.pdf,.doc,.docx"
+          className="hidden"
+          onChange={onFileSelected}
+        />
+
+        <div className="mb-10 flex justify-between items-end flex-wrap gap-4">
+          <div>
+            {layoutVariant === "embedded" ? (
+              <>
+                <h2 className="text-2xl font-extrabold text-primary-container tracking-tight mb-2 font-headline">
+                  Documents
+                </h2>
+                <p className="text-on-surface-variant max-w-lg text-sm font-body">
+                  Upload required compliance documents. An <strong className="text-primary">expiry date</strong> is required
+                  before each upload or replacement.
+                </p>
+              </>
+            ) : (
+              <>
+                <h1 className="text-4xl font-extrabold text-primary-container tracking-tight mb-2 font-headline">
+                  Employee Documents
+                </h1>
+                <p className="text-on-surface-variant max-w-md font-body">
+                  Upload required compliance documents. An <strong className="text-primary">expiry date</strong> is required
+                  for every upload or replacement. Use <strong className="text-primary">Add document</strong> to add a new row
+                  with a name you choose (no application link required).
+                </p>
+              </>
+            )}
+          </div>
+          <button
+            type="button"
+            className="bg-primary-container text-on-primary px-6 py-3 rounded flex items-center gap-2 hover:translate-y-[-2px] transition-all shadow-lg shadow-primary-container/20 border-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!employeeId || addComplianceDocMutation.isPending}
+            title="Add a new document row with a name you choose"
+            onClick={() => {
+              setAddDocNameDraft("");
+              setAddDocModalError("");
+              setAddDocModalOpen(true);
+            }}
+          >
+            <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
+              add
+            </span>
+            <span className="font-bold text-sm">Add document</span>
+          </button>
+        </div>
+
+        <div className="glass-card rounded-xl p-4 mb-8 flex flex-wrap items-center gap-6">
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5 ml-1">
+              Search Documents
+            </label>
+            <div className="relative">
+              <input
+                className="w-full bg-surface-container border-none text-sm px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-tertiary-fixed-dim/20"
+                placeholder="Filter required documents..."
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="w-48">
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5 ml-1">Status</label>
+            <select
+              className="w-full bg-surface-container border-none text-sm px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-tertiary-fixed-dim/20"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option>All Statuses</option>
+              <option>UPLOADED</option>
+              <option>NOT UPLOADED</option>
+              <option>EXPIRING SOON</option>
+              <option>EXPIRED</option>
+            </select>
+          </div>
+          <div className="ml-auto text-right">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Required Uploaded</p>
+            <p className="text-sm font-bold text-primary-container">
+              {uploadedRequiredCount} / {requiredRows.length}
+            </p>
+          </div>
+        </div>
+
+        <div className="glass-card rounded-xl overflow-hidden">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-surface-container-low/50">
+                <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Document Name</th>
+                <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Upload Status</th>
+                <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Upload Date</th>
+                <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                  Expiry Date <span className="text-red-600">*</span>
+                </th>
+                <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500">Verification</th>
+                <th className="px-6 py-5 text-[11px] font-bold uppercase tracking-widest text-slate-500 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-outline-variant/10">
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-10 text-center text-on-surface-variant text-sm">
+                    No required documents match your filters.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((row) => {
+                  const stored = docsByKey.get(row.key);
+                  const expiryValue = (expiryDraft[row.key] || stored?.expiryDate || "").slice(0, 10);
+                  const rowAction = rowActionStates[row.key];
+                  const uploadStatus =
+                    rowAction?.phase === "uploading"
+                      ? "uploading"
+                      : rowAction?.phase === "processing"
+                        ? "processing"
+                        : rowAction?.phase === "uploaded"
+                          ? "uploaded"
+                          : getRowUploadStatusKey(stored, row, expiryValue);
+                  const verificationDisplay = resolveDocVerificationDisplay(stored);
+                  const upload = formatDateCell(stored?.uploadedAt || stored?.uploadDate);
+                  const rowCls = uploadStatus === "expiring_soon"
+                    ? "bg-amber-50/30 hover:bg-amber-50/50 transition-colors"
+                    : "hover:bg-surface-container-low transition-colors";
+                  const hasFile = hasUploadedFile(stored);
+                  const rowError = rowErrors[row.key];
+                  const approved = verificationDisplay === "verified";
+                  const uploadDisabled =
+                    Boolean(rowAction) ||
+                    clearDocumentMutation.isPending ||
+                    approved ||
+                    !expiryValue ||
+                    isPastExpiryDate(expiryValue);
+
+                  return (
+                    <tr className={rowCls} key={row.key}>
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-3">
+                          <div className={documentIconWrapClass(row, uploadStatus)}>
+                            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
+                              {row.icon || "description"}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-bold text-primary-container text-sm">{row.label}</p>
+                            <p className="text-[11px] text-on-surface-variant">
+                              {rowAction?.fileName ? `${rowAction.fileName} • ${rowAction.message}` : formatDocumentSubtitle(stored, row)}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5">{uploadStatusBadge(uploadStatus)}</td>
+                      <td className={`px-6 py-5 text-sm text-on-surface-variant ${upload.italic ? "italic text-slate-400" : ""}`}>{upload.text}</td>
+                      <td className="px-6 py-5">
+                        <input
+                          type="date"
+                          required
+                          min={todayISO()}
+                          aria-label={`Expiry date for ${row.label}`}
+                          value={expiryValue}
+                          disabled={approved}
+                          onChange={(e) => handleExpiryChange(row, stored, e.target.value)}
+                          onBlur={() => openPendingExpiryConfirm(row.key)}
+                          className="max-w-full rounded border border-outline-variant/20 bg-white px-2 py-1.5 text-xs text-primary"
+                        />
+                      </td>
+                      <td className="px-6 py-5 align-middle">
+                        {verificationDisplay == null ? (
+                          <span className="inline-block min-h-[1.5rem] min-w-[1px]" aria-hidden />
+                        ) : (
+                          onboardingVerificationBadge(verificationDisplay, { verifiedText: "Approved" })
+                        )}
+                      </td>
+                      <td className="px-6 py-5 text-right">
+                        <div className="flex flex-col items-end gap-1.5">
+                          <div className="flex justify-end gap-2">
+                            {hasFile ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="px-3 py-1.5 text-[10px] font-bold rounded bg-primary-container text-white hover:bg-primary transition-colors border-none cursor-pointer"
+                                  disabled={previewingId === stored?.id}
+                                  onClick={() => handlePreview(stored, row)}
+                                >
+                                  {previewingId === stored?.id ? "Opening..." : "Preview"}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="px-3 py-1.5 text-[10px] font-bold rounded border border-outline-variant/30 bg-white text-on-surface hover:bg-surface-container-low transition-colors"
+                                  disabled={uploadDisabled}
+                                  onClick={() => handleUploadClick(row.key)}
+                                >
+                                  Replace
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                className="px-3 py-1.5 text-[10px] font-bold rounded bg-primary-container text-white hover:bg-primary transition-colors border-none cursor-pointer"
+                                disabled={uploadDisabled}
+                                onClick={() => handleUploadClick(row.key)}
+                              >
+                                Upload
+                              </button>
+                            )}
+                          </div>
+                          {approved ? (
+                            <p className="text-[10px] font-medium text-on-surface-variant">
+                              Document approved. Changes are not allowed
+                            </p>
+                          ) : null}
+                          {rowAction?.message ? (
+                            <p className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700">
+                              <span className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-700" />
+                              {rowAction.message}
+                            </p>
+                          ) : null}
+                          {rowError ? <p className="text-[10px] font-medium text-error">{rowError}</p> : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+          <div className="p-4 bg-surface-container-low/30 flex justify-between items-center flex-wrap gap-2">
+            <span className="text-xs text-on-surface-variant">
+              Showing {filtered.length === 0 ? 0 : 1}-{filtered.length} of {requiredRows.length} required documents
+            </span>
+            <div className="flex items-center gap-2">
+              <button type="button" className="p-2 text-slate-400 hover:text-primary transition-colors border-none bg-transparent cursor-not-allowed" disabled>
+                <span className="material-symbols-outlined">chevron_left</span>
+              </button>
+              <button type="button" className="px-3 py-1 bg-primary-container text-white text-xs font-bold rounded border-none cursor-pointer">
+                1
+              </button>
+              <button type="button" className="p-2 text-slate-600 hover:text-primary transition-colors border-none bg-transparent cursor-pointer">
+                <span className="material-symbols-outlined">chevron_right</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {showBottomExtras ? (
+          <div className="mt-12 grid grid-cols-12 gap-8">
+            <div className="col-span-12 lg:col-span-8">
+              <div className="glass-card p-6 rounded-xl flex items-center justify-between border-l-4 border-l-[#4cd7f6] flex-wrap gap-4">
+                <div className="flex items-center gap-6">
+                  <div className="w-16 h-16 rounded-full bg-tertiary-fixed/30 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-tertiary-fixed-dim text-3xl">policy</span>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-primary-container font-headline">Compliance Audit Score</h3>
+                    <p className="text-on-surface-variant text-sm font-body">
+                      Your department currently maintains a 98% document accuracy rate.
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-4xl font-black text-primary-container font-headline">98%</span>
+                  <div className="w-32 h-1 bg-surface-container-highest mt-2 overflow-hidden rounded-full">
+                    <div className="bg-tertiary-fixed-dim h-full w-[98%]"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="col-span-12 lg:col-span-4">
+              <div className="bg-primary-container p-6 rounded-xl relative overflow-hidden h-full flex flex-col justify-center">
+                <div className="relative z-10">
+                  <p className="text-[#acedff] text-[10px] font-bold uppercase tracking-[0.2em] mb-2">Next Step</p>
+                  <h3 className="text-white text-lg font-bold leading-tight font-headline">
+                    Run full audit report for Q4 compliance review.
+                  </h3>
+                  <button
+                    type="button"
+                    className="mt-4 text-white text-xs font-bold flex items-center gap-2 group border-none bg-transparent cursor-pointer p-0"
+                  >
+                    Generate Report{" "}
+                    <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                  </button>
+                </div>
+                <span
+                  className="material-symbols-outlined absolute -bottom-4 -right-4 text-white/10 text-[120px] select-none"
+                  style={{ fontVariationSettings: "'FILL' 1" }}
+                >
+                  analytics
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {addDocModalOpen ? (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000615]/20 backdrop-blur-md">
+            <div className="glass-card rounded-xl border border-white/30 p-6 shadow-2xl w-[min(92vw,32rem)]">
+              <h4 className="mb-2 text-lg font-bold text-primary">Add a document</h4>
+              <p className="mb-3 text-xs text-on-surface-variant">
+                Enter the document name. A new row is added to this table so you can choose an expiry date and upload or
+                replace the file like any other requirement.
+              </p>
+              {addDocModalError ? (
+                <p className="mb-3 text-xs font-medium text-red-600" role="alert">
+                  {addDocModalError}
+                </p>
+              ) : null}
+              <input
+                type="text"
+                className="w-full rounded border border-slate-200 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-tertiary-fixed-dim/30"
+                placeholder="e.g. State professional license"
+                value={addDocNameDraft}
+                onChange={(e) => setAddDocNameDraft(e.target.value)}
+                autoFocus
+              />
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-bold"
+                  onClick={() => {
+                    setAddDocModalError("");
+                    setAddDocModalOpen(false);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg bg-primary-container px-4 py-2 text-xs font-bold text-white disabled:opacity-40"
+                  disabled={!addDocNameDraft.trim() || addComplianceDocMutation.isPending}
+                  onClick={() => addComplianceDocMutation.mutate(addDocNameDraft.trim())}
+                >
+                  {addComplianceDocMutation.isPending ? "Adding…" : "Add to table"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {expiryConfirm ? (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#000615]/35 p-4 backdrop-blur-md">
+            <div className="w-full max-w-md rounded-2xl border border-white/30 bg-white p-6 shadow-2xl">
+              <div className="mb-5 flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+                  <span className="material-symbols-outlined">warning</span>
+                </div>
+                <div>
+                  <h4 className="text-lg font-extrabold text-primary">Re-upload required</h4>
+                  <p className="mt-1 text-sm leading-6 text-on-surface-variant">
+                    Changing expiry date requires re-uploading the document
+                    {expiryConfirm.label ? ` for ${expiryConfirm.label}` : ""}.
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-bold text-primary hover:bg-slate-50"
+                  onClick={() => {
+                    setExpiryDraft((prev) => ({ ...prev, [expiryConfirm.key]: expiryConfirm.previousValue }));
+                    setExpiryConfirm(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-secondary"
+                  onClick={() => {
+                    setExpiryDraft((prev) => ({ ...prev, [expiryConfirm.key]: expiryConfirm.nextValue }));
+                    setRowErrors((prev) => ({ ...prev, [expiryConfirm.key]: "" }));
+                    clearDocumentMutation.mutate({ id: expiryConfirm.documentId, templateKey: expiryConfirm.key });
+                    setExpiryConfirm(null);
+                  }}
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <AdminDocumentPreviewModal
+          open={documentPreview != null}
+          onClose={() => setDocumentPreview(null)}
+          url={documentPreview?.url || ""}
+          title={documentPreview?.title || "Document preview"}
+          downloadFileName={documentPreview?.downloadFileName}
+          requireInterestForDownload={false}
+        />
+
+        {showBottomExtras ? (
+          <footer className="mt-auto px-8 py-4 bg-surface-container-low/30 border-t border-outline-variant/10 text-center">
+            <p className="text-[10px] text-slate-400 font-medium tracking-widest uppercase font-body">
+              InTechRoot Enterprise Architecture • Node ID: 882-99-ALPHA
+            </p>
+          </footer>
+        ) : null}
+      </div>
+    </div>
+  );
+}

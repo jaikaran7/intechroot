@@ -4,6 +4,9 @@ export const employeesService = {
   getAll: (params) =>
     api.get('/employees', { params }).then((r) => r.data),
 
+  create: (data) =>
+    api.post('/employees', data).then((r) => r.data.data),
+
   getById: (id) =>
     api.get(`/employees/${id}`).then((r) => r.data.data),
 
