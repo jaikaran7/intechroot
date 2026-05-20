@@ -414,7 +414,7 @@ export default function Dashboard() {
       <span className="text-xs text-slate-500 font-medium">Last sync: {formatRelativeSync(dataUpdatedAt)}</span>
       </div>
       </div>
-      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">© 2026 InTechRoot Enterprise</p>
+      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">© 2026 InTechRoot</p>
       </footer>
       </main>
     </>

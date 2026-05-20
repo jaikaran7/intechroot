@@ -133,3 +133,62 @@
 .inner-glow {
   box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.1);
 }
+
+/* Trusted clients — scroll-driven dual-row strip */
+.trusted-marquee {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 10%,
+    black 90%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 10%,
+    black 90%,
+    transparent 100%
+  );
+}
+
+.trusted-marquee-row + .trusted-marquee-row {
+  margin-top: 2.5rem;
+}
+
+.trusted-marquee-track {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  gap: 0;
+  padding: 0.25rem 0;
+  will-change: transform;
+}
+
+/* Equal slots so top (1→10) and bottom (10→1) stay ½-step out of phase */
+.trusted-marquee-item {
+  flex: 0 0 clamp(9.5rem, 13vw, 14.5rem);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trusted-marquee-track {
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 72rem;
+    margin-inline: auto;
+  }
+
+  .trusted-marquee-row {
+    overflow: visible;
+  }
+
+  .trusted-marquee-row + .trusted-marquee-row {
+    margin-top: 1.5rem;
+  }
+}

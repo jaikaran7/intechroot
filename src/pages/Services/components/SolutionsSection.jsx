@@ -20,9 +20,9 @@ export default function SolutionsSection() {
             <h3 className="text-lg font-headline font-bold mb-3">IT Staffing</h3>
             <p className="text-sm text-on-primary-container leading-relaxed">Elite developers and architects deployed within 48 hours.</p>
           </Card>
-          <Card className="glass-card p-8 rounded-xl bg-primary-container text-white border-none hover:translate-y-[-8px] transition-all duration-300">
+          <Card className="sap-enterprise-card p-8 rounded-xl text-white shadow-[0_40px_40px_rgba(0,6,21,0.12)] hover:translate-y-[-8px] transition-all duration-300">
             <span className="material-symbols-outlined text-3xl text-tertiary-fixed-dim mb-6 block">database</span>
-            <h3 className="text-lg font-headline font-bold mb-3">SAP &amp; Enterprise</h3>
+            <h3 className="text-lg font-headline font-bold mb-3 text-white">SAP &amp; Enterprise</h3>
             <p className="text-sm text-white/70 leading-relaxed">Full-lifecycle implementation and optimization of enterprise ecosystems.</p>
           </Card>
           <Card className="glass-card p-8 rounded-xl hover:translate-y-[-8px] transition-all duration-300">

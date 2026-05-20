@@ -1,11 +1,14 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import CompanyContactBlock from "../../components/CompanyContactBlock";
+import { LEGAL_PATHS } from "../../constants/legalRoutes";
+import { COMPANY_COPYRIGHT, COMPANY_NAME, COMPANY_NAME_LOGO } from "../../constants/companyBrand";
 import "./premiumApplyScreens.css";
 
 export default function AlreadyAppliedPremiumPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const jobTitle = location.state?.jobTitle || location.state?.discipline || "Senior Cloud Architect";
-  const company = location.state?.company || "InTechRoot";
+  const company = location.state?.company || COMPANY_NAME;
   const reference = location.state?.referenceId || "MONO-7729-QX";
   const lastUpdated =
     location.state?.lastUpdatedLabel ||
@@ -16,7 +19,7 @@ export default function AlreadyAppliedPremiumPage() {
       <nav className="fixed top-0 w-full z-50 bg-white/60 backdrop-blur-xl border-b border-slate-200/50">
         <div className="flex justify-between items-center w-full px-8 py-4 max-w-7xl mx-auto">
           <Link to="/" className="text-xl font-extrabold text-[#0A2540] tracking-tighter font-['Plus_Jakarta_Sans',sans-serif]">
-            The Digital Monolith
+            {COMPANY_NAME_LOGO}
           </Link>
           <div className="hidden md:flex items-center gap-8">
             <Link
@@ -121,10 +124,9 @@ export default function AlreadyAppliedPremiumPage() {
             </div>
           </div>
 
-          <div className="mt-10 text-center">
-            <p className="text-xs text-[#425466]/60 font-medium tracking-wide">
-              © 2024 The Azure Meridian. Powered by The Digital Monolith.
-            </p>
+          <div className="mt-10 flex flex-col items-center gap-4 text-center">
+            <CompanyContactBlock className="max-w-md text-[#425466]" linkClassName="hover:text-[#0A2540] transition-colors" />
+            <p className="text-xs text-[#425466]/60 font-medium tracking-wide">{COMPANY_COPYRIGHT}</p>
           </div>
         </div>
       </main>
@@ -138,23 +140,23 @@ export default function AlreadyAppliedPremiumPage() {
       </div>
 
       <footer className="w-full py-12 bg-slate-50 border-t border-slate-200/50">
-        <div className="flex flex-col md:flex-row justify-between items-center w-full px-8 max-w-7xl mx-auto gap-8 text-sm">
-          <div className="text-lg font-extrabold text-[#0A2540] font-['Plus_Jakarta_Sans',sans-serif]">The Digital Monolith</div>
-          <div className="flex gap-8">
-            <Link to="/" className="text-[#425466] hover:text-[#0A2540] transition-colors">
+        <div className="flex flex-col md:flex-row justify-between items-start w-full px-8 max-w-7xl mx-auto gap-10 text-sm">
+          <div className="space-y-4 max-w-sm">
+            <div className="text-lg font-extrabold text-[#0A2540] font-['Plus_Jakarta_Sans',sans-serif]">{COMPANY_NAME_LOGO}</div>
+            <CompanyContactBlock className="text-[#425466]" linkClassName="hover:text-[#0A2540] transition-colors" />
+          </div>
+          <div className="flex flex-wrap gap-8">
+            <Link to={LEGAL_PATHS.privacy} className="text-[#425466] hover:text-[#0A2540] transition-colors">
               Privacy Policy
             </Link>
-            <Link to="/" className="text-[#425466] hover:text-[#0A2540] transition-colors">
+            <Link to={LEGAL_PATHS.terms} className="text-[#425466] hover:text-[#0A2540] transition-colors">
               Terms of Service
             </Link>
-            <Link to="/" className="text-[#425466] hover:text-[#0A2540] transition-colors">
-              Cookie Policy
-            </Link>
-            <Link to="/" className="text-[#425466] hover:text-[#0A2540] transition-colors">
-              Contact
+            <Link to={LEGAL_PATHS.cookies} className="text-[#425466] hover:text-[#0A2540] transition-colors">
+              Cookie Settings
             </Link>
           </div>
-          <div className="text-[#425466]/60">© 2024 The Digital Monolith. All rights reserved.</div>
+          <div className="text-[#425466]/60 md:text-right">{COMPANY_COPYRIGHT}</div>
         </div>
       </footer>
     </div>

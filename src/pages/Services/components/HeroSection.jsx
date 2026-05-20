@@ -1,5 +1,6 @@
 import Button from "../../../components/Form/Button";
 import Card from "../../../components/Card";
+import FeaturedRoleSpotlightCard from "../../../components/FeaturedRoleSpotlightCard";
 
 export default function HeroSection() {
   return (
@@ -16,7 +17,7 @@ export default function HeroSection() {
               <span className="text-xs font-bold text-white uppercase tracking-widest">Global Staffing Hub</span>
             </div>
             <h1 className="text-6xl md:text-7xl font-headline font-extrabold text-white leading-[1.1] tracking-tighter">
-              Empowering Enterprises with <span className="text-tertiary-fixed-dim">InTech Road IT Talent</span>
+              Empowering Enterprises with <span className="text-tertiary-fixed-dim">InTechRoot IT Talent</span>
             </h1>
             <p className="text-xl text-white/70 max-w-xl font-light leading-relaxed">
               We provide pre-vetted technology professionals and end-to-end IT solutions for global businesses scaling at the speed of thought.
@@ -32,25 +33,7 @@ export default function HeroSection() {
           </div>
 
           <div className="lg:col-span-5 relative hidden lg:block">
-            <Card className="glass-card absolute -top-12 -left-8 p-6 rounded-xl w-64 z-20">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 rounded-full bg-surface-container-high overflow-hidden">
-                  <img
-                    className="w-full h-full object-cover"
-                    alt="professional woman developer with glasses smiling confidently in a modern tech office setting"
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuC61zkM6_8aK-6bDcKkPPAo3iWTAOL-gW_iK8X79opT9YtKKNZIrFsKADePE9HIejIgY_9VbGXpbFFRQcmjJm_rp6t0jzk_u93DMP3CxNnhrW0lrc98LidgWtt4gYtk7bzVRuf5V6VnCHkMUDQisBLVL-1o0FwW6HEg_pQ2b7BU9lU8d71ihqYPbLSNZR0AKoYZF16yXkvVoydGa8HxgYALg9gPCAccjrC6NVv3gvE2wc80sjul5wbO6gJukt9JV-JD9NPlLP5-mkzD"
-                  />
-                </div>
-                <div>
-                  <div className="text-sm font-bold">Sarah Chen</div>
-                  <div className="text-[10px] text-on-primary-container uppercase font-bold tracking-tighter">Senior SAP Consultant</div>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <span className="px-2 py-1 rounded-sm bg-tertiary-fixed-dim/20 text-tertiary-fixed-dim text-[10px] font-bold">VETTED</span>
-                <span className="px-2 py-1 rounded-sm bg-secondary/10 text-secondary text-[10px] font-bold">AVAILABLE</span>
-              </div>
-            </Card>
+            <FeaturedRoleSpotlightCard variant="services" />
 
             <Card className="glass-card p-6 rounded-xl w-72 translate-x-12 translate-y-12 z-10">
               <div className="text-xs font-bold text-on-primary-container mb-4 uppercase tracking-widest">Live Activity</div>
@@ -65,7 +48,7 @@ export default function HeroSection() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="material-symbols-outlined text-on-primary-container text-lg">public</span>
-                  <div className="text-xs">New Client: Fortune 500 Retail</div>
+                  <div className="text-xs">New Client: TCS</div>
                 </div>
               </div>
             </Card>

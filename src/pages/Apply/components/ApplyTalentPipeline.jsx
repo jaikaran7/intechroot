@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { applicationsService } from "../../../services/applications.service";
 import { jobsService } from "../../../services/jobs.service";
 import FormSection from "./FormSection";
+import { COMPANY_NAME } from "../../../constants/companyBrand";
 
 const MAX_RESUME_BYTES = 2 * 1024 * 1024;
 
@@ -150,7 +151,7 @@ export default function ApplyTalentPipeline() {
           referenceId: application.referenceId,
           submittedAtLabel,
           jobTitle: form.discipline,
-          company: incoming.company || "InTechRoot",
+          company: incoming.company || COMPANY_NAME,
           applicantId: application.id,
           fromApply: true,
         },
@@ -169,7 +170,7 @@ export default function ApplyTalentPipeline() {
         navigate("/already-applied", {
           state: {
             jobTitle: form.discipline,
-            company: incoming.company || "InTechRoot",
+            company: incoming.company || COMPANY_NAME,
           },
         });
         return;
@@ -227,13 +228,13 @@ export default function ApplyTalentPipeline() {
             <div className="relative z-10 text-white space-y-5 md:space-y-6">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/15 bg-white/5 backdrop-blur-sm">
                 <span className="w-2 h-2 rounded-full bg-tertiary-fixed shrink-0" />
-                <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/90">InTechRoot Talent Pipeline</span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/90">{COMPANY_NAME} Talent Pipeline</span>
               </div>
               <h1 className="font-headline text-3xl sm:text-4xl md:text-[2.35rem] font-extrabold tracking-tighter leading-[1.08] text-white monolith-text">
-                Join the <span className="bg-gradient-to-r from-white via-tertiary-fixed to-secondary bg-clip-text text-transparent">InTechRoot</span> Ecosystem
+                Join the <span className="bg-gradient-to-r from-white via-tertiary-fixed to-secondary bg-clip-text text-transparent">{COMPANY_NAME}</span> Ecosystem
               </h1>
               <p className="text-sm md:text-base text-white/70 font-light leading-relaxed max-w-md">
-                Secure your place in InTechRoot&apos;s global network of elite architects, consultants, and technology strategists.
+                Secure your place in {COMPANY_NAME}&apos;s global network of elite architects, consultants, and technology strategists.
               </p>
             </div>
           </aside>

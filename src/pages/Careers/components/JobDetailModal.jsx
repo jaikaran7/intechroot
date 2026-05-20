@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import Button from "../../../components/Form/Button";
+import { COMPANY_NAME } from "../../../constants/companyBrand";
 import { formatPostedDate, iconForJob } from "../utils/presentJob";
 
 export default function JobDetailModal({ job, open, onClose }) {
@@ -168,7 +169,7 @@ export default function JobDetailModal({ job, open, onClose }) {
                   state: {
                   jobId: job.id,
                   jobTitle: job.title,
-                  company: "InTechRoot",
+                  company: COMPANY_NAME,
                   discipline: job.title,
                   experience: job.experience || "",
                 },

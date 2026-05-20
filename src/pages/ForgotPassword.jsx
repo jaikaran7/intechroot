@@ -1,4 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
+import CompanyContactBlock from "../components/CompanyContactBlock";
+import { COMPANY_COPYRIGHT } from "../constants/companyBrand";
+import { LEGAL_PATHS } from "../constants/legalRoutes";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { authService } from "@/services/auth.service";
@@ -139,15 +142,16 @@ export default function ForgotPassword() {
         </div>
       </div>
 
-      <footer className="z-10 mt-12 text-center">
-        <p className="font-body text-xs tracking-wide text-[#7587a7]">© 2024 InTechRoot. Digital Monolith Architecture.</p>
-        <div className="mt-4 flex justify-center gap-6">
+      <footer className="z-10 mt-12 flex flex-col items-center gap-6 text-center px-8">
+        <CompanyContactBlock className="max-w-md" />
+        <p className="font-body text-xs tracking-wide text-[#7587a7]">{COMPANY_COPYRIGHT}</p>
+        <div className="flex justify-center gap-6">
           <a className="text-xs text-[#7587a7] transition-colors hover:text-tertiary-fixed" href="#">
             Security Standards
           </a>
-          <a className="text-xs text-[#7587a7] transition-colors hover:text-tertiary-fixed" href="#">
+          <Link className="text-xs text-[#7587a7] transition-colors hover:text-tertiary-fixed" to={LEGAL_PATHS.privacy}>
             Privacy Policy
-          </a>
+          </Link>
         </div>
       </footer>
 

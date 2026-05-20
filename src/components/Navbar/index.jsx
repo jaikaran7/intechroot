@@ -1,11 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
+import { COMPANY_NAME_LOGO } from "../../constants/companyBrand";
 
 export default function Navbar() {
   const { pathname } = useLocation();
   const isActive = (path) => pathname === path;
 
   const navLinkClass = (path) =>
-    `font-headline font-bold tracking-[0.2em] text-[10px] uppercase transition-all relative group ${
+    `font-headline font-bold tracking-[0.2em] text-sm uppercase transition-all relative group ${
       isActive(path) ? "text-primary" : "text-on-surface-variant hover:text-primary"
     }`;
 
@@ -17,7 +18,7 @@ export default function Navbar() {
           <span className="w-10 h-10 bg-primary dark:bg-white rounded-xl flex items-center justify-center shadow-lg transform transition-transform hover:rotate-12">
             <span className="text-white dark:text-primary text-base font-black">IR</span>
           </span>
-          <span className="tracking-[0.15em] text-lg">INTECHROOT</span>
+          <span className="tracking-[0.15em] text-lg">{COMPANY_NAME_LOGO}</span>
         </Link>
         <div className="hidden md:flex items-center gap-14">
           <Link className={navLinkClass("/")} to="/">

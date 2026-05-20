@@ -1,3 +1,6 @@
+import TrustedClientsMarquee from "../../../components/TrustedClientsMarquee";
+import { FEATURED_TESTIMONIAL } from "../../../constants/testimonials";
+
 export default function FeaturesSection() {
   return (
     <>
@@ -18,7 +21,7 @@ export default function FeaturesSection() {
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
-            <div className="md:col-span-8 glass-card p-16 rounded-[4rem] relative group overflow-hidden bg-primary-container text-white border-none shadow-[0_60px_100px_rgba(0,6,21,0.25)]">
+            <div className="md:col-span-8 sap-enterprise-card p-16 rounded-[4rem] relative group overflow-hidden text-white shadow-[0_60px_100px_rgba(0,6,21,0.25)]">
               <div className="absolute top-0 right-0 w-80 h-80 bg-tertiary-fixed-dim/15 rounded-full blur-[100px] group-hover:scale-150 transition-transform duration-1000"></div>
               <div className="relative z-10 flex flex-col h-full justify-between gap-16">
                 <div>
@@ -65,41 +68,46 @@ export default function FeaturesSection() {
         <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
         <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
         <div className="max-w-7xl mx-auto px-8 relative">
-          <div className="text-center mb-40">
+          <div className="text-center mb-24 md:mb-32">
             <h2 className="text-6xl md:text-8xl font-headline font-extrabold tracking-tighter mb-10 leading-tight">
               Powering the <br />
               <span className="text-tertiary-fixed-dim">Global Vanguard</span>
             </h2>
             <p className="text-white/40 max-w-2xl mx-auto text-xl font-light">Why industrial titans choose InTechRoot for high-velocity transformation.</p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-16 mb-40 opacity-40 grayscale hover:opacity-100 transition-all duration-1000">
-            <div className="flex items-center justify-center hover:scale-110 transition-transform"><span className="font-black text-3xl tracking-tighter">TECH_CORE</span></div>
-            <div className="flex items-center justify-center hover:scale-110 transition-transform"><span className="font-black text-3xl tracking-tighter">FINANCE_A</span></div>
-            <div className="flex items-center justify-center hover:scale-110 transition-transform"><span className="font-black text-3xl tracking-tighter">RETAIL_PRO</span></div>
-            <div className="flex items-center justify-center hover:scale-110 transition-transform"><span className="font-black text-3xl tracking-tighter">HEALTH_NET</span></div>
-            <div className="flex items-center justify-center hover:scale-110 transition-transform"><span className="font-black text-3xl tracking-tighter">AUTO_GEN</span></div>
-          </div>
+        </div>
+        <TrustedClientsMarquee className="mb-24 md:mb-32" />
+        <div className="max-w-7xl mx-auto px-8 relative">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-px bg-white/5 rounded-[4rem] overflow-hidden glass-card-dark border-white/10 shadow-2xl">
             <div className="p-24 border-r border-white/10 relative group">
               <div className="absolute top-12 left-12">
                 <span className="material-symbols-outlined text-tertiary-fixed-dim text-8xl opacity-10 group-hover:opacity-25 transition-opacity">format_quote</span>
               </div>
               <div className="relative z-10">
-                <p className="text-4xl font-light italic leading-snug mb-16 text-white/90">
-                  "InTechRoot provided a strategic brain-trust that restructured our entire global architecture for the decentralized era."
+                <p className="text-lg md:text-xl font-light italic leading-relaxed mb-10 text-white/90">
+                  &ldquo;{FEATURED_TESTIMONIAL.quote}&rdquo;
                 </p>
-                <div className="flex items-center gap-8">
-                  <div className="w-20 h-20 rounded-3xl bg-white/10 overflow-hidden shadow-xl p-1">
-                    <img
-                      className="w-full h-full object-cover rounded-2xl"
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_LgOhCaTkCs8cq6TGtac_7S7U46X8VOsoLwinvvlmyc6jpcq3G2A53tDIWG_H2St8HM1rggKJ0UgJt4n8lFcgZagovO0HQhz0WxUqif2uzNb-ugpN10fexXWwEKAw-DUGDSNLtyAKILAUQcljlbsMhtd1_Uqk9yOplLwRomh1krvI1OLNyMGo55t5fSJtFNxh0e2sDuaVuagQzrBAnYql4iVQSubQP8oWN0d50moXZo8ztF-nrtFOC-B1XONXWdhs4f0bCocGw_no"
-                      alt=""
-                    />
+                <div className="flex items-center gap-6 mb-8">
+                  <div
+                    className="w-16 h-16 shrink-0 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center"
+                    aria-hidden
+                  >
+                    <span className="material-symbols-outlined text-3xl text-white/30">person</span>
                   </div>
                   <div>
-                    <div className="text-2xl font-bold">Marcus Thorne</div>
-                    <div className="text-[11px] text-tertiary-fixed-dim uppercase tracking-[0.4em] font-black mt-2">CTO, Global Finance Corp</div>
+                    <div className="text-xl font-bold">{FEATURED_TESTIMONIAL.name}</div>
                   </div>
+                </div>
+                <div className="flex gap-0.5 pt-6 border-t border-white/10" aria-label={`${FEATURED_TESTIMONIAL.rating} out of 5 stars`}>
+                  {Array.from({ length: FEATURED_TESTIMONIAL.rating }, (_, i) => (
+                    <span
+                      key={i}
+                      className="material-symbols-outlined text-[#a78bfa] text-xl leading-none"
+                      style={{ fontVariationSettings: "'FILL' 1, 'wght' 400" }}
+                    >
+                      star
+                    </span>
+                  ))}
                 </div>
               </div>
             </div>

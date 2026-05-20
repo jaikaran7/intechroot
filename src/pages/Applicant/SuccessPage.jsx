@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import CompanyContactBlock from "../../components/CompanyContactBlock";
+import { LEGAL_PATHS } from "../../constants/legalRoutes";
+import { COMPANY_COPYRIGHT, COMPANY_NAME, COMPANY_NAME_LOGO } from "../../constants/companyBrand";
 import "./success.css";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../../store/authStore";
@@ -465,7 +468,7 @@ export default function SuccessPage() {
       <nav className="fixed top-0 z-50 w-full border-b border-[#c4c6ce]/15 bg-white/60 shadow-[0_40px_40px_0px_rgba(0,6,21,0.04)] backdrop-blur-xl dark:bg-[#000615]/60">
         <div className="mx-auto flex max-w-[1920px] items-center justify-between px-12 py-4">
           <Link to="/" className="font-headline text-2xl font-black tracking-tighter text-[#000615] dark:text-white">
-            INTECHROOT
+            {COMPANY_NAME_LOGO}
           </Link>
           <div className="flex items-center gap-6">
             <button
@@ -535,7 +538,7 @@ export default function SuccessPage() {
                 <span className="text-secondary">Excellence.</span>
               </h1>
               <p className="max-w-lg text-lg leading-relaxed text-on-surface-variant">
-                Welcome, {fullName}. Your progression through the InTechRoot Architectural Intelligence vetting process is
+                Welcome, {fullName}. Your progression through the {COMPANY_NAME} vetting process is
                 currently in the <span className="font-semibold text-primary">{currentStageName} Phase</span>.
               </p>
             </div>
@@ -873,24 +876,27 @@ export default function SuccessPage() {
       </main>
 
       <footer className="w-full border-t border-[#c4c6ce]/15 bg-[#f7f9fc] px-12 py-12 dark:bg-[#000615]">
-        <div className="mx-auto flex max-w-[1920px] flex-col items-center justify-between gap-8 md:flex-row">
-          <div className="font-['Manrope'] text-lg font-bold text-[#000615] dark:text-white">INTECHROOT</div>
-          <div className="flex gap-8">
-            <Link to="/" className="font-['Inter'] text-xs tracking-wide text-[#7587a7] opacity-80 transition-colors duration-200 hover:text-[#4059aa] hover:opacity-100">
+        <div className="mx-auto flex max-w-[1920px] flex-col items-start justify-between gap-10 lg:flex-row">
+          <div className="space-y-4">
+            <div className="font-['Manrope'] text-lg font-bold text-[#000615] dark:text-white">{COMPANY_NAME_LOGO}</div>
+            <CompanyContactBlock linkClassName="hover:text-[#4059aa] dark:hover:text-[#acedff] transition-colors" />
+          </div>
+          <div className="flex flex-wrap gap-8">
+            <Link to={LEGAL_PATHS.privacy} className="font-['Inter'] text-xs tracking-wide text-[#7587a7] opacity-80 transition-colors duration-200 hover:text-[#4059aa] hover:opacity-100">
               Privacy Policy
             </Link>
-            <Link to="/" className="font-['Inter'] text-xs tracking-wide text-[#7587a7] opacity-80 transition-colors duration-200 hover:text-[#4059aa] hover:opacity-100">
+            <Link to={LEGAL_PATHS.terms} className="font-['Inter'] text-xs tracking-wide text-[#7587a7] opacity-80 transition-colors duration-200 hover:text-[#4059aa] hover:opacity-100">
               Terms of Service
             </Link>
-            <Link to="/" className="font-['Inter'] text-xs tracking-wide text-[#7587a7] opacity-80 transition-colors duration-200 hover:text-[#4059aa] hover:opacity-100">
+            <Link to={LEGAL_PATHS.privacy} className="font-['Inter'] text-xs tracking-wide text-[#7587a7] opacity-80 transition-colors duration-200 hover:text-[#4059aa] hover:opacity-100">
               Global Compliance
             </Link>
-            <Link to="/" className="font-['Inter'] text-xs tracking-wide text-[#7587a7] opacity-80 transition-colors duration-200 hover:text-[#4059aa] hover:opacity-100">
+            <Link to={LEGAL_PATHS.cookies} className="font-['Inter'] text-xs tracking-wide text-[#7587a7] opacity-80 transition-colors duration-200 hover:text-[#4059aa] hover:opacity-100">
               Cookie Settings
             </Link>
           </div>
           <div className="font-['Inter'] text-xs tracking-wide text-[#7587a7] opacity-80">
-            © 2026 InTechRoot Architectural Intelligence. All rights reserved.
+            {COMPANY_COPYRIGHT}
           </div>
         </div>
       </footer>

@@ -11,7 +11,7 @@ export default function StatsSection() {
                 group
               </span>
             </div>
-            <div className="text-4xl font-headline font-black text-primary">500+</div>
+            <div className="text-4xl font-headline font-black text-primary">100+</div>
             <div className="text-sm font-bold text-on-primary-container uppercase tracking-widest mt-2">Consultants</div>
           </Card>
           <Card className="glass-card p-10 rounded-xl group hover:bg-white transition-all duration-500">
@@ -20,7 +20,7 @@ export default function StatsSection() {
                 business
               </span>
             </div>
-            <div className="text-4xl font-headline font-black text-primary">50+</div>
+            <div className="text-4xl font-headline font-black text-primary">5+</div>
             <div className="text-sm font-bold text-on-primary-container uppercase tracking-widest mt-2">Global Clients</div>
           </Card>
           <Card className="glass-card p-10 rounded-xl group hover:bg-white transition-all duration-500">

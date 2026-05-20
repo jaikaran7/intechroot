@@ -1,5 +1,6 @@
-import Button from "../../../components/Form/Button";
+import { Link } from "react-router-dom";
 import Card from "../../../components/Card";
+import FeaturedRoleSpotlightCard from "../../../components/FeaturedRoleSpotlightCard";
 import Typography from "../../../components/Typography";
 
 export default function HeroSection() {
@@ -39,14 +40,20 @@ export default function HeroSection() {
             </Typography>
 
             <div className="flex flex-wrap gap-8 pt-8 reveal-text stagger-4">
-              <Button className="group relative px-12 py-6 overflow-hidden rounded-2xl transition-all duration-500 shadow-[0_30px_60px_rgba(0,0,0,0.4)] hover:shadow-tertiary-fixed-dim/30">
+              <Link
+                to="/careers#apply"
+                className="group relative inline-flex items-center justify-center px-12 py-6 overflow-hidden rounded-2xl transition-all duration-500 shadow-[0_30px_60px_rgba(0,0,0,0.4)] hover:shadow-tertiary-fixed-dim/30"
+              >
                 <div className="absolute inset-0 bg-tertiary-fixed-dim transition-transform group-hover:scale-110"></div>
                 <span className="relative font-headline font-black text-[11px] uppercase tracking-[0.3em] text-primary">Build Your Squad</span>
-              </Button>
-              <Button className="group px-12 py-6 rounded-2xl border border-white/20 text-white font-headline font-black text-[11px] uppercase tracking-[0.3em] backdrop-blur-xl hover:bg-white/10 transition-all flex items-center gap-4">
+              </Link>
+              <Link
+                to="/services"
+                className="group inline-flex items-center justify-center gap-4 px-12 py-6 rounded-2xl border border-white/20 text-white font-headline font-black text-[11px] uppercase tracking-[0.3em] backdrop-blur-xl hover:bg-white/10 transition-all"
+              >
                 Explore Solutions
                 <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>
-              </Button>
+              </Link>
             </div>
           </div>
 
@@ -83,25 +90,7 @@ export default function HeroSection() {
               </div>
             </Card>
 
-            <div className="absolute -top-12 -left-16 z-30 floating-element" style={{ animationDelay: "0s" }}>
-              <Card className="glass-card px-8 py-6 rounded-3xl w-72 border-white/40 shadow-2xl hover:scale-110 transition-transform">
-                <div className="flex items-center gap-5">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-secondary via-secondary to-tertiary-fixed-dim p-[2px] shadow-lg">
-                    <div className="w-full h-full rounded-[14px] overflow-hidden bg-white">
-                      <img
-                        className="w-full h-full object-cover"
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuC61zkM6_8aK-6bDcKkPPAo3iWTAOL-gW_iK8X79opT9YtKKNZIrFsKADePE9HIejIgY_9VbGXpbFFRQcmjJm_rp6t0jzk_u93DMP3CxNnhrW0lrc98LidgWtt4gYtk7bzVRuf5V6VnCHkMUDQisBLVL-1o0FwW6HEg_pQ2b7BU9lU8d71ihqYPbLSNZR0AKoYZF16yXkvVoydGa8HxgYALg9gPCAccjrC6NVv3gvE2wc80sjul5wbO6gJukt9JV-JD9NPlLP5-mkzD"
-                        alt=""
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-black text-primary">Sarah Chen</div>
-                    <div className="text-[10px] text-secondary font-black uppercase tracking-widest mt-1">Lead Cloud Architect</div>
-                  </div>
-                </div>
-              </Card>
-            </div>
+            <FeaturedRoleSpotlightCard variant="home" />
 
             <div className="absolute -bottom-16 -right-16 z-30 floating-element" style={{ animationDelay: "-4s" }}>
               <Card className="glass-card p-8 rounded-[2.5rem] w-80 border-white/40 shadow-2xl">
@@ -113,9 +102,9 @@ export default function HeroSection() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <span className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)] animate-pulse"></span>
-                      <div className="text-[12px] font-bold text-primary">Node Clusters</div>
+                      <div className="text-[12px] font-bold text-primary">Project Delivery</div>
                     </div>
-                    <span className="text-[10px] font-black text-secondary/60">DEPLOYED</span>
+                    <span className="text-[10px] font-black text-secondary/60">LIVE</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">

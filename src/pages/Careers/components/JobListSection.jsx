@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import Button from "../../../components/Form/Button";
 import { useNavigate } from "react-router-dom";
+import { COMPANY_NAME } from "../../../constants/companyBrand";
 import { presentJobForCareersList, presentJobForFeatured } from "../utils/presentJob";
 
 export function FeaturedRolesSection({ jobs = [], onViewDetails }) {
@@ -81,7 +82,7 @@ export function FeaturedRolesSection({ jobs = [], onViewDetails }) {
                         state: {
                         jobId: role.id,
                         jobTitle: role.title,
-                        company: "InTechRoot",
+                        company: COMPANY_NAME,
                         discipline: role.title,
                         experience: role.experience,
                       },
@@ -203,7 +204,7 @@ export default function JobListSection({ jobs = [], searchTerm, setSearchTerm, i
                       state: {
                       jobId: job.id,
                       jobTitle: job.title,
-                      company: "InTechRoot",
+                      company: COMPANY_NAME,
                       discipline: job.title,
                       experience: job.experience || "",
                     },

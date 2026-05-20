@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { authService } from "@/services/auth.service";
+import CompanyContactBlock from "../components/CompanyContactBlock";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -114,6 +115,7 @@ export default function ResetPassword() {
               <span className="material-symbols-outlined text-lg transition-transform group-hover:-translate-x-1">arrow_back</span>
               Back to Login
             </Link>
+            <CompanyContactBlock className="text-center max-w-sm" linkClassName="hover:text-tertiary-fixed-dim transition-colors" />
           </div>
         </div>
       </main>

@@ -3,6 +3,10 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { authService } from "../../services/auth.service";
 import { useAuthStore } from "../../store/authStore";
 import { ADMIN_PANEL_DASHBOARD_PATH } from "../../constants/adminAccess";
+import CompanyContactBlock from "../../components/CompanyContactBlock";
+import { COMPANY_COPYRIGHT, COMPANY_NAME } from "../../constants/companyBrand";
+import { LEGAL_PATHS } from "../../constants/legalRoutes";
+import { COMPANY_CONTACT } from "../../constants/companyContact";
 
 const DEMO_ADMIN_EMAIL = "administrator@intechroot.com";
 const DEMO_ADMIN_PASSWORD = "Administrator@123";
@@ -250,21 +254,28 @@ export default function LoginPage() {
 
       {/* Footer */}
       <footer className="bg-[#eceef1] w-full py-12 mt-auto">
-        <div className="max-w-7xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex flex-col gap-2">
-            <span className="font-headline font-bold text-[#000615] text-lg">InTechRoot</span>
-            <span className="font-body text-sm text-[#7587a7]">© 2024 InTechRoot. All rights reserved.</span>
+        <div className="max-w-7xl mx-auto px-8 flex flex-col md:flex-row justify-between items-start gap-8">
+          <div className="flex flex-col gap-4 max-w-sm">
+            <span className="font-headline font-bold text-[#000615] text-lg">{COMPANY_NAME}</span>
+            <CompanyContactBlock />
+            <span className="font-body text-sm text-[#7587a7]">{COMPANY_COPYRIGHT}</span>
           </div>
           <div className="flex flex-wrap justify-center gap-8">
-            {["Privacy Policy", "Terms of Service", "Security", "Global Support"].map((label) => (
-              <a
-                key={label}
-                href="#"
-                className="font-body text-sm text-[#7587a7] hover:text-[#4cd7f6] transition-colors"
-              >
-                {label}
-              </a>
-            ))}
+            <Link to={LEGAL_PATHS.privacy} className="font-body text-sm text-[#7587a7] hover:text-[#4cd7f6] transition-colors">
+              Privacy Policy
+            </Link>
+            <Link to={LEGAL_PATHS.terms} className="font-body text-sm text-[#7587a7] hover:text-[#4cd7f6] transition-colors">
+              Terms of Service
+            </Link>
+            <Link to={LEGAL_PATHS.cookies} className="font-body text-sm text-[#7587a7] hover:text-[#4cd7f6] transition-colors">
+              Cookie Settings
+            </Link>
+            <a
+              href={`mailto:${COMPANY_CONTACT.email}`}
+              className="font-body text-sm text-[#7587a7] hover:text-[#4cd7f6] transition-colors"
+            >
+              Support
+            </a>
           </div>
         </div>
       </footer>

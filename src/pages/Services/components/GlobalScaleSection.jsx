@@ -5,7 +5,7 @@ export default function GlobalScaleSection({ children }) {
       <div className="max-w-7xl mx-auto px-8 relative">
         <div className="text-center mb-20">
           <h2 className="text-4xl md:text-5xl font-headline font-extrabold tracking-tighter mb-6">Built for the Modern Global Scale</h2>
-          <p className="text-white/60 max-w-2xl mx-auto">Why the world's leading enterprises trust InTech Road with their most critical engineering challenges.</p>
+          <p className="text-white/60 max-w-2xl mx-auto">Why the world's leading enterprises trust InTechRoot with their most critical engineering challenges.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-24">
           <div className="text-center group">

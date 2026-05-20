@@ -40,7 +40,7 @@ export default function AdminLogin() {
       <div className="w-full max-w-md px-8 py-10 rounded-2xl border border-white/10 bg-white/5 backdrop-blur">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-semibold text-white tracking-tight">Admin Portal</h1>
-          <p className="text-sm text-slate-400 mt-1">InTech Root — Internal Access</p>
+          <p className="text-sm text-slate-400 mt-1">InTechRoot — Internal Access</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">

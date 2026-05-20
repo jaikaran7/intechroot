@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
+import { COMPANY_NAME_LOGO } from "../../../constants/companyBrand";
 
 const STEPS = [
   { num: 1, label: "Profile" },
@@ -26,7 +27,7 @@ export default function OnboardingShell({
       <header className="border-b border-outline-variant/10 bg-white/60 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-8 py-5 flex items-center justify-between">
           <Link to="/applicant/dashboard" className="font-headline text-xl font-black tracking-tighter text-primary">
-            INTECHROOT
+            {COMPANY_NAME_LOGO}
           </Link>
           <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-secondary">
             Onboarding Portal

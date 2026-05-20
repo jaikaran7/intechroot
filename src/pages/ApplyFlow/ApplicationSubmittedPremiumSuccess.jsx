@@ -1,4 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
+import CompanyContactBlock from "../../components/CompanyContactBlock";
+import { COMPANY_COPYRIGHT } from "../../constants/companyBrand";
 import "./premiumApplyScreens.css";
 
 export default function ApplicationSubmittedPremiumSuccess() {
@@ -110,10 +112,9 @@ export default function ApplicationSubmittedPremiumSuccess() {
             </div>
           </div>
 
-          <div className="mt-10 text-center">
-            <p className="text-xs text-[#425466]/60 font-medium tracking-wide">
-              © 2024 The Azure Meridian. Powered by The Digital Monolith.
-            </p>
+          <div className="mt-10 flex flex-col items-center gap-4 text-center">
+            <CompanyContactBlock className="max-w-md text-[#425466]" linkClassName="hover:text-[#0A2540] transition-colors" />
+            <p className="text-xs text-[#425466]/60 font-medium tracking-wide">{COMPANY_COPYRIGHT}</p>
           </div>
         </div>
       </main>

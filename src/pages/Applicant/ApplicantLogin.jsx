@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { authService } from "../../services/auth.service";
 import { useAuthStore } from "../../store/authStore";
+import CompanyContactBlock from "../../components/CompanyContactBlock";
+import { COMPANY_NAME_LOGO } from "../../constants/companyBrand";
 
 export default function ApplicantLogin() {
   const navigate = useNavigate();
@@ -55,7 +57,7 @@ export default function ApplicantLogin() {
     <div className="min-h-screen bg-surface px-6 py-24 font-body text-on-surface">
       <div className="mx-auto max-w-md">
         <Link to="/" className="mb-8 inline-block font-headline text-xl font-black text-primary">
-          INTECHROOT
+          {COMPANY_NAME_LOGO}
         </Link>
         <h1 className="mb-2 font-headline text-2xl font-bold text-primary">Applicant portal</h1>
         <p className="mb-6 text-sm text-on-surface-variant">
@@ -112,6 +114,9 @@ export default function ApplicantLogin() {
             Submit a new application
           </Link>
         </p>
+        <div className="mt-10 border-t border-outline-variant/20 pt-8">
+          <CompanyContactBlock className="text-center" linkClassName="hover:text-secondary transition-colors" />
+        </div>
       </div>
     </div>
   );
