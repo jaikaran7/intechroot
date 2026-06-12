@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { authService } from "@/services/auth.service";
-import { COMPANY_NAME_LOGO } from "../../constants/companyBrand";
+import CompanyLogo from "../../components/CompanyLogo";
 
 export default function ApplicantResetPassword() {
   const navigate = useNavigate();
@@ -32,9 +32,7 @@ export default function ApplicantResetPassword() {
   return (
     <div className="min-h-screen bg-surface px-6 py-24 font-body text-on-surface">
       <div className="mx-auto max-w-md">
-        <Link to="/" className="mb-8 inline-block font-headline text-xl font-black text-primary">
-          {COMPANY_NAME_LOGO}
-        </Link>
+        <CompanyLogo markClassName="h-9 w-9 rounded-xl object-cover shadow-md" linkClassName="mb-8 inline-flex items-center gap-3" />
         <h1 className="mb-2 font-headline text-2xl font-bold text-primary">Set a new password</h1>
         <p className="mb-6 text-sm text-on-surface-variant">
           Choose a strong password. This link is valid for 30 minutes.

@@ -4,6 +4,7 @@ import { authService } from "../../services/auth.service";
 import { useAuthStore } from "../../store/authStore";
 import { ADMIN_PANEL_DASHBOARD_PATH } from "../../constants/adminAccess";
 import CompanyContactBlock from "../../components/CompanyContactBlock";
+import CompanyLogo from "../../components/CompanyLogo";
 import { COMPANY_COPYRIGHT, COMPANY_NAME } from "../../constants/companyBrand";
 import { LEGAL_PATHS } from "../../constants/legalRoutes";
 import { COMPANY_CONTACT } from "../../constants/companyContact";
@@ -75,9 +76,7 @@ export default function LoginPage() {
       <header className="fixed top-0 w-full z-50 bg-[#f7f9fc]/60 backdrop-blur-xl shadow-[0_40px_40px_0_rgba(0,6,21,0.04)]">
         <nav className="flex justify-between items-center px-8 h-20 w-full">
           <div className="flex items-center gap-12">
-            <Link to="/" className="text-2xl font-extrabold tracking-tighter text-[#000615] font-headline">
-              InTechRoot
-            </Link>
+            <CompanyLogo markClassName="h-9 w-9 rounded-xl object-cover shadow-md" />
             <div className="hidden md:flex gap-8">
               <Link to="/careers" className="font-headline font-bold tracking-tight text-[#7587a7] hover:opacity-80 transition-opacity">Careers</Link>
               <Link to="/services" className="font-headline font-bold tracking-tight text-[#7587a7] hover:opacity-80 transition-opacity">Solutions</Link>

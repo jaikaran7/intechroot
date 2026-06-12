@@ -107,8 +107,8 @@ export default function CareersPage() {
       <main className="min-h-screen">
         <HeroSection />
         {featuredJobs.length > 0 ? <FeaturedRolesSection jobs={featuredJobs} onViewDetails={setDetailJob} /> : null}
-        <section className="w-full bg-[#eceef1] py-24 md:py-28" aria-label="Open roles">
-          <div className="mx-auto flex max-w-7xl flex-col gap-16 px-8 lg:flex-row">
+        <section className="w-full bg-[#eceef1] py-14 md:py-20 lg:py-28" aria-label="Open roles">
+          <div className="mx-auto flex max-w-7xl flex-col gap-6 md:gap-10 lg:gap-16 px-4 sm:px-8 lg:flex-row">
             <FiltersSection jobs={jobs} filters={filters} setFilters={setFilters} setSearchTerm={setSearchTerm} />
             <JobListSection
               jobs={filteredJobs}

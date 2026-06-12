@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import CompanyContactBlock from "../components/CompanyContactBlock";
+import CompanyLogo from "../components/CompanyLogo";
 import { COMPANY_COPYRIGHT } from "../constants/companyBrand";
 import { LEGAL_PATHS } from "../constants/legalRoutes";
 import { useMutation } from "@tanstack/react-query";
@@ -49,13 +50,13 @@ export default function ForgotPassword() {
       </div>
 
       <div className="z-10 mb-12 flex flex-col items-center">
-        <div className="mb-2 flex items-center gap-2">
-          <span className="material-symbols-outlined text-4xl text-tertiary-fixed" style={{ fontVariationSettings: "'FILL' 1" }}>
-            dataset
-          </span>
-          <h1 className="font-headline text-3xl font-extrabold tracking-tighter text-white">InTechRoot</h1>
-        </div>
-        <div className="h-1 w-12 rounded-full bg-tertiary-fixed opacity-50" />
+        <CompanyLogo
+          to={null}
+          markClassName="h-12 w-12 rounded-xl object-cover shadow-lg"
+          textClassName="tracking-[0.15em] text-2xl font-headline font-black text-white"
+          linkClassName="inline-flex items-center gap-3"
+        />
+        <div className="mt-4 h-1 w-12 rounded-full bg-tertiary-fixed opacity-50" />
       </div>
 
       <div className="glass-panel z-10 w-full max-w-md rounded-xl p-10">

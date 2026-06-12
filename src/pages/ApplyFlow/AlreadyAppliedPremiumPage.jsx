@@ -1,7 +1,8 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import CompanyContactBlock from "../../components/CompanyContactBlock";
 import { LEGAL_PATHS } from "../../constants/legalRoutes";
-import { COMPANY_COPYRIGHT, COMPANY_NAME, COMPANY_NAME_LOGO } from "../../constants/companyBrand";
+import CompanyLogo from "../../components/CompanyLogo";
+import { COMPANY_COPYRIGHT, COMPANY_NAME } from "../../constants/companyBrand";
 import "./premiumApplyScreens.css";
 
 export default function AlreadyAppliedPremiumPage() {
@@ -18,9 +19,7 @@ export default function AlreadyAppliedPremiumPage() {
     <div className="premium-apply-screen bg-[#F6F9FC] font-['Inter',sans-serif] text-[#1A1F23] min-h-screen flex flex-col selection:bg-[#0061FF]/20 overflow-x-hidden">
       <nav className="fixed top-0 w-full z-50 bg-white/60 backdrop-blur-xl border-b border-slate-200/50">
         <div className="flex justify-between items-center w-full px-8 py-4 max-w-7xl mx-auto">
-          <Link to="/" className="text-xl font-extrabold text-[#0A2540] tracking-tighter font-['Plus_Jakarta_Sans',sans-serif]">
-            {COMPANY_NAME_LOGO}
-          </Link>
+          <CompanyLogo markClassName="h-9 w-9 rounded-xl object-cover shadow-md" />
           <div className="hidden md:flex items-center gap-8">
             <Link
               to="/services"
@@ -142,7 +141,7 @@ export default function AlreadyAppliedPremiumPage() {
       <footer className="w-full py-12 bg-slate-50 border-t border-slate-200/50">
         <div className="flex flex-col md:flex-row justify-between items-start w-full px-8 max-w-7xl mx-auto gap-10 text-sm">
           <div className="space-y-4 max-w-sm">
-            <div className="text-lg font-extrabold text-[#0A2540] font-['Plus_Jakarta_Sans',sans-serif]">{COMPANY_NAME_LOGO}</div>
+            <CompanyLogo to={null} markClassName="h-9 w-9 rounded-xl object-cover shadow-md" />
             <CompanyContactBlock className="text-[#425466]" linkClassName="hover:text-[#0A2540] transition-colors" />
           </div>
           <div className="flex flex-wrap gap-8">

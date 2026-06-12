@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { authService } from "../../services/auth.service";
 import { useAuthStore } from "../../store/authStore";
 import CompanyContactBlock from "../../components/CompanyContactBlock";
-import { COMPANY_NAME_LOGO } from "../../constants/companyBrand";
+import CompanyLogo from "../../components/CompanyLogo";
 
 export default function ApplicantLogin() {
   const navigate = useNavigate();
@@ -56,9 +56,7 @@ export default function ApplicantLogin() {
   return (
     <div className="min-h-screen bg-surface px-6 py-24 font-body text-on-surface">
       <div className="mx-auto max-w-md">
-        <Link to="/" className="mb-8 inline-block font-headline text-xl font-black text-primary">
-          {COMPANY_NAME_LOGO}
-        </Link>
+        <CompanyLogo markClassName="h-9 w-9 rounded-xl object-cover shadow-md" linkClassName="mb-8 inline-flex items-center gap-3" />
         <h1 className="mb-2 font-headline text-2xl font-bold text-primary">Applicant portal</h1>
         <p className="mb-6 text-sm text-on-surface-variant">
           After your application is approved, you will receive an email with a temporary password. Use that email and

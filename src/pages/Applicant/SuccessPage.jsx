@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import CompanyContactBlock from "../../components/CompanyContactBlock";
 import { LEGAL_PATHS } from "../../constants/legalRoutes";
-import { COMPANY_COPYRIGHT, COMPANY_NAME, COMPANY_NAME_LOGO } from "../../constants/companyBrand";
+import CompanyLogo from "../../components/CompanyLogo";
+import { COMPANY_COPYRIGHT, COMPANY_NAME } from "../../constants/companyBrand";
 import "./success.css";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../../store/authStore";
@@ -467,9 +468,7 @@ export default function SuccessPage() {
     <div className="success-page bg-surface font-body text-on-surface selection:bg-tertiary-fixed selection:text-on-tertiary-fixed">
       <nav className="fixed top-0 z-50 w-full border-b border-[#c4c6ce]/15 bg-white/60 shadow-[0_40px_40px_0px_rgba(0,6,21,0.04)] backdrop-blur-xl dark:bg-[#000615]/60">
         <div className="mx-auto flex max-w-[1920px] items-center justify-between px-12 py-4">
-          <Link to="/" className="font-headline text-2xl font-black tracking-tighter text-[#000615] dark:text-white">
-            {COMPANY_NAME_LOGO}
-          </Link>
+          <CompanyLogo markClassName="h-9 w-9 rounded-xl object-cover shadow-md" />
           <div className="flex items-center gap-6">
             <button
               type="button"
@@ -878,7 +877,7 @@ export default function SuccessPage() {
       <footer className="w-full border-t border-[#c4c6ce]/15 bg-[#f7f9fc] px-12 py-12 dark:bg-[#000615]">
         <div className="mx-auto flex max-w-[1920px] flex-col items-start justify-between gap-10 lg:flex-row">
           <div className="space-y-4">
-            <div className="font-['Manrope'] text-lg font-bold text-[#000615] dark:text-white">{COMPANY_NAME_LOGO}</div>
+            <CompanyLogo to={null} markClassName="h-9 w-9 rounded-xl object-cover shadow-md" />
             <CompanyContactBlock linkClassName="hover:text-[#4059aa] dark:hover:text-[#acedff] transition-colors" />
           </div>
           <div className="flex flex-wrap gap-8">

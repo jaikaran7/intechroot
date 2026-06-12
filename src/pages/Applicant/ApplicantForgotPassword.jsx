@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { authService } from "@/services/auth.service";
 import CompanyContactBlock from "../../components/CompanyContactBlock";
-import { COMPANY_NAME_LOGO } from "../../constants/companyBrand";
+import CompanyLogo from "../../components/CompanyLogo";
 
 export default function ApplicantForgotPassword() {
   const [email, setEmail] = useState("");
@@ -25,9 +25,7 @@ export default function ApplicantForgotPassword() {
   return (
     <div className="min-h-screen bg-surface px-6 py-24 font-body text-on-surface">
       <div className="mx-auto max-w-md">
-        <Link to="/" className="mb-8 inline-block font-headline text-xl font-black text-primary">
-          {COMPANY_NAME_LOGO}
-        </Link>
+        <CompanyLogo markClassName="h-9 w-9 rounded-xl object-cover shadow-md" linkClassName="mb-8 inline-flex items-center gap-3" />
         <h1 className="mb-2 font-headline text-2xl font-bold text-primary">Reset password</h1>
         <p className="mb-6 text-sm text-on-surface-variant">
           Enter the email address you used to apply. We’ll send you a secure reset link.

@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
-import { COMPANY_NAME_LOGO } from "../../../constants/companyBrand";
+import CompanyLogo from "../../../components/CompanyLogo";
 
 const STEPS = [
   { num: 1, label: "Profile" },
@@ -26,9 +26,7 @@ export default function OnboardingShell({
     <div className="bg-surface font-body text-on-surface min-h-screen flex flex-col">
       <header className="border-b border-outline-variant/10 bg-white/60 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-8 py-5 flex items-center justify-between">
-          <Link to="/applicant/dashboard" className="font-headline text-xl font-black tracking-tighter text-primary">
-            {COMPANY_NAME_LOGO}
-          </Link>
+          <CompanyLogo to="/applicant/dashboard" markClassName="h-9 w-9 rounded-xl object-cover shadow-md" />
           <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-secondary">
             Onboarding Portal
           </span>

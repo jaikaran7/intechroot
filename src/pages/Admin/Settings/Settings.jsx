@@ -1,16 +1,8 @@
 import { useMemo, useState } from "react";
+import { COMPANY_LOGO_SRC } from "../../../constants/companyBrand";
 import { useAuthStore } from "../../../store/authStore";
 
-const STATIC_BRAND_LOGO =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="220" height="64" viewBox="0 0 220 64">
-      <rect width="64" height="64" rx="16" fill="#0B1F3A"/>
-      <path d="M19 18h26v6H19v-6Zm0 11h26v6H19v-6Zm0 11h18v6H19v-6Z" fill="#4CD7F6"/>
-      <text x="78" y="30" font-family="Arial, sans-serif" font-size="22" font-weight="800" fill="#0B1F3A">InTechRoot</text>
-      <text x="80" y="48" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#4059AA" letter-spacing="2">ENTERPRISE</text>
-    </svg>
-  `);
+const STATIC_BRAND_LOGO = COMPANY_LOGO_SRC;
 
 function ComingSoonCard({ title, body, icon = "hourglass_empty" }) {
   return (

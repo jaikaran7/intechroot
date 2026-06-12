@@ -5,33 +5,34 @@ import FeaturedRoleSpotlightCard from "../../../components/FeaturedRoleSpotlight
 export default function HeroSection() {
   return (
     <>
-      <section className="relative min-h-screen flex items-center overflow-hidden pt-20">
+      <section className="relative min-h-screen flex items-center overflow-hidden pt-20 md:pt-24 lg:pt-20">
         <div className="absolute inset-0 hero-gradient -z-10"></div>
         <div className="absolute inset-0 network-grid -z-10"></div>
         <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-tertiary-fixed-dim/20 rounded-full blur-[120px]"></div>
         <div className="absolute bottom-1/4 left-1/4 w-64 h-64 bg-secondary/20 rounded-full blur-[100px]"></div>
-        <div className="max-w-7xl mx-auto px-8 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          <div className="lg:col-span-7 space-y-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+          <div className="lg:col-span-7 space-y-6 md:space-y-8">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 backdrop-blur-md">
               <span className="w-2 h-2 rounded-full bg-tertiary-fixed-dim animate-pulse"></span>
               <span className="text-xs font-bold text-white uppercase tracking-widest">Global Staffing Hub</span>
             </div>
-            <h1 className="text-6xl md:text-7xl font-headline font-extrabold text-white leading-[1.1] tracking-tighter">
+            <h1 className="text-[2.25rem] sm:text-5xl md:text-6xl lg:text-6xl xl:text-7xl font-headline font-extrabold text-white leading-[1.1] tracking-tighter">
               Empowering Enterprises with <span className="text-tertiary-fixed-dim">InTechRoot IT Talent</span>
             </h1>
-            <p className="text-xl text-white/70 max-w-xl font-light leading-relaxed">
+            <p className="text-sm sm:text-base md:text-lg lg:text-xl text-white/70 max-w-xl font-light leading-relaxed">
               We provide pre-vetted technology professionals and end-to-end IT solutions for global businesses scaling at the speed of thought.
             </p>
-            <div className="flex flex-wrap gap-4 pt-4">
-              <Button className="bg-tertiary-fixed-dim text-primary px-8 py-4 rounded-lg font-headline font-bold text-sm uppercase tracking-widest hover:bg-white transition-colors">
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3 md:gap-4 pt-2 lg:pt-4">
+              <Button className="bg-tertiary-fixed-dim text-primary px-7 md:px-8 py-3.5 md:py-4 rounded-lg font-headline font-bold text-sm uppercase tracking-widest hover:bg-white transition-colors">
                 Build Your Team
               </Button>
-              <Button className="border border-white/30 text-white px-8 py-4 rounded-lg font-headline font-bold text-sm uppercase tracking-widest backdrop-blur-md hover:bg-white/10 transition-colors">
+              <Button className="border border-white/30 text-white px-7 md:px-8 py-3.5 md:py-4 rounded-lg font-headline font-bold text-sm uppercase tracking-widest backdrop-blur-md hover:bg-white/10 transition-colors">
                 Our Solutions
               </Button>
             </div>
           </div>
 
+          {/* Right panel — desktop only */}
           <div className="lg:col-span-5 relative hidden lg:block">
             <FeaturedRoleSpotlightCard variant="services" />
 

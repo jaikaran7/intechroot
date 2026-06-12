@@ -9,6 +9,8 @@ import ApplyRedirect from "./pages/Apply/ApplyRedirect";
 import PrivacyPolicyPage from "./pages/Legal/PrivacyPolicyPage";
 import TermsOfServicePage from "./pages/Legal/TermsOfServicePage";
 import CookieSettingsPage from "./pages/Legal/CookieSettingsPage";
+import ContactPage from "./pages/Contact/ContactPage";
+import AboutPage from "./pages/About/AboutPage";
 const LoginPage = lazy(() => import("./pages/Auth/LoginPage"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ProtectedAdmin = lazy(() => import("./components/ProtectedAdmin"));
@@ -110,7 +112,8 @@ export default function App() {
               </ProtectedApplicant>
             }
           />
-          <Route path="/about" element={<HomePage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/contact" element={<ContactPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsOfServicePage />} />
           <Route path="/cookies" element={<CookieSettingsPage />} />

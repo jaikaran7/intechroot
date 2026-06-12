@@ -6,7 +6,7 @@ import Typography from "../../../components/Typography";
 export default function HeroSection() {
   return (
     <>
-      <section className="relative min-h-screen flex items-center pt-32 pb-48 overflow-hidden perspective-1000">
+      <section className="relative min-h-screen flex items-center pt-20 md:pt-28 lg:pt-32 pb-16 md:pb-32 lg:pb-48 overflow-hidden perspective-1000">
         <div className="absolute inset-0 hero-gradient -z-[30]"></div>
         <div className="mesh-gradient -z-[25]"></div>
         <div className="absolute inset-0 network-grid-intricate -z-[20]"></div>
@@ -19,8 +19,8 @@ export default function HeroSection() {
           style={{ animationDuration: "15s", animationDelay: "-5s" }}
         ></div>
 
-        <div className="max-w-7xl mx-auto px-8 grid grid-cols-1 lg:grid-cols-12 gap-24 items-center relative">
-          <div className="lg:col-span-7 space-y-12 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-24 items-center relative">
+          <div className="lg:col-span-7 space-y-6 md:space-y-8 lg:space-y-12 z-10">
             <div className="inline-flex items-center gap-4 px-5 py-2.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-xl reveal-text stagger-1">
               <span className="relative flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary-fixed-dim opacity-75"></span>
@@ -29,27 +29,27 @@ export default function HeroSection() {
               <span className="text-[10px] font-black text-white/80 uppercase tracking-[0.4em]">Global Engineering Ecosystem</span>
             </div>
 
-            <Typography as="h1" className="text-7xl md:text-9xl font-headline font-extrabold text-white leading-[0.9] tracking-tighter reveal-text stagger-2">
+            <Typography as="h1" className="text-[2.25rem] sm:text-5xl md:text-6xl lg:text-7xl xl:text-9xl font-headline font-extrabold text-white leading-[0.9] tracking-tighter reveal-text stagger-2">
               InTechRoot.
               <br />
               <span className="bg-gradient-to-r from-white via-white to-tertiary-fixed-dim bg-clip-text text-transparent">Enterprise Trust.</span>
             </Typography>
 
-            <Typography as="p" className="text-2xl text-white/50 max-w-2xl font-light leading-relaxed reveal-text stagger-3">
+            <Typography as="p" className="text-base md:text-lg lg:text-2xl text-white/50 max-w-2xl font-light leading-relaxed reveal-text stagger-3">
               Architecting digital monoliths for the world's most ambitious organizations. Scalable teams, pre-vetted and ready for immediate deployment.
             </Typography>
 
-            <div className="flex flex-wrap gap-8 pt-8 reveal-text stagger-4">
+            <div className="flex flex-col sm:flex-row gap-4 lg:gap-8 pt-2 lg:pt-8 reveal-text stagger-4">
               <Link
                 to="/careers#apply"
-                className="group relative inline-flex items-center justify-center px-12 py-6 overflow-hidden rounded-2xl transition-all duration-500 shadow-[0_30px_60px_rgba(0,0,0,0.4)] hover:shadow-tertiary-fixed-dim/30"
+                className="group relative inline-flex items-center justify-center px-8 sm:px-10 lg:px-12 py-4 lg:py-6 overflow-hidden rounded-2xl transition-all duration-500 shadow-[0_20px_40px_rgba(0,0,0,0.3)] hover:shadow-tertiary-fixed-dim/30"
               >
                 <div className="absolute inset-0 bg-tertiary-fixed-dim transition-transform group-hover:scale-110"></div>
                 <span className="relative font-headline font-black text-[11px] uppercase tracking-[0.3em] text-primary">Build Your Squad</span>
               </Link>
               <Link
                 to="/services"
-                className="group inline-flex items-center justify-center gap-4 px-12 py-6 rounded-2xl border border-white/20 text-white font-headline font-black text-[11px] uppercase tracking-[0.3em] backdrop-blur-xl hover:bg-white/10 transition-all"
+                className="group inline-flex items-center justify-center gap-3 px-8 sm:px-10 lg:px-12 py-4 lg:py-6 rounded-2xl border border-white/20 text-white font-headline font-black text-[11px] uppercase tracking-[0.3em] backdrop-blur-xl hover:bg-white/10 transition-all"
               >
                 Explore Solutions
                 <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>
@@ -57,7 +57,8 @@ export default function HeroSection() {
             </div>
           </div>
 
-          <div className="lg:col-span-5 relative h-[700px] flex items-center justify-center">
+          {/* Right panel — desktop only (complex floating cards don't work on mobile/tablet) */}
+          <div className="hidden lg:flex lg:col-span-5 relative h-[700px] items-center justify-center">
             <Card className="relative z-20 w-[380px] h-[480px] glass-card-dark rounded-[3.5rem] p-1 shadow-2xl overflow-hidden floating-element" style={{ animationDelay: "-1s" }}>
               <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent"></div>
               <div className="relative p-10 h-full flex flex-col justify-between">
@@ -116,6 +117,16 @@ export default function HeroSection() {
                 </div>
               </Card>
             </div>
+          </div>
+
+          {/* Mobile/tablet hero stats — compact 3-stat row shown only when right panel is hidden */}
+          <div className="lg:hidden grid grid-cols-3 gap-3 mt-2">
+            {[["100+","Engineers"],["250+","Projects"],["97%","Retention"]].map(([v, l]) => (
+              <div key={l} className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 text-center">
+                <div className="text-xl sm:text-2xl font-headline font-black text-tertiary-fixed-dim">{v}</div>
+                <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mt-1">{l}</div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
