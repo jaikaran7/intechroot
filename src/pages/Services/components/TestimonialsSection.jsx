@@ -1,4 +1,5 @@
 import Card from "../../../components/Card";
+import ClientLogo from "../../../components/ClientLogo";
 import { FEATURED_TESTIMONIAL } from "../../../constants/testimonials";
 import { TRUSTED_CLIENTS_COMPACT } from "../../../constants/trustedClients";
 
@@ -30,15 +31,13 @@ export default function TestimonialsSection() {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-10 md:gap-16 items-center">
-          <div data-sr="left" className="lg:w-1/2 grid grid-cols-2 gap-5 md:gap-8 opacity-40 grayscale group">
-            {TRUSTED_CLIENTS_COMPACT.map((clientName) => (
+          <div data-sr="left" className="lg:w-1/2 grid grid-cols-2 gap-5 md:gap-8 opacity-70 grayscale group">
+            {TRUSTED_CLIENTS_COMPACT.map((client) => (
               <div
-                key={clientName}
+                key={client.id}
                 className="h-20 md:h-24 bg-surface-container-high rounded-xl flex items-center justify-center p-4 md:p-6 hover:grayscale-0 transition-all duration-500 hover:opacity-100"
               >
-                <span className="font-black text-primary/40 tracking-tighter text-base sm:text-lg md:text-xl text-center leading-tight">
-                  {clientName}
-                </span>
+                <ClientLogo client={client} variant="light" className="max-h-10 w-auto max-w-[8.5rem]" />
               </div>
             ))}
           </div>

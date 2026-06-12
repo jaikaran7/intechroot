@@ -172,7 +172,28 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  white-space: nowrap;
+  padding-inline: 0.75rem;
+}
+
+.trusted-client-logo {
+  display: block;
+  width: auto;
+  object-fit: contain;
+  object-position: center;
+  transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+.trusted-client-logo--dark {
+  filter: brightness(0) invert(1);
+  opacity: 0.55;
+}
+
+.trusted-marquee:hover .trusted-client-logo--dark {
+  opacity: 0.9;
+}
+
+.trusted-client-logo--light {
+  opacity: 0.85;
 }
 
 @media (prefers-reduced-motion: reduce) {

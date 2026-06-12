@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import ClientLogo from "./ClientLogo";
 import {
   TRUSTED_CLIENTS,
   TRUSTED_CLIENTS_ROW_BOTTOM,
@@ -24,19 +25,16 @@ function getAntiAlignPhase(loopWidth) {
   return loopWidth / 2 + slotWidth / 2;
 }
 
-function MarqueeRow({ names, trackRef }) {
-  const loop = [...names, ...names];
+function MarqueeRow({ clients, trackRef }) {
+  const loop = [...clients, ...clients];
 
   return (
     <div className="trusted-marquee-row overflow-hidden">
       <div ref={trackRef} className="trusted-marquee-track">
-        {loop.map((name, index) => (
-          <span
-            key={`${name}-${index}`}
-            className="trusted-marquee-item font-black text-xl sm:text-2xl md:text-3xl tracking-tighter text-white/50"
-          >
-            {name}
-          </span>
+        {loop.map((client, index) => (
+          <div key={`${client.id}-${index}`} className="trusted-marquee-item">
+            <ClientLogo client={client} variant="dark" className="max-h-10 sm:max-h-12 w-auto max-w-[9rem] sm:max-w-[11rem]" />
+          </div>
         ))}
       </div>
     </div>
@@ -183,8 +181,8 @@ export default function TrustedClientsMarquee({ className = "" }) {
       className={`trusted-marquee w-full opacity-60 hover:opacity-90 transition-opacity duration-700 ${className}`}
       aria-label="Trusted by leading enterprises"
     >
-      <MarqueeRow names={TRUSTED_CLIENTS_ROW_TOP} trackRef={topTrackRef} />
-      <MarqueeRow names={TRUSTED_CLIENTS_ROW_BOTTOM} trackRef={bottomTrackRef} />
+      <MarqueeRow clients={TRUSTED_CLIENTS_ROW_TOP} trackRef={topTrackRef} />
+      <MarqueeRow clients={TRUSTED_CLIENTS_ROW_BOTTOM} trackRef={bottomTrackRef} />
     </div>
   );
 }
