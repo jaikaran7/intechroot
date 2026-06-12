@@ -7,7 +7,19 @@ import CTASection from "./components/CTASection";
 import SiteFooter from "../../components/SiteFooter";
 import "./home.css";
 
+function useScrollReveal() {
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add("sr-visible"); }),
+      { threshold: 0.08, rootMargin: "0px 0px -40px 0px" }
+    );
+    document.querySelectorAll("[data-sr]").forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+}
+
 export default function HomePage() {
+  useScrollReveal();
   useEffect(() => {
     document.body.className =
       "bg-background font-body text-on-surface selection:bg-tertiary-fixed-dim selection:text-on-tertiary-fixed overflow-x-hidden";

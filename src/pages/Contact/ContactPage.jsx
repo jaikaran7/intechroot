@@ -12,10 +12,10 @@ export default function ContactPage() {
 
   return (
     <>
-      <main className="min-h-screen bg-background font-body text-on-surface pt-24 md:pt-28 lg:pt-32 pb-14 md:pb-20">
-        <div className="max-w-3xl mx-auto px-4 sm:px-8">
+      <main className="min-h-screen bg-background font-body text-on-surface pt-32 pb-20">
+        <div className="max-w-3xl mx-auto px-8">
           <p className="text-secondary text-[11px] font-black uppercase tracking-[0.4em] mb-4">Get in touch</p>
-          <h1 className="font-headline text-3xl sm:text-4xl md:text-5xl font-extrabold text-primary tracking-tight mb-4 md:mb-6">Contact</h1>
+          <h1 className="font-headline text-4xl md:text-5xl font-extrabold text-primary tracking-tight mb-6">Contact</h1>
           <p className="text-base text-on-primary-container/80 mb-12 leading-relaxed">
             Reach the {COMPANY_NAME} team for partnerships, staffing inquiries, or general questions. We typically respond
             within one business day.

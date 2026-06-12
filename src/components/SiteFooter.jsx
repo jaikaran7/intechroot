@@ -8,8 +8,8 @@ import CompanyContactBlock from "./CompanyContactBlock";
 export default function SiteFooter() {
   return (
     <footer className="bg-[#eceef1] dark:bg-[#000615] w-full border-t border-[#c4c6ce]/15">
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-10 md:py-14 lg:py-16 grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-10 lg:gap-12">
-        <div className="col-span-2 md:col-span-1 space-y-6">
+      <div className="max-w-7xl mx-auto px-8 py-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+        <div className="space-y-6">
           <CompanyLogo markClassName="h-9 w-9 rounded-xl object-cover shadow-md" />
           <p className="text-sm text-[#7587a7] dark:text-[#c4c6ce] leading-relaxed">Global architecture for enterprise scale. We bridge the human gap in technology.</p>
           <div className="flex gap-4">
@@ -47,7 +47,7 @@ export default function SiteFooter() {
           </ul>
         </div>
       </div>
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 md:py-8 border-t border-[#c4c6ce]/15">
+      <div className="max-w-7xl mx-auto px-8 py-8 border-t border-[#c4c6ce]/15">
         <div className="text-xs text-[#7587a7] dark:text-[#c4c6ce] font-body">{COMPANY_COPYRIGHT}</div>
       </div>
     </footer>

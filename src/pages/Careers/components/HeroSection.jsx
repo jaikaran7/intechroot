@@ -10,24 +10,36 @@ export default function HeroSection() {
       <div className="absolute inset-0 network-grid opacity-20"></div>
       <div className="absolute top-1/4 right-[10%] w-64 h-64 bg-tertiary-fixed/10 rounded-full blur-[100px] floating-element" style={{ animationDelay: "-2s" }}></div>
       <div className="absolute bottom-1/4 left-[5%] w-48 h-48 bg-secondary/10 rounded-full blur-[80px] floating-element" style={{ animationDelay: "-4s" }}></div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-8 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-20 items-center">
-          <div className="lg:col-span-7 space-y-6 md:space-y-8 lg:space-y-10">
-            <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
+          <div className="lg:col-span-7 space-y-5 md:space-y-8 lg:space-y-10">
+            <div data-sr="up" className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
               <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary-fixed opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-tertiary-fixed"></span>
               </span>
               <span className="text-[10px] font-bold text-white uppercase tracking-[0.3em]">Future-Proof Your Ambition</span>
             </div>
-            <h1 className="text-[2.25rem] sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-headline font-extrabold text-white leading-[0.95] tracking-tighter monolith-text">
+
+            <h1
+              data-sr="up" data-delay="100"
+              className="text-[2.25rem] sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-headline font-extrabold text-white leading-[0.95] tracking-tighter monolith-text"
+            >
               Build Your Career with <br />
-              <span className="bg-gradient-to-r from-white via-tertiary-fixed to-secondary bg-clip-text text-transparent">Global Legends.</span>
+              <span className="bg-gradient-to-r from-white via-tertiary-fixed to-secondary bg-clip-text text-transparent">
+                Global Legends.
+              </span>
             </h1>
-            <p className="text-sm sm:text-base md:text-lg lg:text-xl text-white/60 max-w-2xl font-light leading-relaxed">
+
+            <p
+              data-sr="up" data-delay="200"
+              className="text-sm sm:text-base md:text-lg lg:text-xl text-white/60 max-w-2xl font-light leading-relaxed"
+            >
               Join an elite network of architectural intelligence and high-level strategy. We connect world-class IT talent with the most ambitious digital transformations on the planet.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 md:gap-4 lg:gap-6 pt-2 lg:pt-6">
+
+            <div data-sr="up" data-delay="300" className="flex flex-col sm:flex-row gap-3 md:gap-4 lg:gap-6 pt-2 lg:pt-6">
               <Button
                 className="group relative px-8 md:px-10 py-4 md:py-5 overflow-hidden rounded-full transition-all duration-500 shadow-2xl"
                 onClick={() => document.querySelector("section.max-w-7xl.mx-auto.px-8.py-32")?.scrollIntoView({ behavior: "smooth" })}
@@ -45,7 +57,7 @@ export default function HeroSection() {
           </div>
 
           {/* Right panel — desktop only */}
-          <div className="lg:col-span-5 relative hidden lg:block">
+          <div className="lg:col-span-5 relative hidden lg:block" data-sr="right" data-delay="150">
             <div className="relative z-20 w-full aspect-[4/5] glass-card rounded-[2.5rem] overflow-hidden border-white/10 p-2">
               <img
                 alt="Collaboration in modern office"

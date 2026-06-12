@@ -9,7 +9,7 @@ export default function FeaturesSection() {
         <div className="absolute top-0 right-0 w-[60%] h-full bg-surface-container-low/40 skew-x-[-8deg] translate-x-48 -z-10 border-l border-outline-variant/5"></div>
         <div className="max-w-7xl mx-auto px-4 sm:px-8 relative">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 md:gap-10 lg:gap-16 mb-10 md:mb-20 lg:mb-32">
-            <div className="max-w-3xl">
+            <div data-sr="left" className="max-w-3xl">
               <div className="text-secondary font-black text-[12px] uppercase tracking-[0.5em] mb-4 md:mb-6">Expertise Vectors</div>
               <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-8xl font-headline font-extrabold text-primary tracking-tighter leading-[0.9] mb-5 md:mb-10">Structural Engineering for the Enterprise</h2>
               <p className="text-base md:text-xl text-on-primary-container/70 font-light leading-relaxed">We don't just provide talent; we deploy architectural solutions designed for permanence and performance.</p>
@@ -24,7 +24,7 @@ export default function FeaturesSection() {
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10">
             {/* SAP featured card */}
-            <div className="md:col-span-8 sap-enterprise-card p-8 sm:p-12 lg:p-16 rounded-[2.5rem] md:rounded-[4rem] relative group overflow-hidden text-white shadow-[0_40px_60px_rgba(0,6,21,0.2)] lg:shadow-[0_60px_100px_rgba(0,6,21,0.25)]">
+            <div data-sr="up" className="md:col-span-8 sap-enterprise-card p-8 sm:p-12 lg:p-16 rounded-[2.5rem] md:rounded-[4rem] relative group overflow-hidden text-white shadow-[0_40px_60px_rgba(0,6,21,0.2)] lg:shadow-[0_60px_100px_rgba(0,6,21,0.25)]">
               <div className="absolute top-0 right-0 w-80 h-80 bg-tertiary-fixed-dim/15 rounded-full blur-[100px] group-hover:scale-150 transition-transform duration-1000"></div>
               <div className="relative z-10 flex flex-col h-full justify-between gap-10 md:gap-16">
                 <div>

@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminService } from "../../../services/admin.service";
+import { inquiriesService } from "../../../services/inquiries.service";
 import PageSkeleton from "../../../components/PageSkeleton";
 import ErrorState from "../../../components/ErrorState";
 import EntityAvatar from "@/components/shared/EntityAvatar";
@@ -48,9 +49,182 @@ const LIFECYCLE_LABEL = {
   employee: "Hired",
 };
 
+const STATUS_LABEL = { new: "New", read: "Read", replied: "Replied", archived: "Archived" };
+const STATUS_COLORS = {
+  new: "bg-sky-100 text-sky-700",
+  read: "bg-slate-100 text-slate-600",
+  replied: "bg-emerald-100 text-emerald-700",
+  archived: "bg-amber-50 text-amber-600",
+};
+
+function InquiriesSection() {
+  const qc = useQueryClient();
+  const [filter, setFilter] = useState("all");
+
+  const { data: counts } = useQuery({
+    queryKey: ["inquiry-counts"],
+    queryFn: inquiriesService.counts,
+    staleTime: 30_000,
+  });
+
+  const { data: listData, isLoading: listLoading } = useQuery({
+    queryKey: ["inquiries", filter],
+    queryFn: () => inquiriesService.list({ status: filter === "all" ? undefined : filter, limit: 10 }),
+    staleTime: 30_000,
+  });
+
+  const { mutate: changeStatus, variables: pendingVar } = useMutation({
+    mutationFn: ({ id, status }) => inquiriesService.updateStatus(id, status),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["inquiries"] });
+      qc.invalidateQueries({ queryKey: ["inquiry-counts"] });
+    },
+  });
+
+  const inquiries = listData?.data ?? [];
+  const newCount = counts?.new ?? 0;
+
+  return (
+    <div className="col-span-12 bg-surface-container-lowest rounded-xl border border-outline-variant/15 shadow-[0_40px_40px_-20px_rgba(0,6,21,0.04)] overflow-hidden mt-0">
+      {/* Header */}
+      <div className="p-8 border-b border-slate-50 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-sky-50 rounded-lg flex items-center justify-center">
+            <span className="material-symbols-outlined text-sky-600 text-base" style={{ fontVariationSettings: "'FILL' 1" }}>mark_email_unread</span>
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-xl font-bold font-headline text-primary">Contact Inquiries</h4>
+              {newCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-sky-500 text-white text-[10px] font-black rounded-full">
+                  {newCount}
+                </span>
+              )}
+            </div>
+            <p className="text-on-surface-variant text-sm mt-0.5">Messages submitted through the public contact form.</p>
+          </div>
+        </div>
+        {/* Stat pills */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {[
+            { key: "all", label: "All", count: counts?.total ?? 0 },
+            { key: "new", label: "New", count: counts?.new ?? 0 },
+            { key: "read", label: "Read", count: counts?.read ?? 0 },
+            { key: "replied", label: "Replied", count: counts?.replied ?? 0 },
+          ].map(({ key, label, count }) => (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                filter === key
+                  ? "bg-primary-container text-white border-primary-container shadow-sm"
+                  : "bg-white text-on-surface-variant border-outline-variant/20 hover:border-outline-variant/50"
+              }`}
+            >
+              {label} <span className="opacity-70">{count}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto">
+        {listLoading ? (
+          <div className="flex items-center justify-center py-16 gap-3 text-on-surface-variant">
+            <span className="w-5 h-5 border-2 border-secondary/30 border-t-secondary rounded-full animate-spin" />
+            <span className="text-sm font-medium">Loading inquiries…</span>
+          </div>
+        ) : inquiries.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-on-surface-variant gap-2">
+            <span className="material-symbols-outlined text-4xl text-slate-300">inbox</span>
+            <p className="text-sm font-medium">No inquiries yet</p>
+          </div>
+        ) : (
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-surface-container-low/50">
+                <th className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">From</th>
+                <th className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Service</th>
+                <th className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-slate-500 max-w-xs">Message</th>
+                <th className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Status</th>
+                <th className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Received</th>
+                <th className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {inquiries.map((inq) => (
+                <tr key={inq.id} className={`hover:bg-slate-50 transition-all ${inq.status === "new" ? "bg-sky-50/30" : ""}`}>
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-3">
+                      <EntityAvatar name={inq.name} size="md" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-primary truncate">{inq.name}</p>
+                        <a href={`mailto:${inq.email}`} className="text-[11px] text-slate-400 hover:text-secondary truncate block">{inq.email}</a>
+                        {inq.company && <p className="text-[11px] text-slate-400 truncate">{inq.company}</p>}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <span className="text-sm text-on-surface">{inq.service || <span className="text-slate-300">—</span>}</span>
+                  </td>
+                  <td className="px-8 py-5 max-w-xs">
+                    <p className="text-sm text-on-surface-variant line-clamp-2 leading-relaxed">{inq.message}</p>
+                  </td>
+                  <td className="px-8 py-5">
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${STATUS_COLORS[inq.status] ?? "bg-slate-100 text-slate-600"}`}>
+                      {STATUS_LABEL[inq.status] ?? inq.status}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5">
+                    <span className="text-xs text-on-surface-variant whitespace-nowrap">
+                      {new Date(inq.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {inq.status === "new" && (
+                        <button
+                          onClick={() => changeStatus({ id: inq.id, status: "read" })}
+                          disabled={pendingVar?.id === inq.id}
+                          className="text-xs font-bold text-secondary hover:underline disabled:opacity-40"
+                        >
+                          Mark Read
+                        </button>
+                      )}
+                      {inq.status !== "replied" && inq.status !== "archived" && (
+                        <button
+                          onClick={() => changeStatus({ id: inq.id, status: "replied" })}
+                          disabled={pendingVar?.id === inq.id}
+                          className="text-xs font-bold text-emerald-600 hover:underline disabled:opacity-40"
+                        >
+                          Mark Replied
+                        </button>
+                      )}
+                      {inq.status !== "archived" && (
+                        <button
+                          onClick={() => changeStatus({ id: inq.id, status: "archived" })}
+                          disabled={pendingVar?.id === inq.id}
+                          className="text-xs font-bold text-slate-400 hover:underline disabled:opacity-40"
+                        >
+                          Archive
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const isSuperAdmin = user?.role === "super_admin";
 
   const { data: stats, isLoading, isError, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['dashboard-stats'],
@@ -402,6 +576,12 @@ export default function Dashboard() {
       </div>
       </div>
       </div>
+
+      {isSuperAdmin && (
+        <div className="grid grid-cols-12 gap-8 mt-8">
+          <InquiriesSection />
+        </div>
+      )}
 
       <footer className="mt-12 flex items-center justify-between px-4 pb-8">
       <div className="flex items-center gap-6">

@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import Card from "../../../components/Card";
-import FeaturedRoleSpotlightCard from "../../../components/FeaturedRoleSpotlightCard";
 import Typography from "../../../components/Typography";
 
 export default function HeroSection() {
@@ -90,8 +89,6 @@ export default function HeroSection() {
                 </div>
               </div>
             </Card>
-
-            <FeaturedRoleSpotlightCard variant="home" />
 
             <div className="absolute -bottom-16 -right-16 z-30 floating-element" style={{ animationDelay: "-4s" }}>
               <Card className="glass-card p-8 rounded-[2.5rem] w-80 border-white/40 shadow-2xl">

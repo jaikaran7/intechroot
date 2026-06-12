@@ -192,3 +192,30 @@
     margin-top: 1.5rem;
   }
 }
+
+/* ── Shared scroll-reveal ─────────────────────────────────────────── */
+[data-sr] {
+  opacity: 0;
+  transition-property: opacity, transform;
+  transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+  transition-duration: 0.7s;
+}
+[data-sr="up"]    { transform: translateY(36px); }
+[data-sr="left"]  { transform: translateX(-36px); }
+[data-sr="right"] { transform: translateX(36px); }
+[data-sr="scale"] { transform: scale(0.94); }
+[data-sr].sr-visible { opacity: 1; transform: none; }
+
+[data-delay="100"] { transition-delay: 0.10s; }
+[data-delay="150"] { transition-delay: 0.15s; }
+[data-delay="200"] { transition-delay: 0.20s; }
+[data-delay="250"] { transition-delay: 0.25s; }
+[data-delay="300"] { transition-delay: 0.30s; }
+[data-delay="350"] { transition-delay: 0.35s; }
+[data-delay="400"] { transition-delay: 0.40s; }
+[data-delay="500"] { transition-delay: 0.50s; }
+
+/* ── Shared accent line ──────────────────────────────────────────── */
+.accent-line {
+  background: linear-gradient(to right, #4059aa, #4cd7f6);
+}

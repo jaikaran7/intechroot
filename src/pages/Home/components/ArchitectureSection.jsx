@@ -6,7 +6,7 @@ export default function ArchitectureSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-8 relative">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 md:gap-16 lg:gap-24 items-center">
           {/* Left: text + steps */}
-          <div className="lg:col-span-5 relative">
+          <div data-sr="left" className="lg:col-span-5 relative">
             <div className="absolute -top-20 -left-20 lg:-top-32 lg:-left-32 text-[120px] lg:text-[250px] font-black text-primary/5 select-none leading-none z-0 hidden sm:block">CORE</div>
             <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-headline font-extrabold text-primary tracking-tighter mb-6 md:mb-12 relative z-10 leading-[0.9]">Architectural Velocity</h2>
             <p className="text-base md:text-xl text-on-primary-container/70 mb-8 md:mb-16 max-w-md font-light">Our deployment methodology bypasses bureaucratic inertia, focusing purely on high-fidelity technical output and rapid integration.</p>
@@ -35,7 +35,7 @@ export default function ArchitectureSection() {
           </div>
 
           {/* Right: visual composition — tablet+ only */}
-          <div className="hidden md:flex lg:col-span-7 relative">
+          <div data-sr="right" data-delay="150" className="hidden md:flex lg:col-span-7 relative">
             <div className="relative w-full aspect-square max-w-3xl mx-auto flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-secondary/10 via-tertiary-fixed-dim/10 to-transparent rounded-full blur-[120px] animate-pulse"></div>
               <div className="absolute w-[70%] h-[50%] glass-card rounded-[3rem] -rotate-12 translate-x-[-15%] translate-y-[-25%] border-white/50 shadow-2xl z-10 flex items-center justify-center floating-element" style={{ animationDuration: "10s" }}>

@@ -8,10 +8,23 @@ import JobListSection, { FeaturedRolesSection } from "./components/JobListSectio
 import JobDetailModal from "./components/JobDetailModal";
 import SiteFooter from "../../components/SiteFooter";
 import ApplyTalentPipeline from "../Apply/components/ApplyTalentPipeline";
+import "../Home/home.css";
 import "../Apply/apply.css";
 import "./careers.css";
 
+function useScrollReveal() {
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add("sr-visible"); }),
+      { threshold: 0.1, rootMargin: "0px 0px -40px 0px" }
+    );
+    document.querySelectorAll("[data-sr]").forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+}
+
 export default function CareersPage() {
+  useScrollReveal();
   const location = useLocation();
   const { data: apiData, isLoading, isError, refetch } = useQuery({
     queryKey: ['jobs', { status: 'Active' }],

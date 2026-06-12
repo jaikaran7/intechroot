@@ -4,7 +4,7 @@ export default function CTASection() {
   return (
     <section className="py-16 md:py-28 lg:py-60 bg-white relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-8">
-        <div className="relative rounded-[2.5rem] md:rounded-[4rem] lg:rounded-[5rem] overflow-hidden bg-primary-container p-8 sm:p-14 md:p-20 lg:p-32 text-center shadow-[0_40px_80px_rgba(0,6,21,0.3)] lg:shadow-[0_100px_150px_rgba(0,6,21,0.4)]">
+        <div data-sr="scale" className="relative rounded-[2.5rem] md:rounded-[4rem] lg:rounded-[5rem] overflow-hidden bg-primary-container p-8 sm:p-14 md:p-20 lg:p-32 text-center shadow-[0_40px_80px_rgba(0,6,21,0.3)] lg:shadow-[0_100px_150px_rgba(0,6,21,0.4)]">
           <div className="absolute inset-0 mesh-gradient opacity-40"></div>
           <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-secondary/40 via-transparent to-transparent"></div>
           <div className="absolute top-6 left-6 lg:top-10 lg:left-10 w-24 h-24 lg:w-40 lg:h-40 bg-white/5 backdrop-blur-3xl rounded-full floating-element"></div>
